@@ -1,0 +1,18 @@
+{% macro renderSnippets(items, pageUrl) %}
+  {% if items %}
+    {% for item in items %}
+      {{ renderSnippet(item, pageUrl) }}
+    {% endfor %}
+  {% else %}
+    <h4>There are no snippets yet.</h4>
+  {% endif %}
+{% endmacro %}
+
+{% macro renderSnippet(item, pageUrl) %}
+  <div class="apos-snippet">
+    <div class="apos-snippet-heading">
+      <h4><a href="{{ pageUrl }}/{{ item.slug }}">{{ item.title | e }}</a></h4>
+    </div>
+    <div class="apos-snippet-body">{{ aposArea({ area: item.areas.body }) }}</div>
+  </div>
+{% endmacro %}
