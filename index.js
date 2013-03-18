@@ -65,37 +65,28 @@ module.exports = function(options, callback) {
   self._app = options.app;
   self._options = options;
   self._dirs = (options.dirs || []).concat([ __dirname ]);
-
-  console.log(self._dirs);
-  
+  self._webAssetDir = options.webAssetDir || __dirname + '/public';
   // The type property of the page object used to store the snippet, also
   // passed to views for use in CSS classes etc. Should be camel case
   self._instance = options.instance || 'snippet';
   // Hyphenated, all lowercase version of same, for CSS classes, permission names, URLs
   self._css = self._apos.cssName(self._instance);
+  self._menuName = options.menuName;
+
+  if (!self._menuName) {
+    self._menuName = 'apos' + self._apos.capitalizeFirst(self._instance) + 'Menu';
+  }
+
   self._action = '/apos-' + self._css;
 
   self.pushAsset = function(type, name) {
-    return self._apos.pushAsset(type, name, __dirname, self._action);
+    if (type === 'template') {
+      // Render templates in our own nunjucks context
+      self._apos.pushAsset('template', self.renderer(name));
+    } else {
+      return self._apos.pushAsset(type, name, self._dirs, self._action);
+    }
   };
-
-  // Make sure that aposScripts and aposStylesheets summon our
-  // browser-side UI assets for managing snippets
-
-  self.pushAsset('script', 'main');
-  self.pushAsset('stylesheet', 'main');
-  self.pushAsset('template', 'new');
-  self.pushAsset('template', 'edit');
-  self.pushAsset('template', 'manage');
-
-  // It's possible to show a collection of recent snippets publicly
-  // on a page, and also to access permalink pages for snippets.
-  // We might use this directly, but we'll definitely use it in most
-  // modules that inherit from this one such as blog and events, which
-  // is why it is valuable for it to be supported here.
-
-  // Custom page settings template for snippet collection pages
-  self.pushAsset('template', 'pageSettings');
 
   // Sanitize newly submitted page settings (never trust a browser)
   extend(self, {
@@ -310,15 +301,11 @@ module.exports = function(options, callback) {
     });
   });
 
-  // Serve our assets. self is the final route so it doesn't
+  // Serve our assets. This is the final route so it doesn't
   // beat out the rest. Note we allow overrides for assets too
-  self._app.get(self._action + '/*', self._apos.static(_.map(self._dirs, function(dir) {
-    return dir + '/public';
-  })));
+  self._app.get(self._action + '/*', self._apos.static(self._webAssetDir));
 
-  var localName = self._apos.capitalizeFirst(self._instance);
-  var name = 'apos' + localName + 'Menu';
-  self._apos.addLocal(name, function(args) {
+  self._apos.addLocal(self._menuName, function(args) {
     var result = self.render('menu', args);
     return result;
   });
@@ -362,8 +349,6 @@ module.exports = function(options, callback) {
       delete options['sort'];
     }
     options.type = self._instance;
-    console.log("Criteria are:");
-    console.log(options);
     // TODO: with many snippets there is a performance problem with calling
     // permissions separately on them. Pagination will have to be performed
     // manually after all permissions have been checked. The A1.5 permissions
@@ -408,7 +393,9 @@ module.exports = function(options, callback) {
       // fact available to templates so they can offer buttons to access
       // the admin interface conveniently
       self._apos.permissions(req, 'edit-' + self._css, null, function(err) {
-        req.extras['edit' + self._apos.capitalizeFirst(self._instance)] = !err;
+        var permissionName = 'edit' + self._apos.capitalizeFirst(self._instance);
+        req.extras[permissionName] = !err;
+        console.log('added permission for ' + permissionName + ' set to ' + (!err));
         return callback(null);
       });
     }
@@ -443,15 +430,13 @@ module.exports = function(options, callback) {
     }
 
     var criteria = {};
-    if (req.page.typeSettings && req.page.typeSettings.tags) {
+    if (req.page.typeSettings && req.page.typeSettings.tags && req.page.typeSettings.tags.length) {
       criteria.tags = { $in: req.page.typeSettings.tags };
     }
     self.get(req, criteria, function(err, snippets) {
       if (err) {
         return callback(err);
       }
-      console.log('here is what I got:');
-      console.log(snippets);
       if (permalink) {
         if (!snippets.length) {
           req.template = 'notfound';
@@ -468,6 +453,25 @@ module.exports = function(options, callback) {
       return callback(null);
     });
   };
+
+
+  // Make sure that aposScripts and aposStylesheets summon our
+  // browser-side UI assets for managing snippets
+
+  self.pushAsset('script', 'main');
+  self.pushAsset('stylesheet', 'main');
+  self.pushAsset('template', 'new');
+  self.pushAsset('template', 'edit');
+  self.pushAsset('template', 'manage');
+
+  // It's possible to show a collection of recent snippets publicly
+  // on a page, and also to access permalink pages for snippets.
+  // We might use this directly, but we'll definitely use it in most
+  // modules that inherit from this one such as blog and events, which
+  // is why it is valuable for it to be supported here.
+
+  // Custom page settings template for snippet collection pages
+  self.pushAsset('template', 'pageSettings');
 
   if (callback) {
     // Invoke callback on next tick so that the constructor's return

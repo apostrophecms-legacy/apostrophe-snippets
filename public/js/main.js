@@ -34,7 +34,7 @@ function AposSnippets(optionsArg) {
   $.extend(options, optionsArg);
   self._instance = options.instance;
   self._css = apos.cssName(self._instance);
-  console.log("self._css is " + self._css);
+  apos.log("Setting up for " + self._instance);
   self._action = '/apos-' + self._css;
   self._pages = options.pages;
 
@@ -45,6 +45,7 @@ function AposSnippets(optionsArg) {
       return data;
     },
     unserialize: function(data, $el, $details) {
+      apos.log('unserialize called');
       $details.find('[name="typeSettings[tags]"]').val(apos.tagsToString(data.tags));
     }
   };
@@ -117,7 +118,7 @@ function AposSnippets(optionsArg) {
           dataType: 'json',
           success: function(data) {
             // Let anything that cares about changes to items of this kind know
-            apos.change(self._instance);
+            apos.change(self._css);
             return callback(null);
           },
           error: function() {
@@ -134,22 +135,20 @@ function AposSnippets(optionsArg) {
   apos.log('length is: ' + $('[data-manage-' + self._css + ']').length);
   $('body').on('click', '[data-manage-' + self._css + ']', function() {
     var snippets;
-    apos.log('manage clicked');
+    apos.log('manage clicked for ' + self._css);
     $el = apos.modalFromTemplate('.apos-manage-' + self._css, {
       init: function(callback) {
         // We want to know if a snippet is modified
         $el.attr('data-apos-trigger-' + self._css, '');
-        console.log('after adding attr:');
-        console.log($el[0]);
         // Trigger an initial refresh
-        $el.trigger('apos-change-' + self._instance, callback);
+        $el.trigger('apos-change-' + self._css, callback);
       }
     });
 
     // Allows things like the new snippet and edit snippet dialogs to
     // tell us we should refresh our list
 
-    $el.on('apos-change-' + self._instance, function(e, callback) {
+    $el.on('apos-change-' + self._css, function(e, callback) {
       $.getJSON(self._action + '/get', { editable: true }, function(data) {
         snippets = data;
         $snippets = $el.find('[data-items]');
@@ -206,7 +205,7 @@ function AposSnippets(optionsArg) {
             // with a type specific, internationalizable message
             if (confirm('Are you sure you want to delete this permanently and forever?')) {
               $.post(self._action + '/delete', { slug: slug }, function(data) {
-                apos.change(self._instance);
+                apos.change(self._css);
                 $el.trigger('aposModalHide');
               }, 'json');
             }
