@@ -48,11 +48,25 @@ var fs = require('fs');
 //
 // `getDefaultTitle` returns the title used for a new snippet if no title is given.
 
-// Intended for use as a constructor:
+// To use the snippets modules directly just take advantage of the convenience
+// function it exports and you can skip typing 'new':
 //
-// var snippets = new require('apostrophe-snippets')(options, function(err) { ... });
+// var snippets = require('apostrophe-snippets')(options, function(err) { ... });
+//
+// To access the constructor function for use in an object that extends
+// snippets, you would write:
+//
+// var snippets = require('apostrophe-snippets');
+// ... Inside the constructor for the new object ...
+// snippets.Snippets.call(this, options, null);
 
-module.exports = function(options, callback) {
+module.exports = snippets;
+
+function snippets(options, callback) {
+  return new snippets.Snippets(options, callback);
+}
+
+snippets.Snippets = function(options, callback) {
   var self = this;
   // These are "public" so the object can be passed directly to pages.addType
   self.name = options.name || 'snippets';
