@@ -333,6 +333,7 @@ snippets.Snippets = function(options, callback) {
   // preferred places
   self.renderer = function(name) {
     return function(data) {
+      console.log('dirs are: ' + self._dirs.join(':'));
       return self._apos.partial(name, data, _.map(self._dirs, function(dir) { return dir + '/views'; }));
     };
   };
