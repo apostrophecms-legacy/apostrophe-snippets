@@ -2,6 +2,7 @@ var async = require('async');
 var _ = require('underscore');
 var extend = require('extend');
 var fs = require('fs');
+var widget = require(__dirname + '/widget.js');
 
 // GUIDE TO USE
 //
@@ -148,6 +149,7 @@ snippets.Snippets = function(options, callback) {
 
     function prepare(callback) {
       snippet = { title: title, type: self._instance, tags: tags, areas: { body: { items: content } }, slug: slug, createdAt: new Date(), publishedAt: new Date() };
+      snippet.sortTitle = self._apos.sortify(snippet.title);
       if (self.beforeInsert) {
         return self.beforeInsert(req, snippet, callback);
       }
@@ -222,6 +224,7 @@ snippets.Snippets = function(options, callback) {
       post.title = title;
       post.slug = slug;
       post.tags = tags;
+      post.sortTitle = self._apos.sortify(title);
       post.areas = { body: { items: content } };
       if (self.beforeUpdate) {
         return self.beforeUpdate(req, post, callback);
@@ -315,6 +318,30 @@ snippets.Snippets = function(options, callback) {
     });
   });
 
+  self._app.get(self._action + '/autocomplete', function(req, res) {
+    var options = {
+      fields: { title: 1, _id: 1 },
+      limit: 10
+    };
+    if (req.query.term !== undefined) {
+      options.titleSearch = req.query.term;
+    } else if (req.query.ids !== undefined) {
+      options._id = { $in: req.query.ids };
+    } else {
+      res.statusCode = 404;
+      return res.send('bad arguments');
+    }
+    console.log(options);
+    // Format it as value & id properties for compatibility with jquery UI autocomplete
+    self.get(req, options, function(err, snippets) {
+      return res.send(
+        JSON.stringify(_.map(snippets, function(snippet) {
+            return { value: snippet.title, id: snippet._id };
+        }))
+      );
+    });
+  });
+
   // Serve our assets. This is the final route so it doesn't
   // beat out the rest. Note we allow overrides for assets too
   self._app.get(self._action + '/*', self._apos.static(self._webAssetDir));
@@ -345,37 +372,101 @@ snippets.Snippets = function(options, callback) {
   // select the relevant snippets. If options.sort is present, it is passed
   // as the argument to the MongoDB sort() function, replacing the
   // default alpha sort. optionsArg may be skipped.
+  //
+  // options.limit indicates the maximum number of results.
+  //
+  // If options.fields is present it is used to limit the fields returned
+  // by MongoDB for performance reasons (the second argument to MongoDB's find()).
+  //
+  // options.titleSearch is used to search the titles of all snippets for a
+  // particular string using a fairly tolerant algorithm.
 
   self.get = function(req, optionsArg, callback) {
     if (!callback) {
       callback = optionsArg;
       optionsArg = {};
     }
+
+    console.log('options passed are:');
+    console.log(optionsArg);
+
     var options = {};
     extend(options, optionsArg, true);
-    // Consume options then remove them, turning the rest into mongo criteria
+
+    // Consume special options then remove them, turning the rest into mongo criteria
+
     var editable = options.editable;
     if (options.editable !== undefined) {
       delete options['editable'];
     }
+
     var sort = options.sort || { sortTitle: 1};
     if (options.sort !== undefined) {
       delete options['sort'];
     }
+
+    var limit = options.limit || undefined;
+    if (limit !== undefined) {
+      delete options['limit'];
+    }
+
+    var skip = options.skip || undefined;
+    if (skip !== undefined) {
+      delete options['skip'];
+    }
+
+    var fields = options.fields || undefined;
+    if (options.fields !== undefined) {
+      delete options['fields'];
+    }
+
+    var titleSearch = options.titleSearch || undefined;
+    if (options.titleSearch !== undefined) {
+      delete options['titleSearch'];
+      options.sortTitle = new RegExp(RegExp.quote(self._apos.sortify(titleSearch)));
+    }
+
     options.type = self._instance;
+
+    args = {};
+
+    if (fields !== undefined) {
+      args.fields = fields;
+    }
+
+
     // TODO: with many snippets there is a performance problem with calling
     // permissions separately on them. Pagination will have to be performed
     // manually after all permissions have been checked. The A1.5 permissions
-    // model wasn't perfect but it was fully integrated with the database.
-    self._apos.pages.find(options).sort(sort).toArray(function(err, snippets) {
+    // model wasn't perfect but it was something you could do by joining tables.
+
+    console.log('criteria are:');
+    console.log(options);
+    console.log('args are:');
+    console.log(args);
+    console.log('sort is:');
+    console.log(sort);
+    var q = self._apos.pages.find(options, args).sort(sort);
+    if (limit !== undefined) {
+      console.log("Limiting to " + limit);
+      q.limit(limit);
+    }
+    if (skip !== undefined) {
+      console.log("Skipping " + skip);
+      q.skip(skip);
+    }
+    q.toArray(function(err, snippets) {
       if (err) {
         return callback(err);
       }
+      console.log("Returned: " + snippets.length);
+      console.log('editable is: ' + editable);
       async.filter(snippets, function(snippet, callback) {
         self._apos.permissions(req, editable ? 'edit-' + self._css : 'view-' + self._css, snippet, function(err) {
           return callback(!err);
         });
       }, function(snippets) {
+        console.log("After filter: " + snippets.length);
         return callback(null, snippets);
       });
     });
@@ -473,6 +564,7 @@ snippets.Snippets = function(options, callback) {
   // browser-side UI assets for managing snippets
 
   self.pushAsset('script', 'main');
+  self.pushAsset('script', 'widget');
   self.pushAsset('stylesheet', 'main');
   self.pushAsset('template', 'new');
   self.pushAsset('template', 'edit');
@@ -487,6 +579,12 @@ snippets.Snippets = function(options, callback) {
   // Custom page settings template for snippet collection pages
   self.pushAsset('template', 'pageSettings');
 
+  // Register the snippet-reuse widget unless we've been told not to
+  _.defaults(options, { widget: true });
+  if (options.widget) {
+    widget({ apos: self._apos, app: self._app, snippets: self, name: self.name, label: self.label });
+  }
+
   if (callback) {
     // Invoke callback on next tick so that the constructor's return
     // value can be assigned to a variable in the same closure where
@@ -495,4 +593,5 @@ snippets.Snippets = function(options, callback) {
   }
 };
 
+snippets.widget = widget;
 

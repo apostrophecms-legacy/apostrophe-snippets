@@ -1,3 +1,3 @@
-{% for snippet in _snippets %}
-  {{ aposArea(snippet.areas.body) }}
+{% for snippet in item._snippets %}
+  {{ aposArea({ area: snippet.areas.body }) }}
 {% endfor %}
