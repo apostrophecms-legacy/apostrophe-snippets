@@ -51,7 +51,9 @@ function AposSnippets(optionsArg) {
   };
 
   // Make a new snippet
+  apos.log('self._css is ' + self._css);
   $('body').on('click', '[data-new-' + self._css + ']', function() {
+    apos.log('we got inside click');
     var $el = apos.modalFromTemplate('.apos-new-' + self._css, {
       save: function(callback) {
         return self.insertOrUpdate($el, 'insert', {}, callback);

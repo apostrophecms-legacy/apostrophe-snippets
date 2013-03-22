@@ -360,6 +360,7 @@ snippets.Snippets = function(options, callback) {
   // preferred places
   self.renderer = function(name) {
     return function(data) {
+      console.log('dirs are: ' + self._dirs.join(':'));
       return self._apos.partial(name, data, _.map(self._dirs, function(dir) { return dir + '/views'; }));
     };
   };
@@ -528,13 +529,15 @@ snippets.Snippets = function(options, callback) {
   // Often overridden when subclassing
   self.dispatch = function(req, callback) {
     var permalink = false;
+    console.log('in dispatch');
+    var criteria = {};
     if (req.remainder.length) {
+      console.log('remainder is: ' + req.remainder);
       // Perhaps it's a snippet permalink
-      req.query.slug = req.remainder;
+      criteria.slug = req.remainder.substr(1);
       permalink = true;
     }
 
-    var criteria = {};
     if (req.page.typeSettings && req.page.typeSettings.tags && req.page.typeSettings.tags.length) {
       criteria.tags = { $in: req.page.typeSettings.tags };
     }
