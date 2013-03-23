@@ -83,7 +83,7 @@ AposSnippets.addWidgetType = function(options) {
         // jquery autocomplete format. The autocomplete route accepts
         // an ids option for this purpose, since it is already set up to
         // transmit results in the needed format
-        $.getJSON(options.action + '/autocomplete', { ids: self.data.ids }, function(data) {
+        $.getJSON(self.action + '/autocomplete', { ids: self.data.ids }, function(data) {
           _.each(data, function(info) {
             self.add(info);
           });
