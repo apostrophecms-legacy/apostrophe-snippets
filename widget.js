@@ -54,6 +54,7 @@ widget.Widget = function(options) {
     },
 
     render: function(data) {
+      console.log('rendering the widget');
       return snippets.render('widget', data);
     },
 

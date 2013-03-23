@@ -361,6 +361,7 @@ snippets.Snippets = function(options, callback) {
   self.renderer = function(name) {
     return function(data) {
       console.log('dirs are: ' + self._dirs.join(':'));
+      console.log("name is: " + name);
       return self._apos.partial(name, data, _.map(self._dirs, function(dir) { return dir + '/views'; }));
     };
   };
@@ -567,7 +568,7 @@ snippets.Snippets = function(options, callback) {
   // browser-side UI assets for managing snippets
 
   self.pushAsset('script', 'main');
-  self.pushAsset('script', 'widget');
+
   self.pushAsset('stylesheet', 'main');
   self.pushAsset('template', 'new');
   self.pushAsset('template', 'edit');
@@ -582,8 +583,12 @@ snippets.Snippets = function(options, callback) {
   // Custom page settings template for snippet collection pages
   self.pushAsset('template', 'pageSettings');
 
+
   // Register the snippet-reuse widget unless we've been told not to
   _.defaults(options, { widget: true });
+  if (options.widget) {
+    self.pushAsset('script', 'widget');
+  }
   if (options.widget) {
     widget({ apos: self._apos, app: self._app, snippets: self, name: self.name, label: self.label });
   }
