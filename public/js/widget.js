@@ -107,7 +107,7 @@ AposSnippets.addWidgetType = function(options) {
         self.data.ids = _.map(self.$ids.find('[data-id]:not(.apos-template)'), function(el) {
           return $(el).data('snippetId');
         });
-        self.exists = !!self.data.ids.length;
+        self.exists = (self.data.by === 'tag') || (!!self.data.ids.length);
         return callback();
       };
 

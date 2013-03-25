@@ -3,6 +3,7 @@ var _ = require('underscore');
 var extend = require('extend');
 var fs = require('fs');
 var widget = require(__dirname + '/widget.js');
+var async = require('async');
 
 // GUIDE TO USE
 //
@@ -63,6 +64,14 @@ var widget = require(__dirname + '/widget.js');
 
 module.exports = snippets;
 
+// A mapping of all snippet types by instance type, for use in locating
+// types that are compatible with various instance types. For instance,
+// if three variations on a blog are registered, all with the instance
+// option set to blogPost, then typesByBlogPost.blogPost will be an array
+// of those three type objects
+
+var typesByInstanceType = {};
+
 function snippets(options, callback) {
   return new snippets.Snippets(options, callback);
 }
@@ -82,11 +91,17 @@ snippets.Snippets = function(options, callback) {
   self._dirs = (options.dirs || []).concat([ __dirname ]);
   self._webAssetDir = options.webAssetDir || __dirname + '/public';
   // The type property of the page object used to store the snippet, also
-  // passed to views for use in CSS classes etc. Should be camel case
+  // passed to views for use in CSS classes etc. Should be camel case. These
+  // page objects will not have slugs beginning with /
   self._instance = options.instance || 'snippet';
   // Hyphenated, all lowercase version of same, for CSS classes, permission names, URLs
   self._css = self._apos.cssName(self._instance);
   self._menuName = options.menuName;
+
+  if (!typesByInstanceType[self._instance]) {
+    typesByInstanceType[self._instance] = [];
+  }
+  typesByInstanceType[self._instance].push(self);
 
   if (!self._menuName) {
     self._menuName = 'apos' + self._apos.capitalizeFirst(self._instance) + 'Menu';
@@ -213,27 +228,27 @@ snippets.Snippets = function(options, callback) {
     }
 
     function permissions(callback) {
-      return self._apos.permissions(req, 'edit-' + self._instance, post, function(err) {
+      return self._apos.permissions(req, 'edit-' + self._instance, snippet, function(err) {
         // If there is no permissions error then we are cool
-        // enough to create a post
+        // enough to create a snippet
         return callback(err);
       });
     }
 
     function massage(callback) {
-      post.title = title;
-      post.slug = slug;
-      post.tags = tags;
-      post.sortTitle = self._apos.sortify(title);
-      post.areas = { body: { items: content } };
+      snippet.title = title;
+      snippet.slug = slug;
+      snippet.tags = tags;
+      snippet.sortTitle = self._apos.sortify(title);
+      snippet.areas = { body: { items: content } };
       if (self.beforeUpdate) {
-        return self.beforeUpdate(req, post, callback);
+        return self.beforeUpdate(req, snippet, callback);
       }
       return callback(null);
     }
 
     function update(callback) {
-      self._apos.putPage(originalSlug, post, callback);
+      self._apos.putPage(originalSlug, snippet, callback);
     }
 
     function redirect(callback) {
@@ -243,9 +258,10 @@ snippets.Snippets = function(options, callback) {
     function send(err) {
       if (err) {
         res.statusCode = 500;
+        console.log(err);
         return res.send('error');
       }
-      return res.send(JSON.stringify(post));
+      return res.send(JSON.stringify(snippet));
     }
   });
 
@@ -258,8 +274,8 @@ snippets.Snippets = function(options, callback) {
 
     function get(callback) {
       slug = req.body.slug;
-      return self._apos.getPage(slug, function(err, postArg) {
-        snippet = postArg;
+      return self._apos.getPage(slug, function(err, snippetArg) {
+        snippet = snippettArg;
         if(!snippet) {
           return callback('Not Found');
         }
@@ -360,8 +376,6 @@ snippets.Snippets = function(options, callback) {
   // preferred places
   self.renderer = function(name) {
     return function(data) {
-      console.log('dirs are: ' + self._dirs.join(':'));
-      console.log("name is: " + name);
       return self._apos.partial(name, data, _.map(self._dirs, function(dir) { return dir + '/views'; }));
     };
   };
@@ -527,7 +541,14 @@ snippets.Snippets = function(options, callback) {
     }
   };
 
-  // Often overridden when subclassing
+  // Decide what to do based on the remainder of the URL. The default behavior
+  // is to display an index of snippets if there is nothing further in the URL
+  // after the page itself, and to look for a snippets with a slug matching the
+  // rest of the URL if there is.
+  //
+  // Often overridden when subclassing. For instance, the blog places the publication
+  // date in the URL before the slug of the post, just to make things feel bloggier.
+  //
   self.dispatch = function(req, callback) {
     var permalink = false;
     console.log('in dispatch');
@@ -563,6 +584,109 @@ snippets.Snippets = function(options, callback) {
     });
   };
 
+
+  // When a snippet (such as a blog post by Dave) appears as a callout on another
+  // page, there is a need to create a suitable permalink back to its page of origin
+  // (i.e. "Dave's Blog"). But blog posts don't have pages of origin (they are not
+  // "child pages" of a blog page). They do, however, have metadata (tags etc.) and
+  // so do blog pages. The findBestPage method accepts the page representing an
+  // individual blog post or similar object and a callback. This method will
+  // identify the navigable page that best matches the metadata of the snippet. The
+  // type of the page returned will always be one that was configured with
+  // the same instance type.
+  //
+  // The first argument to the callback is err, the second (if no error) is the
+  // page found or, if no page is found, null. Note that a complete lack of
+  // suitable pages is not an error.
+  //
+  // Only pages that are reachable via a URL (pages with a slug beginning with /) and
+  // visible to the current user (req.user, if any) are considered in this search.
+  //
+  // Strategy: since a single site rarely has thousands of separate "blogs," it is
+  // reasonable to fetch all the blogs and compare their metadata to the item. However
+  // to maximize performance information about the pages examined is retained in
+  // req.bestPageCache for the lifetime of the request so that many calls for many
+  // snippets do not result in an explosion of database activity on behalf of a
+  // single request.
+  //
+  // The scoring algorithm was ported directly from Apostrophe 1.5's aEngineTools class.
+
+  self.findBestPage = function(req, snippet, callback) {
+    var typeNames = _.map(typesByInstanceType[snippet.type] || [], function(type) { return type.name; });
+    console.log('type names');
+    console.log(typeNames);
+    var pages = self._apos.pages.find({ type: { $in: typeNames }, slug: /^\// }).toArray(function(err, pages) {
+      if (err) {
+        console.log('error is:');
+        console.log(err);
+        return callback(err);
+      }
+      console.log('Matched ' + pages.length + ' pages');
+      // Play nice with invocations of findBestPage for other types
+      // as part of the same request
+      if (!req.bestPageCache) {
+        req.bestPageCache = {};
+      }
+      if (!req.bestPageCache[snippet.type]) {
+        var viewable = [];
+        async.eachSeries(pages, function(page, callback) {
+          self._apos.permissions(req, 'view-page', page, function(err) {
+            if (!err) {
+              viewable.push(page);
+            }
+            return callback(null);
+          });
+        }, function(err) {
+          if (err) {
+            return callback(err);
+          }
+          req.bestPageCache[snippet.type] = viewable;
+          go();
+        });
+      } else {
+        go();
+      }
+    });
+
+    function go() {
+      var viewable = req.bestPageCache[snippet.type];
+      var tags = snippet.tags || [];
+      var bestScore;
+      var best = null;
+      console.log('our tags:');
+      console.log(tags);
+      _.each(viewable, function(page) {
+        var score = 0;
+        console.log(page);
+        var pageTags = (page.typeSettings && page.typeSettings.tags) ? page.typeSettings.tags : [];
+        console.log('page tags:');
+        console.log(pageTags);
+        if (!pageTags.length) {
+          score = 1;
+        }
+        var intersect = _.intersection(tags, pageTags);
+        var diff = _.difference(tags, pageTags);
+        score += intersect.length * 2 - diff.length;
+        console.log(snippet.slug + ': ' + page.slug + ': ' + score);
+        if ((!best) || (score > bestScore)) {
+          bestScore = score;
+          best = page;
+        }
+      });
+      return callback(null, best);
+    }
+  };
+
+  // Returns a "permalink" URL to the snippet, beginning with the
+  // slug of the specified page. See findBestPage for a good way to
+  // choose a page beneath which to link this snippet.
+  //
+  // It is commonplace to override this function. For instance,
+  // blog posts add the publication date to the URL.
+
+  self.permalink = function(snippet, page) {
+    return page.slug + '/' + snippet.slug;
+  }
 
   // Make sure that aposScripts and aposStylesheets summon our
   // browser-side UI assets for managing snippets

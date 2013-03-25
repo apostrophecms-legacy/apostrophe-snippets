@@ -114,7 +114,7 @@ function AposSnippets(optionsArg) {
     function go() {
       $.ajax(
         {
-          url: self._action + '/insert',
+          url: self._action + '/' + action,
           data: data,
           type: 'POST',
           dataType: 'json',
