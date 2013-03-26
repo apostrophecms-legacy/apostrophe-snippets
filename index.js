@@ -212,7 +212,7 @@ snippets.Snippets = function(options, callback) {
     async.series([ getSnippet, permissions, massage, update, redirect ], send);
 
     function getSnippet(callback) {
-      self._apos.getPage(originalSlug, function(err, page) {
+      self._apos.getPage(req, originalSlug, function(err, page) {
         if (err) {
           return callback(err);
         }
@@ -274,8 +274,8 @@ snippets.Snippets = function(options, callback) {
 
     function get(callback) {
       slug = req.body.slug;
-      return self._apos.getPage(slug, function(err, snippetArg) {
-        snippet = snippettArg;
+      return self._apos.getPage(req, slug, function(err, snippetArg) {
+        snippet = snippetArg;
         if(!snippet) {
           return callback('Not Found');
         }
@@ -416,7 +416,7 @@ snippets.Snippets = function(options, callback) {
       delete options['editable'];
     }
 
-    var sort = options.sort || { sortTitle: 1};
+    var sort = options.sort || { sortTitle: 1 };
     if (options.sort !== undefined) {
       delete options['sort'];
     }
@@ -456,12 +456,6 @@ snippets.Snippets = function(options, callback) {
     // manually after all permissions have been checked. The A1.5 permissions
     // model wasn't perfect but it was something you could do by joining tables.
 
-    console.log('criteria are:');
-    console.log(options);
-    console.log('args are:');
-    console.log(args);
-    console.log('sort is:');
-    console.log(sort);
     var q = self._apos.pages.find(options, args).sort(sort);
     if (limit !== undefined) {
       console.log("Limiting to " + limit);
@@ -471,21 +465,42 @@ snippets.Snippets = function(options, callback) {
       console.log("Skipping " + skip);
       q.skip(skip);
     }
-    q.toArray(function(err, snippets) {
-      if (err) {
+
+    var snippets;
+    async.series([loadSnippets, permissions, loadWidgets], done);
+
+    function loadSnippets(callback) {
+      q.toArray(function(err, snippetsArg) {
+        snippets = snippetsArg;
         return callback(err);
-      }
-      console.log("Returned: " + snippets.length);
-      console.log('editable is: ' + editable);
+      });
+    }
+
+    function permissions(callback) {
       async.filter(snippets, function(snippet, callback) {
         self._apos.permissions(req, editable ? 'edit-' + self._css : 'view-' + self._css, snippet, function(err) {
           return callback(!err);
         });
-      }, function(snippets) {
-        console.log("After filter: " + snippets.length);
-        return callback(null, snippets);
+      }, function(snippetsArg) {
+        snippets = snippetsArg;
+        return callback(null);
       });
-    });
+    }
+
+    function loadWidgets(callback) {
+      // Use eachSeries to avoid devoting overwhelming mongodb resources
+      // to a single user's request. There could be many snippets on this
+      // page, and callLoadersForPage is parallel already
+      async.eachSeries(snippets, function(snippet, callback) {
+        self._apos.callLoadersForPage(req, snippet, callback);
+      }, function(err) {
+        return callback(err);
+      });
+    }
+
+    function done(err) {
+      return callback(null, snippets);
+    }
   };
 
   // This is a loader function, for use with the `load` option of

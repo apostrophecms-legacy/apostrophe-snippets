@@ -60,7 +60,7 @@ widget.Widget = function(options) {
     // The properties you add should start with an _ to denote that
     // they shouldn't become data attributes or get stored back to MongoDB
 
-    load: function(item, callback) {
+    load: function(req, item, callback) {
       var criteria = {};
       if ((item.by === 'tag') && (item.tags)) {
         if (item.tags.length) {
@@ -75,7 +75,7 @@ widget.Widget = function(options) {
       // Think about how to get user identity into loaders. Tricky since
       // getArea in general doesn't take a req object and neither does
       // getPage, we check permissions before that point.
-      self.snippets.get({}, criteria, function(err, snippets) {
+      self.snippets.get(req, criteria, function(err, snippets) {
         if (err) {
           item._snippets = [];
           console.log(err);
