@@ -70,11 +70,6 @@ widget.Widget = function(options) {
         criteria._id = { $in: item.ids };
       }
 
-      // TODO: we don't have a real req object at this point. Passing a
-      // stub means we'll get only fully published, publicly visible snippets.
-      // Think about how to get user identity into loaders. Tricky since
-      // getArea in general doesn't take a req object and neither does
-      // getPage, we check permissions before that point.
       self.snippets.get(req, criteria, function(err, snippets) {
         if (err) {
           item._snippets = [];
