@@ -4,6 +4,7 @@ var extend = require('extend');
 var fs = require('fs');
 var widget = require(__dirname + '/widget.js');
 var async = require('async');
+var csv = require('csv');
 
 // GUIDE TO USE
 //
@@ -317,6 +318,111 @@ snippets.Snippets = function(options, callback) {
     }
   });
 
+  self._app.post(self._action + '/import', function(req, res) {
+    var file = req.files.file;
+    var rows = 0;
+    var headings = [];
+    var s = csv().from.stream(fs.createReadStream(file.path));
+    var active = 0;
+    s.on('record', function(row, index) {
+      active++;
+      // s.pause() avoids an explosion of rows being processed simultaneously
+      // by async mongo calls, etc. However note this does not
+      // stop more events from coming in because the parser will
+      // keep going with its current block of raw data. So we still
+      // have to track the number of still-active async handleRow calls ):
+      // Also there is no guarantee imports are in order, however that shouldn't
+      // matter since we always rely on some index such as title or publication date
+      s.pause();
+      if (!index) {
+        handleHeadings(row, afterRow);
+      } else {
+        handleRow(row, function(err) {
+          if (!err) {
+            rows++;
+            return afterRow();
+          } else {
+            console.log(err);
+            s.end();
+          }
+        });
+      }
+      function afterRow() {
+        s.resume();
+        active--;
+      }
+    })
+    .on('error', function(count) {
+      respondWhenDone('error');
+    })
+    .on('end', function(count) {
+      respondWhenDone('ok');
+    });
+
+    function handleHeadings(row, callback) {
+      console.log('handleHeadings');
+      headings = row;
+      var i;
+      for (i = 0; (i < headings.length); i++) {
+        headings[i] = self._apos.camelName(headings[i]);
+      }
+      return callback();
+    }
+
+    function handleRow(row, callback) {
+      console.log('handleRow');
+      var data = {};
+      var i;
+      for (i = 0; (i < headings.length); i++) {
+        data[headings[i]] = row[i];
+      }
+      self.importCreateItem(data, callback);
+    }
+
+    function respondWhenDone(status) {
+      if (active) {
+        console.log('still active delaying respondWhenDone');
+        return setTimeout(function() { respondWhenDone(status); }, 100);
+      }
+      console.log('in respondWhenDone rows is ' + rows);
+      res.send({ status: status, rows: rows });
+    }
+  });
+
+  // TODO: insert should use the same code, and update should share more of it
+
+  self.importCreateItem = function(data, callback) {
+    var tags = [];
+    if (Array.isArray(data.tags)) {
+      tags.concat(data.tags);
+    }
+    if (Array.isArray(data.categories)) {
+      tags.concat(data.categories);
+    }
+    var snippet = {
+      type: self._instance,
+      areas: {
+        body: {
+          items: [
+            {
+              type: 'richText',
+              content: data.richText || self._apos.escapeHtml(data.text)
+            }
+          ]
+        }
+      },
+      title: data.title || self.getDefaultTitle(),
+      tags: self._apos.tagsToArray(tags)
+    };
+    snippet.slug = self._apos.slugify(snippet.title);
+    snippet.sortTitle = self._apos.sortify(snippet.title);
+    return self.importSaveItem(snippet, callback);
+  };
+
+  self.importSaveItem = function(snippet, callback) {
+    console.log('importSaveItem');
+    self._apos.putPage(snippet.slug, snippet, callback);
+  };
 
   self._app.get(self._action + '/get', function(req, res) {
     self.get(req, req.query, function(err, snippets) {
@@ -712,6 +818,7 @@ snippets.Snippets = function(options, callback) {
   self.pushAsset('template', 'new');
   self.pushAsset('template', 'edit');
   self.pushAsset('template', 'manage');
+  self.pushAsset('template', 'import');
 
   // It's possible to show a collection of recent snippets publicly
   // on a page, and also to access permalink pages for snippets.

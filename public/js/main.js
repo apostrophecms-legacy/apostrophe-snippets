@@ -133,8 +133,6 @@ function AposSnippets(optionsArg) {
   };
 
   // Manage all snippets
-  apos.log('configuring click for ' + '[data-manage-' + self._css + ']');
-  apos.log('length is: ' + $('[data-manage-' + self._css + ']').length);
   $('body').on('click', '[data-manage-' + self._css + ']', function() {
     var snippets;
     apos.log('manage clicked for ' + self._css);
@@ -225,5 +223,40 @@ function AposSnippets(optionsArg) {
       return self.insertOrUpdate($el, 'update', { slug: slug }, callback);
     }
     return false;
+  });
+
+  // Import snippets
+  $('body').on('click', '[data-import-' + self._css + ']', function() {
+    apos.log('import clicked for ' + self._css);
+    var valid = false;
+    $el = apos.modalFromTemplate('.apos-import-' + self._css, {
+      init: function(callback) {
+        // The file upload's completion will trigger the import operation
+        $el.find('[data-action="save"]').remove();
+        $el.find('[name="file"]').fileupload({
+          maxNumberOfFiles: 1,
+          dataType: 'json',
+          start: function (e) {
+            $('[data-progress]').show();
+            $('[data-finished]').hide();
+          },
+          stop: function (e) {
+            $('[data-progress]').hide();
+            $('[data-finished]').show();
+          },
+          done: function (e, data) {
+            var data = data.result;
+            apos.log(data);
+            if (data.status === 'ok') {
+              alert('Successful import. Imported ' + data.rows + ' items.');
+            } else {
+              alert('An error occurred during import. Imported ' + data.rows + ' items.');
+            }
+            $el.trigger('aposModalHide');
+          }
+        });
+        return callback(null);
+      }
+    });
   });
 }
