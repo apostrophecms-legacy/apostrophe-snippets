@@ -39,10 +39,13 @@ var csv = require('csv');
 // You can override any methods whose behavior you wish to modify with extend().
 // Notable possibilities include:
 //
-// `beforeInsert` receives the req object and a snippet about to be inserted for the
-// first time, and a callback. Modify it to add additional fields, then invoke the
-// callback with a fatal error if any. (Always sanitize rather than failing
-// if it is in any way possible.)
+// `beforeInsert` receives the req object, the data source (req.body for the
+// common case, but from elsewhere in the importer), a snippet about to be inserted for
+// the first time, and a callback. Modify it to add additional fields, then invoke the
+// callback with a fatal error if any. Always sanitize rather than failing
+// if it is in any way possible. You receive both the req object and the data
+// source because the data source is not req.body in every case (for instance, a
+// bulk import uploaded as a file).
 //
 // `beforeUpdate` performs the same function for updates.
 //
@@ -98,6 +101,8 @@ snippets.Snippets = function(options, callback) {
   // Hyphenated, all lowercase version of same, for CSS classes, permission names, URLs
   self._css = self._apos.cssName(self._instance);
   self._menuName = options.menuName;
+  // All partials generated via self.renderer can see these properties
+  self._rendererGlobals = options.rendererGlobals || {};
 
   if (!typesByInstanceType[self._instance]) {
     typesByInstanceType[self._instance] = [];
@@ -166,10 +171,7 @@ snippets.Snippets = function(options, callback) {
     function prepare(callback) {
       snippet = { title: title, type: self._instance, tags: tags, areas: { body: { items: content } }, slug: slug, createdAt: new Date(), publishedAt: new Date() };
       snippet.sortTitle = self._apos.sortify(snippet.title);
-      if (self.beforeInsert) {
-        return self.beforeInsert(req, snippet, callback);
-      }
-      return callback(null);
+      return self.beforeInsert(req, req.body, snippet, callback);
     }
 
     function insert(callback) {
@@ -184,6 +186,14 @@ snippets.Snippets = function(options, callback) {
       return res.send(JSON.stringify(snippet));
     }
   });
+
+  self.beforeInsert = function(req, data, snippet, callback) {
+    return callback(null);
+  };
+
+  self.beforeUpdate = function(req, data, snippet, callback) {
+    return callback(null);
+  };
 
   self._app.post(self._action + '/update', function(req, res) {
     var snippet;
@@ -242,10 +252,7 @@ snippets.Snippets = function(options, callback) {
       snippet.tags = tags;
       snippet.sortTitle = self._apos.sortify(title);
       snippet.areas = { body: { items: content } };
-      if (self.beforeUpdate) {
-        return self.beforeUpdate(req, snippet, callback);
-      }
-      return callback(null);
+      return self.beforeUpdate(req, req.body, snippet, callback);
     }
 
     function update(callback) {
@@ -360,7 +367,6 @@ snippets.Snippets = function(options, callback) {
     });
 
     function handleHeadings(row, callback) {
-      console.log('handleHeadings');
       headings = row;
       var i;
       for (i = 0; (i < headings.length); i++) {
@@ -370,28 +376,23 @@ snippets.Snippets = function(options, callback) {
     }
 
     function handleRow(row, callback) {
-      console.log('handleRow');
       var data = {};
       var i;
       for (i = 0; (i < headings.length); i++) {
         data[headings[i]] = row[i];
       }
-      self.importCreateItem(data, callback);
+      self.importCreateItem(req, data, callback);
     }
 
     function respondWhenDone(status) {
       if (active) {
-        console.log('still active delaying respondWhenDone');
         return setTimeout(function() { respondWhenDone(status); }, 100);
       }
-      console.log('in respondWhenDone rows is ' + rows);
       res.send({ status: status, rows: rows });
     }
   });
 
-  // TODO: insert should use the same code, and update should share more of it
-
-  self.importCreateItem = function(data, callback) {
+  self.importCreateItem = function(req, data, callback) {
     var tags = [];
     if (Array.isArray(data.tags)) {
       tags.concat(data.tags);
@@ -406,7 +407,7 @@ snippets.Snippets = function(options, callback) {
           items: [
             {
               type: 'richText',
-              content: data.richText || self._apos.escapeHtml(data.text)
+              content: data.richText || (data.text ? self._apos.escapeHtml(data.text) : '')
             }
           ]
         }
@@ -416,11 +417,21 @@ snippets.Snippets = function(options, callback) {
     };
     snippet.slug = self._apos.slugify(snippet.title);
     snippet.sortTitle = self._apos.sortify(snippet.title);
-    return self.importSaveItem(snippet, callback);
+    // Something is eating error messages here if I don't log them myself
+    try {
+      self.beforeInsert(req, data, snippet, function(err) {
+        if (err) {
+          return callback(err);
+        }
+        return self.importSaveItem(snippet, callback);
+      });
+    } catch (e) {
+      console.log(e);
+      throw e;
+    }
   };
 
   self.importSaveItem = function(snippet, callback) {
-    console.log('importSaveItem');
     self._apos.putPage(snippet.slug, snippet, callback);
   };
 
@@ -453,7 +464,6 @@ snippets.Snippets = function(options, callback) {
       res.statusCode = 404;
       return res.send('bad arguments');
     }
-    console.log(options);
     // Format it as value & id properties for compatibility with jquery UI autocomplete
     self.get(req, options, function(err, snippets) {
       return res.send(
@@ -479,9 +489,15 @@ snippets.Snippets = function(options, callback) {
   };
 
   // Return a function that will render a particular partial looking for overrides in our
-  // preferred places
+  // preferred places. Also merge in any properties of self._rendererGlobals, which can
+  // be set via the rendererGlobals option when the module is configured
+
   self.renderer = function(name) {
     return function(data) {
+      if (!data) {
+        data = {};
+      }
+      _.defaults(data, self._rendererGlobals);
       return self._apos.partial(name, data, _.map(self._dirs, function(dir) { return dir + '/views'; }));
     };
   };
@@ -508,9 +524,6 @@ snippets.Snippets = function(options, callback) {
       callback = optionsArg;
       optionsArg = {};
     }
-
-    console.log('options passed are:');
-    console.log(optionsArg);
 
     var options = {};
     extend(options, optionsArg, true);
@@ -564,11 +577,9 @@ snippets.Snippets = function(options, callback) {
 
     var q = self._apos.pages.find(options, args).sort(sort);
     if (limit !== undefined) {
-      console.log("Limiting to " + limit);
       q.limit(limit);
     }
     if (skip !== undefined) {
-      console.log("Skipping " + skip);
       q.skip(skip);
     }
 
@@ -637,7 +648,6 @@ snippets.Snippets = function(options, callback) {
       self._apos.permissions(req, 'edit-' + self._css, null, function(err) {
         var permissionName = 'edit' + self._apos.capitalizeFirst(self._instance);
         req.extras[permissionName] = !err;
-        console.log('added permission for ' + permissionName + ' set to ' + (!err));
         return callback(null);
       });
     }
@@ -672,10 +682,8 @@ snippets.Snippets = function(options, callback) {
   //
   self.dispatch = function(req, callback) {
     var permalink = false;
-    console.log('in dispatch');
     var criteria = {};
     if (req.remainder.length) {
-      console.log('remainder is: ' + req.remainder);
       // Perhaps it's a snippet permalink
       criteria.slug = req.remainder.substr(1);
       permalink = true;
@@ -734,15 +742,12 @@ snippets.Snippets = function(options, callback) {
 
   self.findBestPage = function(req, snippet, callback) {
     var typeNames = _.map(typesByInstanceType[snippet.type] || [], function(type) { return type.name; });
-    console.log('type names');
-    console.log(typeNames);
     var pages = self._apos.pages.find({ type: { $in: typeNames }, slug: /^\// }).toArray(function(err, pages) {
       if (err) {
         console.log('error is:');
         console.log(err);
         return callback(err);
       }
-      console.log('Matched ' + pages.length + ' pages');
       // Play nice with invocations of findBestPage for other types
       // as part of the same request
       if (!req.bestPageCache) {
@@ -774,21 +779,15 @@ snippets.Snippets = function(options, callback) {
       var tags = snippet.tags || [];
       var bestScore;
       var best = null;
-      console.log('our tags:');
-      console.log(tags);
       _.each(viewable, function(page) {
         var score = 0;
-        console.log(page);
         var pageTags = (page.typeSettings && page.typeSettings.tags) ? page.typeSettings.tags : [];
-        console.log('page tags:');
-        console.log(pageTags);
         if (!pageTags.length) {
           score = 1;
         }
         var intersect = _.intersection(tags, pageTags);
         var diff = _.difference(tags, pageTags);
         score += intersect.length * 2 - diff.length;
-        console.log(snippet.slug + ': ' + page.slug + ': ' + score);
         if ((!best) || (score > bestScore)) {
           bestScore = score;
           best = page;
