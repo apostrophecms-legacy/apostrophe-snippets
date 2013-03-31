@@ -93,7 +93,7 @@ snippets.Snippets = function(options, callback) {
   self._app = options.app;
   self._options = options;
   self._dirs = (options.dirs || []).concat([ __dirname ]);
-  self._webAssetDir = options.webAssetDir || __dirname + '/public';
+  self._webAssetDir = options.webAssetDir || __dirname;
   // The type property of the page object used to store the snippet, also
   // passed to views for use in CSS classes etc. Should be camel case. These
   // page objects will not have slugs beginning with /
@@ -120,7 +120,7 @@ snippets.Snippets = function(options, callback) {
       // Render templates in our own nunjucks context
       self._apos.pushAsset('template', self.renderer(name));
     } else {
-      return self._apos.pushAsset(type, name, self._dirs, self._action);
+      return self._apos.pushAsset(type, name, self._webAssetDir, self._action);
     }
   };
 
@@ -475,8 +475,11 @@ snippets.Snippets = function(options, callback) {
   });
 
   // Serve our assets. This is the final route so it doesn't
-  // beat out the rest. Note we allow overrides for assets too
-  self._app.get(self._action + '/*', self._apos.static(self._webAssetDir));
+  // beat out the rest.
+  //
+  // You don't override js and stylesheet assets, rather you serve more of them
+  // from your own module and enhance what's already in browserland
+  self._app.get(self._action + '/*', self._apos.static(self._webAssetDir + '/public'));
 
   self._apos.addLocal(self._menuName, function(args) {
     var result = self.render('menu', args);
