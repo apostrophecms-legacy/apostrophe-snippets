@@ -389,32 +389,34 @@ snippets.Snippets = function(options, callback) {
   });
 
   self.importCreateItem = function(req, data, callback) {
-    var tags = [];
-    if (Array.isArray(data.tags)) {
-      tags.concat(data.tags);
-    }
-    if (Array.isArray(data.categories)) {
-      tags.concat(data.categories);
-    }
-    var snippet = {
-      type: self._instance,
-      areas: {
-        body: {
-          items: [
-            {
-              type: 'richText',
-              content: data.richText || (data.text ? self._apos.escapeHtml(data.text) : '')
-            }
-          ]
-        }
-      },
-      title: data.title || self.getDefaultTitle(),
-      tags: self._apos.tagsToArray(tags)
-    };
-    snippet.slug = self._apos.slugify(snippet.title);
-    snippet.sortTitle = self._apos.sortify(snippet.title);
-    // Something is eating error messages here if I don't log them myself
+    // "Why the try/catch?" Because the CSV reader has some sort of
+    // try/catch of its own that is making it impossible to log any
+    // errors if we don't catch them. TODO: go looking for that and fix it.
     try {
+      var tags = '';
+      tags = self._apos.sanitizeString(data.tags);
+      tags = self._apos.tagsToArray(tags);
+      var categories = self._apos.sanitizeString(data.categories);
+      categories = self._apos.tagsToArray(categories);
+      tags = tags.concat(categories);
+
+      var snippet = {
+        type: self._instance,
+        areas: {
+          body: {
+            items: [
+              {
+                type: 'richText',
+                content: data.richText || (data.text ? self._apos.escapeHtml(data.text) : '')
+              }
+            ]
+          }
+        },
+        title: data.title || self.getDefaultTitle(),
+        tags: tags
+      };
+      snippet.slug = self._apos.slugify(snippet.title);
+      snippet.sortTitle = self._apos.sortify(snippet.title);
       self.beforeInsert(req, data, snippet, function(err) {
         if (err) {
           return callback(err);
