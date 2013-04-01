@@ -16,3 +16,39 @@
     <div class="apos-snippet-body">{{ aposArea({ area: item.areas.body }) }}</div>
   </div>
 {% endmacro %}
+
+{# Standard form markup, for convenience and consistency #}
+
+{% macro snippetText(name, label) %}
+  <fieldset>
+    <label>{{ label | e }}</label>
+    <input name="{{ name | e }}" type="text">
+  </fieldset>
+{% endmacro %}
+
+{% macro snippetTextarea(name, label) %}
+  <fieldset class="apos-editor-fieldset">
+    <label>{{ label | e }}</label>
+    <textarea name="{{ name | e }}" rows="4"></textarea>
+  </fieldset>
+{% endmacro %}
+
+{% macro snippetSelect(name, label, choices) %}
+  <fieldset>
+    <label>{{ label | e }}</label>
+    <select name="{{ name | e }}">
+      {% for choice in choices %}
+        <option value="{{ choice.name | e }}">{{ choice.label | e }}</option>
+      {% endfor %}
+    </select>
+  </fieldset>
+{% endmacro %}
+
+{# See enableArea in snippets' main.js for the necessary plumbing #}
+{% macro snippetArea(name, label) %}
+  <fieldset class="apos-editor-fieldset">
+    <label>Body</label>
+    {# js adds this area to the dialog #}
+    <div data-{{ name }}-edit-view></div>
+  </fieldset>
+{% endmacro %}

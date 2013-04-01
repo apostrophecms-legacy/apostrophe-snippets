@@ -34,32 +34,27 @@ function AposSnippets(optionsArg) {
   $.extend(options, optionsArg);
   self._instance = options.instance;
   self._css = apos.cssName(self._instance);
-  apos.log("Setting up for " + self._instance);
   self._action = '/apos-' + self._css;
   self._pages = options.pages;
 
   self.settings = {
     serialize: function($el, $details) {
-      apos.log('serialize called');
       var data = { tags: apos.tagsToArray($details.find('[name="typeSettings[tags]"]').val()) };
       return data;
     },
     unserialize: function(data, $el, $details) {
-      apos.log('unserialize called');
       $details.find('[name="typeSettings[tags]"]').val(apos.tagsToString(data.tags));
     }
   };
 
   // Make a new snippet
-  apos.log('self._css is ' + self._css);
   $('body').on('click', '[data-new-' + self._css + ']', function() {
-    apos.log('we got inside click');
     var $el = apos.modalFromTemplate('.apos-new-' + self._css, {
       save: function(callback) {
         return self.insertOrUpdate($el, 'insert', {}, callback);
       },
       init: function(callback) {
-        return self.enableArea($el, [], function() {
+        return self.enableArea($el, 'body', [], function() {
           self.afterPopulatingEditor($el, {}, callback);
         });
       }
@@ -86,9 +81,9 @@ function AposSnippets(optionsArg) {
     return callback();
   };
 
-  self.enableArea = function($el, content, callback) {
+  self.enableArea = function($el, name, content, callback) {
     $.post('/apos/edit-virtual-area', { content: JSON.stringify(content) }, function(data) {
-        var editView = $el.find('[data-body-edit-view]');
+        var editView = $el.find('[data-' + name + '-edit-view]');
         editView.append(data);
         return callback(null);
       }
@@ -135,7 +130,6 @@ function AposSnippets(optionsArg) {
   // Manage all snippets
   $('body').on('click', '[data-manage-' + self._css + ']', function() {
     var snippets;
-    apos.log('manage clicked for ' + self._css);
     $el = apos.modalFromTemplate('.apos-manage-' + self._css, {
       init: function(callback) {
         // We want to know if a snippet is modified
@@ -163,12 +157,7 @@ function AposSnippets(optionsArg) {
         });
         self.afterPopulatingManager($el, $snippets, snippets, function() {
           if (callback) {
-            apos.log('calling back after populating manager');
-            apos.log('$snippets.length is ' + $snippets.length);
-            apos.log('Inserted snippets: ' + $el.find('[data-item]:not(.apos-template)').length);
             return callback(null);
-          } else {
-            apos.log('enh no callback');
           }
         });
       });
@@ -189,14 +178,11 @@ function AposSnippets(optionsArg) {
             return callback('no such item');
           }
           snippet = data.pop();
-          apos.log(snippet);
 
           $el.find('[name=title]').val(snippet.title);
           $el.find('[name=tags]').val(apos.tagsToString(snippet.tags));
           $el.find('[name=slug]').val(snippet.slug);
 
-          apos.log('BEFORE suggest slug');
-          apos.log($el[0]);
           // name=slug must always exist, at least as a hidden field, to support this
           apos.suggestSlugOnTitleEdits($el.find('[name=title]'), $el.find('[name=slug]'));
 
@@ -212,7 +198,7 @@ function AposSnippets(optionsArg) {
             return false;
           });
 
-          self.enableArea($el, snippet.areas.body ? snippet.areas.body.items : [], function() {
+          self.enableArea($el, 'body', snippet.areas.body ? snippet.areas.body.items : [], function() {
             self.afterPopulatingEditor($el, snippet, callback);
           });
         });
@@ -227,7 +213,6 @@ function AposSnippets(optionsArg) {
 
   // Import snippets
   $('body').on('click', '[data-import-' + self._css + ']', function() {
-    apos.log('import clicked for ' + self._css);
     var valid = false;
     $el = apos.modalFromTemplate('.apos-import-' + self._css, {
       init: function(callback) {
@@ -246,7 +231,6 @@ function AposSnippets(optionsArg) {
           },
           done: function (e, data) {
             var data = data.result;
-            apos.log(data);
             if (data.status === 'ok') {
               alert('Successful import. Imported ' + data.rows + ' items.');
             } else {

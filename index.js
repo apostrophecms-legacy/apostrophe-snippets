@@ -203,15 +203,11 @@ snippets.Snippets = function(options, callback) {
     var slug;
     var tags;
 
-    title = req.body.title.trim();
-    // Validation is annoying, automatic cleanup is awesome
-    if (!title.length) {
-      title = self.getDefaultTitle();
-    }
+    title = self._apos.sanitizeString(req.body.title, self.getDefaultTitle());
 
     tags = req.body.tags;
 
-    originalSlug = req.body.originalSlug;
+    originalSlug = self._apos.sanitizeString(req.body.originalSlug);
     slug = self._apos.slugify(req.body.slug);
     if (!slug.length) {
       slug = originalSlug;
