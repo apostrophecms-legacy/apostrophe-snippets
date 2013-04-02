@@ -829,14 +829,29 @@ snippets.Snippets = function(options, callback) {
   // Custom page settings template for snippet collection pages
   self.pushAsset('template', 'pageSettings');
 
-
   // Register the snippet-reuse widget unless we've been told not to
   _.defaults(options, { widget: true });
   if (options.widget) {
     self.pushAsset('script', 'widget');
   }
+
+  var browserOptions = options.browser || {};
+
+  // The option can't be .constructor because that has a special meaning
+  // in a javascript object (not the one you'd expect, either) http://stackoverflow.com/questions/4012998/what-it-the-significance-of-the-javascript-constructor-property
+  var browser = {
+    pages: browserOptions.pages || 'aposPages',
+    construct: browserOptions.construct || getManagerName(self._instance)
+  };
+  self._apos.pushGlobalCall('@.replaceType(?, new @())', browser.pages, self.name, browser.construct);
+
   if (options.widget) {
     widget({ apos: self._apos, app: self._app, snippets: self, name: self.name, label: self.label });
+    self._apos.pushGlobalCall('@.addWidgetType()', browser.construct);
+  }
+
+  function getManagerName() {
+    return 'Apos' + self._instance.charAt(0).toUpperCase() + self._instance.substr(1) + 's';
   }
 
   if (callback) {
