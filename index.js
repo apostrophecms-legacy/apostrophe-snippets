@@ -4,6 +4,7 @@ var extend = require('extend');
 var fs = require('fs');
 var widget = require(__dirname + '/widget.js');
 var async = require('async');
+var csv = require('csv');
 
 // GUIDE TO USE
 //
@@ -38,10 +39,13 @@ var async = require('async');
 // You can override any methods whose behavior you wish to modify with extend().
 // Notable possibilities include:
 //
-// `beforeInsert` receives the req object and a snippet about to be inserted for the
-// first time, and a callback. Modify it to add additional fields, then invoke the
-// callback with a fatal error if any. (Always sanitize rather than failing
-// if it is in any way possible.)
+// `beforeInsert` receives the req object, the data source (req.body for the
+// common case, but from elsewhere in the importer), a snippet about to be inserted for
+// the first time, and a callback. Modify it to add additional fields, then invoke the
+// callback with a fatal error if any. Always sanitize rather than failing
+// if it is in any way possible. You receive both the req object and the data
+// source because the data source is not req.body in every case (for instance, a
+// bulk import uploaded as a file).
 //
 // `beforeUpdate` performs the same function for updates.
 //
@@ -89,7 +93,7 @@ snippets.Snippets = function(options, callback) {
   self._app = options.app;
   self._options = options;
   self._dirs = (options.dirs || []).concat([ __dirname ]);
-  self._webAssetDir = options.webAssetDir || __dirname + '/public';
+  self._webAssetDir = options.webAssetDir || __dirname;
   // The type property of the page object used to store the snippet, also
   // passed to views for use in CSS classes etc. Should be camel case. These
   // page objects will not have slugs beginning with /
@@ -97,6 +101,8 @@ snippets.Snippets = function(options, callback) {
   // Hyphenated, all lowercase version of same, for CSS classes, permission names, URLs
   self._css = self._apos.cssName(self._instance);
   self._menuName = options.menuName;
+  // All partials generated via self.renderer can see these properties
+  self._rendererGlobals = options.rendererGlobals || {};
 
   if (!typesByInstanceType[self._instance]) {
     typesByInstanceType[self._instance] = [];
@@ -114,7 +120,7 @@ snippets.Snippets = function(options, callback) {
       // Render templates in our own nunjucks context
       self._apos.pushAsset('template', self.renderer(name));
     } else {
-      return self._apos.pushAsset(type, name, self._dirs, self._action);
+      return self._apos.pushAsset(type, name, self._webAssetDir, self._action);
     }
   };
 
@@ -165,10 +171,7 @@ snippets.Snippets = function(options, callback) {
     function prepare(callback) {
       snippet = { title: title, type: self._instance, tags: tags, areas: { body: { items: content } }, slug: slug, createdAt: new Date(), publishedAt: new Date() };
       snippet.sortTitle = self._apos.sortify(snippet.title);
-      if (self.beforeInsert) {
-        return self.beforeInsert(req, snippet, callback);
-      }
-      return callback(null);
+      return self.beforeInsert(req, req.body, snippet, callback);
     }
 
     function insert(callback) {
@@ -184,6 +187,14 @@ snippets.Snippets = function(options, callback) {
     }
   });
 
+  self.beforeInsert = function(req, data, snippet, callback) {
+    return callback(null);
+  };
+
+  self.beforeUpdate = function(req, data, snippet, callback) {
+    return callback(null);
+  };
+
   self._app.post(self._action + '/update', function(req, res) {
     var snippet;
     var title;
@@ -192,15 +203,11 @@ snippets.Snippets = function(options, callback) {
     var slug;
     var tags;
 
-    title = req.body.title.trim();
-    // Validation is annoying, automatic cleanup is awesome
-    if (!title.length) {
-      title = self.getDefaultTitle();
-    }
+    title = self._apos.sanitizeString(req.body.title, self.getDefaultTitle());
 
     tags = req.body.tags;
 
-    originalSlug = req.body.originalSlug;
+    originalSlug = self._apos.sanitizeString(req.body.originalSlug);
     slug = self._apos.slugify(req.body.slug);
     if (!slug.length) {
       slug = originalSlug;
@@ -241,10 +248,7 @@ snippets.Snippets = function(options, callback) {
       snippet.tags = tags;
       snippet.sortTitle = self._apos.sortify(title);
       snippet.areas = { body: { items: content } };
-      if (self.beforeUpdate) {
-        return self.beforeUpdate(req, snippet, callback);
-      }
-      return callback(null);
+      return self.beforeUpdate(req, req.body, snippet, callback);
     }
 
     function update(callback) {
@@ -317,6 +321,117 @@ snippets.Snippets = function(options, callback) {
     }
   });
 
+  self._app.post(self._action + '/import', function(req, res) {
+    var file = req.files.file;
+    var rows = 0;
+    var headings = [];
+    var s = csv().from.stream(fs.createReadStream(file.path));
+    var active = 0;
+    s.on('record', function(row, index) {
+      active++;
+      // s.pause() avoids an explosion of rows being processed simultaneously
+      // by async mongo calls, etc. However note this does not
+      // stop more events from coming in because the parser will
+      // keep going with its current block of raw data. So we still
+      // have to track the number of still-active async handleRow calls ):
+      // Also there is no guarantee imports are in order, however that shouldn't
+      // matter since we always rely on some index such as title or publication date
+      s.pause();
+      if (!index) {
+        handleHeadings(row, afterRow);
+      } else {
+        handleRow(row, function(err) {
+          if (!err) {
+            rows++;
+            return afterRow();
+          } else {
+            console.log(err);
+            s.end();
+          }
+        });
+      }
+      function afterRow() {
+        s.resume();
+        active--;
+      }
+    })
+    .on('error', function(count) {
+      respondWhenDone('error');
+    })
+    .on('end', function(count) {
+      respondWhenDone('ok');
+    });
+
+    function handleHeadings(row, callback) {
+      headings = row;
+      var i;
+      for (i = 0; (i < headings.length); i++) {
+        headings[i] = self._apos.camelName(headings[i]);
+      }
+      return callback();
+    }
+
+    function handleRow(row, callback) {
+      var data = {};
+      var i;
+      for (i = 0; (i < headings.length); i++) {
+        data[headings[i]] = row[i];
+      }
+      self.importCreateItem(req, data, callback);
+    }
+
+    function respondWhenDone(status) {
+      if (active) {
+        return setTimeout(function() { respondWhenDone(status); }, 100);
+      }
+      res.send({ status: status, rows: rows });
+    }
+  });
+
+  self.importCreateItem = function(req, data, callback) {
+    // "Why the try/catch?" Because the CSV reader has some sort of
+    // try/catch of its own that is making it impossible to log any
+    // errors if we don't catch them. TODO: go looking for that and fix it.
+    try {
+      var tags = '';
+      tags = self._apos.sanitizeString(data.tags);
+      tags = self._apos.tagsToArray(tags);
+      var categories = self._apos.sanitizeString(data.categories);
+      categories = self._apos.tagsToArray(categories);
+      tags = tags.concat(categories);
+
+      var snippet = {
+        type: self._instance,
+        areas: {
+          body: {
+            items: [
+              {
+                type: 'richText',
+                content: data.richText || (data.text ? self._apos.escapeHtml(data.text) : '')
+              }
+            ]
+          }
+        },
+        title: data.title || self.getDefaultTitle(),
+        tags: tags
+      };
+      snippet.slug = self._apos.slugify(snippet.title);
+      snippet.sortTitle = self._apos.sortify(snippet.title);
+      self.beforeInsert(req, data, snippet, function(err) {
+        if (err) {
+          return callback(err);
+        }
+        return self.importSaveItem(snippet, callback);
+      });
+    } catch (e) {
+      console.log(e);
+      throw e;
+    }
+  };
+
+  self.importSaveItem = function(snippet, callback) {
+    self._apos.putPage(snippet.slug, snippet, callback);
+  };
 
   self._app.get(self._action + '/get', function(req, res) {
     self.get(req, req.query, function(err, snippets) {
@@ -347,7 +462,6 @@ snippets.Snippets = function(options, callback) {
       res.statusCode = 404;
       return res.send('bad arguments');
     }
-    console.log(options);
     // Format it as value & id properties for compatibility with jquery UI autocomplete
     self.get(req, options, function(err, snippets) {
       return res.send(
@@ -359,8 +473,11 @@ snippets.Snippets = function(options, callback) {
   });
 
   // Serve our assets. This is the final route so it doesn't
-  // beat out the rest. Note we allow overrides for assets too
-  self._app.get(self._action + '/*', self._apos.static(self._webAssetDir));
+  // beat out the rest.
+  //
+  // You don't override js and stylesheet assets, rather you serve more of them
+  // from your own module and enhance what's already in browserland
+  self._app.get(self._action + '/*', self._apos.static(self._webAssetDir + '/public'));
 
   self._apos.addLocal(self._menuName, function(args) {
     var result = self.render('menu', args);
@@ -373,9 +490,15 @@ snippets.Snippets = function(options, callback) {
   };
 
   // Return a function that will render a particular partial looking for overrides in our
-  // preferred places
+  // preferred places. Also merge in any properties of self._rendererGlobals, which can
+  // be set via the rendererGlobals option when the module is configured
+
   self.renderer = function(name) {
     return function(data) {
+      if (!data) {
+        data = {};
+      }
+      _.defaults(data, self._rendererGlobals);
       return self._apos.partial(name, data, _.map(self._dirs, function(dir) { return dir + '/views'; }));
     };
   };
@@ -402,9 +525,6 @@ snippets.Snippets = function(options, callback) {
       callback = optionsArg;
       optionsArg = {};
     }
-
-    console.log('options passed are:');
-    console.log(optionsArg);
 
     var options = {};
     extend(options, optionsArg, true);
@@ -459,11 +579,9 @@ snippets.Snippets = function(options, callback) {
 
     var q = self._apos.pages.find(options, args).sort(sort);
     if (limit !== undefined) {
-      console.log("Limiting to " + limit);
       q.limit(limit);
     }
     if (skip !== undefined) {
-      console.log("Skipping " + skip);
       q.skip(skip);
     }
 
@@ -532,7 +650,6 @@ snippets.Snippets = function(options, callback) {
       self._apos.permissions(req, 'edit-' + self._css, null, function(err) {
         var permissionName = 'edit' + self._apos.capitalizeFirst(self._instance);
         req.extras[permissionName] = !err;
-        console.log('added permission for ' + permissionName + ' set to ' + (!err));
         return callback(null);
       });
     }
@@ -567,10 +684,8 @@ snippets.Snippets = function(options, callback) {
   //
   self.dispatch = function(req, callback) {
     var permalink = false;
-    console.log('in dispatch');
     var criteria = {};
     if (req.remainder.length) {
-      console.log('remainder is: ' + req.remainder);
       // Perhaps it's a snippet permalink
       criteria.slug = req.remainder.substr(1);
       permalink = true;
@@ -631,15 +746,12 @@ snippets.Snippets = function(options, callback) {
 
   self.findBestPage = function(req, snippet, callback) {
     var typeNames = _.map(typesByInstanceType[snippet.type] || [], function(type) { return type.name; });
-    console.log('type names');
-    console.log(typeNames);
     var pages = self._apos.pages.find({ type: { $in: typeNames }, slug: /^\// }).toArray(function(err, pages) {
       if (err) {
         console.log('error is:');
         console.log(err);
         return callback(err);
       }
-      console.log('Matched ' + pages.length + ' pages');
       // Play nice with invocations of findBestPage for other types
       // as part of the same request
       if (!req.bestPageCache) {
@@ -671,21 +783,15 @@ snippets.Snippets = function(options, callback) {
       var tags = snippet.tags || [];
       var bestScore;
       var best = null;
-      console.log('our tags:');
-      console.log(tags);
       _.each(viewable, function(page) {
         var score = 0;
-        console.log(page);
         var pageTags = (page.typeSettings && page.typeSettings.tags) ? page.typeSettings.tags : [];
-        console.log('page tags:');
-        console.log(pageTags);
         if (!pageTags.length) {
           score = 1;
         }
         var intersect = _.intersection(tags, pageTags);
         var diff = _.difference(tags, pageTags);
         score += intersect.length * 2 - diff.length;
-        console.log(snippet.slug + ': ' + page.slug + ': ' + score);
         if ((!best) || (score > bestScore)) {
           bestScore = score;
           best = page;
@@ -715,6 +821,7 @@ snippets.Snippets = function(options, callback) {
   self.pushAsset('template', 'new');
   self.pushAsset('template', 'edit');
   self.pushAsset('template', 'manage');
+  self.pushAsset('template', 'import');
 
   // It's possible to show a collection of recent snippets publicly
   // on a page, and also to access permalink pages for snippets.
