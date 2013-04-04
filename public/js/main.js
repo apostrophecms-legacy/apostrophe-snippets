@@ -262,7 +262,8 @@ function AposSnippets(optionsArg) {
 
           // TODO: looks like it's probably worth having the async module client side
           self.enableArea($el, 'body', snippet.areas.body, function() {
-            self.enableSingleton($el, 'thumbnail', snippet.areas.thumbnail, 'slideshow', { limit: 1, label: 'Thumbnail' }, function() {
+            self.enableSingleton($el, 'thumbnail', snippet.areas.thumbnail, 'slideshow', {
+              limit: 1, label: 'Thumbnail' }, function() {
               self.afterPopulatingEditor($el, snippet, callback);
             });
           });
