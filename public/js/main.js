@@ -149,10 +149,11 @@ function AposSnippets(optionsArg) {
         $snippets.find('[data-item]:not(.apos-template)').remove();
         _.each(snippets, function(snippet) {
           var $snippet = apos.fromTemplate($snippets.find('[data-item].apos-template'));
+
           var $title = $snippet.find('[data-title]');
           $title.text(snippet.title);
           $title.attr('data-slug', snippet.slug);
-          self.addingToManager($snippet, snippet);
+          self.addingToManager($el, $snippet, snippet);
           $snippets.append($snippet);
         });
         self.afterPopulatingManager($el, $snippets, snippets, function() {

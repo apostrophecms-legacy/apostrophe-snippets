@@ -596,8 +596,15 @@ snippets.Snippets = function(options, callback) {
 
     function permissions(callback) {
       async.filter(snippets, function(snippet, callback) {
-        self._apos.permissions(req, editable ? 'edit-' + self._css : 'view-' + self._css, snippet, function(err) {
-          return callback(!err);
+        self._apos.permissions(req, 'edit-' + self._css, snippet, function(err) {
+          if (editable) {
+            return callback(!err);
+          } else {
+            snippet._edit = !err;
+            self._apos.permissions(req, 'view-' + self._css, snippet, function(err) {
+              return callback(!err);
+            });
+          }
         });
       }, function(snippetsArg) {
         snippets = snippetsArg;
