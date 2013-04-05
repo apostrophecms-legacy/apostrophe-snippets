@@ -44,10 +44,20 @@
   </fieldset>
 {% endmacro %}
 
+{# See enableArea in snippets' main.js for the necessary plumbing, including #}
+{# specifying the type we want for the singleton #}
+{% macro snippetSingleton(name, label) %}
+  <fieldset class="apos-editor-fieldset">
+    <label>{{ name }}</label>
+    {# js adds this singleton to the dialog #}
+    <div data-{{ name }}-edit-view></div>
+  </fieldset>
+{% endmacro %}
+
 {# See enableArea in snippets' main.js for the necessary plumbing #}
 {% macro snippetArea(name, label) %}
   <fieldset class="apos-editor-fieldset">
-    <label>Body</label>
+    <label>{{ label | e }}</label>
     {# js adds this area to the dialog #}
     <div data-{{ name }}-edit-view></div>
   </fieldset>

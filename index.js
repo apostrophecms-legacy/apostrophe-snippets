@@ -142,6 +142,7 @@ snippets.Snippets = function(options, callback) {
   self._app.post(self._action + '/insert', function(req, res) {
     var snippet;
     var title;
+    var thumbnail;
     var content;
     var slug;
     var tags;
@@ -152,6 +153,9 @@ snippets.Snippets = function(options, callback) {
       title = self.getDefaultTitle();
     }
     slug = self._apos.slugify(title);
+
+    thumbnailContent = JSON.parse(req.body.thumbnail);
+    self._apos.sanitizeItems(thumbnailContent);
 
     content = JSON.parse(req.body.content);
     self._apos.sanitizeItems(content);
@@ -169,7 +173,7 @@ snippets.Snippets = function(options, callback) {
     }
 
     function prepare(callback) {
-      snippet = { title: title, type: self._instance, tags: tags, areas: { body: { items: content } }, slug: slug, createdAt: new Date(), publishedAt: new Date() };
+      snippet = { title: title, type: self._instance, tags: tags, areas: { thumbnail: { items: thumbnailContent }, body: { items: content } }, slug: slug, createdAt: new Date(), publishedAt: new Date() };
       snippet.sortTitle = self._apos.sortify(snippet.title);
       return self.beforeInsert(req, req.body, snippet, callback);
     }
@@ -213,6 +217,9 @@ snippets.Snippets = function(options, callback) {
       slug = originalSlug;
     }
 
+    thumbnailContent = JSON.parse(req.body.thumbnail);
+    self._apos.sanitizeItems(thumbnailContent);
+
     content = JSON.parse(req.body.content);
     self._apos.sanitizeItems(content);
 
@@ -247,7 +254,7 @@ snippets.Snippets = function(options, callback) {
       snippet.slug = slug;
       snippet.tags = tags;
       snippet.sortTitle = self._apos.sortify(title);
-      snippet.areas = { body: { items: content } };
+      snippet.areas = { thumbnail: { items: thumbnailContent }, body: { items: content } };
       return self.beforeUpdate(req, req.body, snippet, callback);
     }
 
@@ -597,8 +604,15 @@ snippets.Snippets = function(options, callback) {
 
     function permissions(callback) {
       async.filter(snippets, function(snippet, callback) {
-        self._apos.permissions(req, editable ? 'edit-' + self._css : 'view-' + self._css, snippet, function(err) {
-          return callback(!err);
+        self._apos.permissions(req, 'edit-' + self._css, snippet, function(err) {
+          if (editable) {
+            return callback(!err);
+          } else {
+            snippet._edit = !err;
+            self._apos.permissions(req, 'view-' + self._css, snippet, function(err) {
+              return callback(!err);
+            });
+          }
         });
       }, function(snippetsArg) {
         snippets = snippetsArg;
