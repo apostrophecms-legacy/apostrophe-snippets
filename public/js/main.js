@@ -54,8 +54,10 @@ function AposSnippets(optionsArg) {
         return self.insertOrUpdate($el, 'insert', {}, callback);
       },
       init: function(callback) {
-        return self.enableArea($el, 'body', [], function() {
-          self.afterPopulatingEditor($el, {}, callback);
+        return self.enableArea($el, 'body', null, function() {
+          return self.enableSingleton($el, 'thumbnail', null, 'slideshow', { limit: 1, label: 'Thumbnail' }, function() {
+            self.afterPopulatingEditor($el, {}, callback);
+          });
         });
       }
     });
@@ -81,13 +83,72 @@ function AposSnippets(optionsArg) {
     return callback();
   };
 
-  self.enableArea = function($el, name, content, callback) {
-    $.post('/apos/edit-virtual-area', { content: JSON.stringify(content) }, function(data) {
-        var editView = $el.find('[data-' + name + '-edit-view]');
-        editView.append(data);
-        return callback(null);
-      }
-    );
+  self.enableSingleton = function($el, name, area, type, optionsArg, callback) {
+    if (typeof(optionsArg) === 'function') {
+      callback = optionsArg;
+      optionsArg = {};
+    }
+    var items = [];
+    if (area && area.items) {
+      items = area.items;
+    }
+
+    var options = {};
+    $.extend(options, optionsArg);
+    $.extend(options, {
+      type: type
+    });
+
+    refreshSingleton(items, callback);
+
+    function refreshSingleton(items, callback) {
+      options.content = JSON.stringify(items);
+      $.post('/apos/edit-virtual-singleton', options, function(data) {
+        var $editView = $el.find('[data-' + name + '-edit-view]');
+        $editView.html('');
+        $editView.append(data);
+
+        // getSingletonJSON will pick it up from here
+        $editView.data('items', items);
+
+        // If an edit takes place, refresh so we can see the new preview here
+        // in the form. This isn't an issue with areas since they are always
+        // in the edit state in a form. TODO: consider whether it would be
+        // better to create a container that allows widgets to be rendered
+        // inline, without a nested dialog box
+
+        var $singleton = $editView.find('.apos-singleton:first');
+        $singleton.bind('apos-edited', function(e, data) {
+          refreshSingleton([data]);
+        });
+
+        if (callback) {
+          return callback(null);
+        }
+      });
+    }
+  };
+
+  self.enableArea = function($el, name, area, callback) {
+    var items = [];
+    if (area && area.items) {
+      items = area.items;
+    }
+    $.post('/apos/edit-virtual-area', { content: JSON.stringify(items) }, function(data) {
+      var $editView = $el.find('[data-' + name + '-edit-view]');
+      $editView.append(data);
+      return callback(null);
+    });
+  };
+
+  self.getSingletonJSON = function($el, name) {
+    var items = $el.find('[data-' + name + '-edit-view]').data('items');
+    items = items || [];
+    return JSON.stringify(items);
+  };
+
+  self.getAreaJSON = function($el, name) {
+    return apos.stringifyArea($el.find('[data-' + name + '-edit-view] [data-editable]'));
   };
 
   self.insertOrUpdate = function($el, action, options, callback) {
@@ -96,7 +157,8 @@ function AposSnippets(optionsArg) {
       tags: apos.tagsToArray($el.find('[name="tags"]').val()),
       slug: $el.find('[name="slug"]').val(),
       type: $el.find('[name="type"]').val(),
-      content: apos.stringifyArea($el.find('[data-editable]')),
+      thumbnail: self.getSingletonJSON($el, 'thumbnail'),
+      content: self.getAreaJSON($el, 'body'),
       originalSlug: options.slug
     };
 
@@ -199,8 +261,12 @@ function AposSnippets(optionsArg) {
             return false;
           });
 
-          self.enableArea($el, 'body', snippet.areas.body ? snippet.areas.body.items : [], function() {
-            self.afterPopulatingEditor($el, snippet, callback);
+          // TODO: looks like it's probably worth having the async module client side
+          self.enableArea($el, 'body', snippet.areas.body, function() {
+            self.enableSingleton($el, 'thumbnail', snippet.areas.thumbnail, 'slideshow', {
+              limit: 1, label: 'Thumbnail' }, function() {
+              self.afterPopulatingEditor($el, snippet, callback);
+            });
           });
         });
       }
