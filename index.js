@@ -5,6 +5,7 @@ var fs = require('fs');
 var widget = require(__dirname + '/widget.js');
 var async = require('async');
 var csv = require('csv');
+var moment = require('moment');
 
 // GUIDE TO USE
 //
@@ -334,6 +335,8 @@ snippets.Snippets = function(options, callback) {
     var headings = [];
     var s = csv().from.stream(fs.createReadStream(file.path));
     var active = 0;
+    var date = new Date();
+    req.aposImported = moment().format();
     s.on('record', function(row, index) {
       active++;
       // s.pause() avoids an explosion of rows being processed simultaneously
@@ -354,6 +357,7 @@ snippets.Snippets = function(options, callback) {
           } else {
             console.log(err);
             s.end();
+            active--;
           }
         });
       }
@@ -379,6 +383,10 @@ snippets.Snippets = function(options, callback) {
     }
 
     function handleRow(row, callback) {
+      // Ignore blank rows without an error
+      if (!_.some(row, function(column) { return column !== ''; })) {
+        return callback(null);
+      }
       var data = {};
       var i;
       for (i = 0; (i < headings.length); i++) {
@@ -424,6 +432,9 @@ snippets.Snippets = function(options, callback) {
       };
       snippet.slug = self._apos.slugify(snippet.title);
       snippet.sortTitle = self._apos.sortify(snippet.title);
+      // Record when the import happened so that later we can offer a UI
+      // to find these groups and remove them if desired
+      snippet.imported = req.aposImported;
       self.beforeInsert(req, data, snippet, function(err) {
         if (err) {
           return callback(err);
@@ -584,6 +595,7 @@ snippets.Snippets = function(options, callback) {
     // model wasn't perfect but it was something you could do by joining tables.
 
     var q = self._apos.pages.find(options, args).sort(sort);
+    limit = 100;
     if (limit !== undefined) {
       q.limit(limit);
     }
