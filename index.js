@@ -563,7 +563,6 @@ snippets.Snippets = function(options, callback) {
     if (limit !== undefined) {
       delete options['limit'];
     }
-
     var skip = options.skip || undefined;
     if (skip !== undefined) {
       delete options['skip'];
@@ -595,7 +594,6 @@ snippets.Snippets = function(options, callback) {
     // model wasn't perfect but it was something you could do by joining tables.
 
     var q = self._apos.pages.find(options, args).sort(sort);
-    limit = 100;
     if (limit !== undefined) {
       q.limit(limit);
     }
@@ -604,11 +602,14 @@ snippets.Snippets = function(options, callback) {
     }
 
     var snippets;
+    var got;
+
     async.series([loadSnippets, permissions, loadWidgets], done);
 
     function loadSnippets(callback) {
       q.toArray(function(err, snippetsArg) {
         snippets = snippetsArg;
+        got = snippets.length;
         return callback(err);
       });
     }
@@ -620,6 +621,12 @@ snippets.Snippets = function(options, callback) {
             return callback(!err);
           } else {
             snippet._edit = !err;
+            // Good way to test the retry mechanism that fills the gap if
+            // some of the snippets lack permissions for this user
+            // if (Math.random() < 0.5) {
+            //   console.log('randomly flunking view permissions');
+            //   return callback(false);
+            // }
             self._apos.permissions(req, 'view-' + self._css, snippet, function(err) {
               return callback(!err);
             });
@@ -643,6 +650,35 @@ snippets.Snippets = function(options, callback) {
     }
 
     function done(err) {
+      // If there are more items potentially available in the database, and we
+      // dropped some due to a lack of view or edit permissions, we should go back
+      // and get some more. We can get rid of this if we manage to implement
+      // permissions as part of queries later, but it usually doesn't have to be
+      // invoked zillions of times before we get the original desired number.
+      if ((!err) && limit && (got === limit) && (snippets.length < got)) {
+        var options = {};
+        extend(options, optionsArg, true);
+        var oldSkip = options.skip || 0;
+        options.skip = oldSkip + limit;
+        // This is not ideal because we'll request fewer and fewer items on
+        // each try, eventually requesting one at a time. TODO: improve this
+        // algorithm to keep fetching more but not get confused about what
+        // the final goal is.
+        options.limit = limit - snippets.length;
+        return self.get(req, options, function(err, moreSnippets) {
+          var i;
+          for (i = 0; (i < moreSnippets.length); i++) {
+            if (snippets.length >= limit) {
+              break;
+            }
+            snippets.push(moreSnippets[i]);
+          }
+          return callback(err, snippets);
+        });
+      }
+      if (err) {
+        return callback(err);
+      }
       return callback(null, snippets);
     }
   };
