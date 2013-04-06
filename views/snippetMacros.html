@@ -47,7 +47,7 @@
 {# See enableArea in snippets' main.js for the necessary plumbing, including #}
 {# specifying the type we want for the singleton #}
 {% macro snippetSingleton(name, label) %}
-  <fieldset class="apos-fieldset apos-fieldset-editor">
+  <fieldset class="apos-fieldset apos-fieldset-singleton">
     <label>{{ name }}</label>
     {# js adds this singleton to the dialog #}
     <div data-{{ name }}-edit-view></div>
