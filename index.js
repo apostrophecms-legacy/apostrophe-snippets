@@ -5,6 +5,7 @@ var fs = require('fs');
 var widget = require(__dirname + '/widget.js');
 var async = require('async');
 var csv = require('csv');
+var moment = require('moment');
 
 // GUIDE TO USE
 //
@@ -334,6 +335,8 @@ snippets.Snippets = function(options, callback) {
     var headings = [];
     var s = csv().from.stream(fs.createReadStream(file.path));
     var active = 0;
+    var date = new Date();
+    req.aposImported = moment().format();
     s.on('record', function(row, index) {
       active++;
       // s.pause() avoids an explosion of rows being processed simultaneously
@@ -354,6 +357,7 @@ snippets.Snippets = function(options, callback) {
           } else {
             console.log(err);
             s.end();
+            active--;
           }
         });
       }
@@ -379,6 +383,10 @@ snippets.Snippets = function(options, callback) {
     }
 
     function handleRow(row, callback) {
+      // Ignore blank rows without an error
+      if (!_.some(row, function(column) { return column !== ''; })) {
+        return callback(null);
+      }
       var data = {};
       var i;
       for (i = 0; (i < headings.length); i++) {
@@ -424,6 +432,9 @@ snippets.Snippets = function(options, callback) {
       };
       snippet.slug = self._apos.slugify(snippet.title);
       snippet.sortTitle = self._apos.sortify(snippet.title);
+      // Record when the import happened so that later we can offer a UI
+      // to find these groups and remove them if desired
+      snippet.imported = req.aposImported;
       self.beforeInsert(req, data, snippet, function(err) {
         if (err) {
           return callback(err);
@@ -552,7 +563,6 @@ snippets.Snippets = function(options, callback) {
     if (limit !== undefined) {
       delete options['limit'];
     }
-
     var skip = options.skip || undefined;
     if (skip !== undefined) {
       delete options['skip'];
@@ -592,11 +602,14 @@ snippets.Snippets = function(options, callback) {
     }
 
     var snippets;
+    var got;
+
     async.series([loadSnippets, permissions, loadWidgets], done);
 
     function loadSnippets(callback) {
       q.toArray(function(err, snippetsArg) {
         snippets = snippetsArg;
+        got = snippets.length;
         return callback(err);
       });
     }
@@ -608,6 +621,12 @@ snippets.Snippets = function(options, callback) {
             return callback(!err);
           } else {
             snippet._edit = !err;
+            // Good way to test the retry mechanism that fills the gap if
+            // some of the snippets lack permissions for this user
+            // if (Math.random() < 0.5) {
+            //   console.log('randomly flunking view permissions');
+            //   return callback(false);
+            // }
             self._apos.permissions(req, 'view-' + self._css, snippet, function(err) {
               return callback(!err);
             });
@@ -631,6 +650,35 @@ snippets.Snippets = function(options, callback) {
     }
 
     function done(err) {
+      // If there are more items potentially available in the database, and we
+      // dropped some due to a lack of view or edit permissions, we should go back
+      // and get some more. We can get rid of this if we manage to implement
+      // permissions as part of queries later, but it usually doesn't have to be
+      // invoked zillions of times before we get the original desired number.
+      if ((!err) && limit && (got === limit) && (snippets.length < got)) {
+        var options = {};
+        extend(options, optionsArg, true);
+        var oldSkip = options.skip || 0;
+        options.skip = oldSkip + limit;
+        // This is not ideal because we'll request fewer and fewer items on
+        // each try, eventually requesting one at a time. TODO: improve this
+        // algorithm to keep fetching more but not get confused about what
+        // the final goal is.
+        options.limit = limit - snippets.length;
+        return self.get(req, options, function(err, moreSnippets) {
+          var i;
+          for (i = 0; (i < moreSnippets.length); i++) {
+            if (snippets.length >= limit) {
+              break;
+            }
+            snippets.push(moreSnippets[i]);
+          }
+          return callback(err, snippets);
+        });
+      }
+      if (err) {
+        return callback(err);
+      }
       return callback(null, snippets);
     }
   };

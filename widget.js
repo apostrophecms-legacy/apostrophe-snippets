@@ -52,7 +52,6 @@ widget.Widget = function(options) {
     },
 
     render: function(data) {
-      console.log('rendering the widget');
       return self.snippets.render('widget', data);
     },
 
@@ -68,6 +67,9 @@ widget.Widget = function(options) {
         }
       } else if ((item.by === 'id') && (item.ids)) {
         criteria._id = { $in: item.ids };
+      }
+      if (item.limit) {
+        criteria.limit = item.limit;
       }
 
       self.snippets.get(req, criteria, function(err, snippets) {
