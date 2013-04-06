@@ -86,6 +86,8 @@ snippets.Snippets = function(options, callback) {
   // These are "public" so the object can be passed directly to pages.addType
   self.name = options.name || 'snippets';
   self.label = options.label || 'Snippets';
+  // Used just for the widget right now, could be handy elsewhere
+  self.icon = options.icon || 'snippets';
 
   // "Protected" properties. We want modules like the blog to be able
   // to access these, thus no variables defined in the closure
@@ -908,7 +910,7 @@ snippets.Snippets = function(options, callback) {
   self._apos.pushGlobalCall('@.replaceType(?, new @())', browser.pages, self.name, browser.construct);
 
   if (options.widget) {
-    widget({ apos: self._apos, app: self._app, snippets: self, name: self.name, label: self.label });
+    widget({ apos: self._apos, icon: self.icon, app: self._app, snippets: self, name: self.name, label: self.label });
     self._apos.pushGlobalCall('@.addWidgetType()', browser.construct);
   }
 

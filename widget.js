@@ -12,6 +12,7 @@ widget.Widget = function(options) {
   self.apos = options.apos;
   self.snippets = options.snippets;
   self.app = options.app;
+  self.icon = options.icon;
 
   self.name = options.name || 'snippets';
   self.label = options.label || 'Snippets';
@@ -37,7 +38,7 @@ widget.Widget = function(options) {
     widget: true,
     label: self.label,
     css: self.apos.cssName(self.name),
-
+    icon: self.icon,
     sanitize: function(item) {
       item.by += '';
       item.tags = self.apos.sanitizeTags(item.tags);
