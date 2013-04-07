@@ -907,6 +907,7 @@ snippets.Snippets = function(options, callback) {
     pages: browserOptions.pages || 'aposPages',
     construct: browserOptions.construct || getManagerName(self._instance)
   };
+  self._pages.addType(self);
   self._apos.pushGlobalCall('@.replaceType(?, new @())', browser.pages, self.name, browser.construct);
 
   if (options.widget) {
