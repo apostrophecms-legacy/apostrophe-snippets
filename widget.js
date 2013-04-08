@@ -47,9 +47,10 @@ widget.Widget = function(options) {
       }
       item.ids = _.map(item.ids, function(id) {
         // Must be string
-        id += '';
+        id = self.apos.sanitizeString(id);
         return id;
       });
+      item.limit = self.apos.sanitizeInteger(item.limit, 5, 1, 1000);
     },
 
     render: function(data) {
