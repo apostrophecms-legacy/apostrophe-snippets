@@ -1,5 +1,4 @@
 {% for snippet in item._snippets %}
-  {{ aposSingleton({ area: snippet.areas.thumbnail, type: 'slideshow', limit: 1 }) }}
   <h4>
     {% if snippet.url %}
       <a href="{{ snippet.url }}">

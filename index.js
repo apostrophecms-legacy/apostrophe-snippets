@@ -589,6 +589,7 @@ snippets.Snippets = function(options, callback) {
       args.fields = fields;
     }
 
+    console.log(options);
 
     // TODO: with many snippets there is a performance problem with calling
     // permissions separately on them. Pagination will have to be performed
@@ -753,10 +754,7 @@ snippets.Snippets = function(options, callback) {
       criteria.slug = req.remainder.substr(1);
       permalink = true;
     }
-
-    if (req.page.typeSettings && req.page.typeSettings.tags && req.page.typeSettings.tags.length) {
-      criteria.tags = { $in: req.page.typeSettings.tags };
-    }
+    self.addCriteria(req, criteria);
     self.get(req, criteria, function(err, snippets) {
       if (err) {
         return callback(err);
@@ -778,6 +776,11 @@ snippets.Snippets = function(options, callback) {
     });
   };
 
+  self.addCriteria = function(req, criteria) {
+    if (req.page.typeSettings && req.page.typeSettings.tags && req.page.typeSettings.tags.length) {
+      criteria.tags = { $in: req.page.typeSettings.tags };
+    }
+  };
 
   // When a snippet (such as a blog post by Dave) appears as a callout on another
   // page, there is a need to create a suitable permalink back to its page of origin
