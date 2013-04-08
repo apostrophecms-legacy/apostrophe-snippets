@@ -12,6 +12,7 @@ widget.Widget = function(options) {
   self.apos = options.apos;
   self.snippets = options.snippets;
   self.app = options.app;
+  self.icon = options.icon;
 
   self.name = options.name || 'snippets';
   self.label = options.label || 'Snippets';
@@ -37,7 +38,7 @@ widget.Widget = function(options) {
     widget: true,
     label: self.label,
     css: self.apos.cssName(self.name),
-
+    icon: self.icon,
     sanitize: function(item) {
       item.by += '';
       item.tags = self.apos.sanitizeTags(item.tags);
@@ -52,7 +53,6 @@ widget.Widget = function(options) {
     },
 
     render: function(data) {
-      console.log('rendering the widget');
       return self.snippets.render('widget', data);
     },
 
@@ -68,6 +68,9 @@ widget.Widget = function(options) {
         }
       } else if ((item.by === 'id') && (item.ids)) {
         criteria._id = { $in: item.ids };
+      }
+      if (item.limit) {
+        criteria.limit = item.limit;
       }
 
       self.snippets.get(req, criteria, function(err, snippets) {
