@@ -279,16 +279,19 @@ snippets.Snippets = function(options, callback) {
     }
   });
 
-  self._app.post(self._action + '/delete', function(req, res) {
-
-    async.series([ get, permissions, beforeDelete, deleteSnippet], respond);
+  self._app.post(self._action + '/trash', function(req, res) {
+    async.series([ get, permissions, beforeTrash, trashSnippet], respond);
 
     var slug;
     var snippet;
+    console.log(req.query);
+    console.log(req.body);
+    var trash = self._apos.sanitizeBoolean(req.body.trash);
+    console.log(trash);
 
     function get(callback) {
       slug = req.body.slug;
-      return self._apos.getPage(req, slug, function(err, snippetArg) {
+      return self._apos.pages.findOne({ slug: slug }, function(err, snippetArg) {
         snippet = snippetArg;
         if(!snippet) {
           return callback('Not Found');
@@ -301,33 +304,39 @@ snippets.Snippets = function(options, callback) {
     }
 
     function permissions(callback) {
-      return self._apos.permissions(req, 'delete-' + self._instance, snippet, function(err) {
+      return self._apos.permissions(req, 'edit-' + self._instance, snippet, function(err) {
         // If there is no permissions error then we are cool
-        // enough to delete the post
+        // enough to trash the post
         return callback(err);
       });
     }
 
-    function beforeDelete(callback) {
-      if (self.beforeDelete) {
-        return self.beforeDelete(req, snippet, callback);
+    function beforeTrash(callback) {
+      if (self.beforeTrash) {
+        return self.beforeTrash(req, snippet, trash, callback);
       }
       return callback(null);
     }
 
-    function deleteSnippet(callback) {
-      self._apos.pages.remove({slug: snippet.slug}, callback);
+    function trashSnippet(callback) {
+      var action;
+      if (trash) {
+        console.log('trashing');
+        action = { $set: { trash: true } };
+      } else {
+        console.log('untrashing');
+        action = { $unset: { trash: true } };
+      }
+      self._apos.pages.update({slug: snippet.slug}, action, callback);
     }
 
     function respond(err) {
       if (err) {
-        return res.send(JSON.stringify({
-          status: err
-        }));
+        res.statusCode = 404;
+        return res.send(err);
       }
-      return res.send(JSON.stringify({
-        status: 'ok'
-      }));
+      res.statusCode = 200;
+      return res.send('ok');
     }
   });
 
@@ -551,6 +560,21 @@ snippets.Snippets = function(options, callback) {
 
     // Consume special options then remove them, turning the rest into mongo criteria
 
+    var trash = (options.trash === undefined) ? false : options.trash;
+    if (options.trash !== undefined) {
+      delete options['trash'];
+    }
+    // Accepts 1 and 0 as strings as truth values for convenience in query strings
+    if (trash === 'any') {
+      // Show both
+    } else if ((!trash) || (trash === '0')) {
+      // Show non-trash
+      options.trash = { $exists: false };
+    } else {
+      // Show trash
+      options.trash = true;
+    }
+
     var editable = options.editable;
     if (options.editable !== undefined) {
       delete options['editable'];
@@ -589,12 +613,11 @@ snippets.Snippets = function(options, callback) {
       args.fields = fields;
     }
 
-    console.log(options);
-
     // TODO: with many snippets there is a performance problem with calling
     // permissions separately on them. Pagination will have to be performed
     // manually after all permissions have been checked. The A1.5 permissions
     // model wasn't perfect but it was something you could do by joining tables.
+    // We can fix it by just storing the permissions for a page in the page.
 
     var q = self._apos.pages.find(options, args).sort(sort);
     if (limit !== undefined) {

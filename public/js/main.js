@@ -37,6 +37,10 @@ function AposSnippets(optionsArg) {
   self._action = '/apos-' + self._css;
   self._pages = options.pages;
 
+  function triggerRefresh(callback) {
+    $el.trigger('apos-change-' + self._css, callback);
+  }
+
   self.settings = {
     serialize: function($el, $details) {
       var data = { tags: apos.tagsToArray($details.find('[name="typeSettings[tags]"]').val()) };
@@ -189,32 +193,67 @@ function AposSnippets(optionsArg) {
     }
   };
 
+  self.filters = {};
+
+  self.addFilterDefaults = function() {
+    self.filters.trash = 0;
+  };
+
+  self.addFilterDefaults();
+
   // Manage all snippets
   $('body').on('click', '[data-manage-' + self._css + ']', function() {
     var snippets;
+
+    self.addFilterDefaults();
+
     $el = apos.modalFromTemplate('.apos-manage-' + self._css, {
       init: function(callback) {
         // We want to know if a snippet is modified
         $el.attr('data-apos-trigger-' + self._css, '');
         // Trigger an initial refresh
-        $el.trigger('apos-change-' + self._css, callback);
+        triggerRefresh(callback);
       }
     });
 
-    // Allows things like the new snippet and edit snippet dialogs to
-    // tell us we should refresh our list
+    $el.on('click', '[data-live]', function() {
+      self.filters.trash = 0;
+      triggerRefresh();
+    });
+
+    $el.on('click', '[data-trash]', function() {
+      self.filters.trash = 1;
+      triggerRefresh();
+    });
+
+    // Using an event allows things like the new snippet and edit snippet dialogs to
+    // tell us we should refresh our list and UI
 
     $el.on('apos-change-' + self._css, function(e, callback) {
-      $.getJSON(self._action + '/get', { editable: true }, function(data) {
+      var criteria = { editable: 1 };
+      $.extend(true, criteria, self.filters);
+
+      // Make sure the filter UI reflects the filter state
+      if (self.filters.trash) {
+        $el.find('[data-trash]').addClass('apos-snippet-filter-active');
+        $el.find('[data-live]').removeClass('apos-snippet-filter-active');
+      } else {
+        $el.find('[data-live]').addClass('apos-snippet-filter-active');
+        $el.find('[data-trash]').removeClass('apos-snippet-filter-active');
+      }
+
+      $.getJSON(self._action + '/get', criteria, function(data) {
         snippets = data;
         $snippets = $el.find('[data-items]');
         $snippets.find('[data-item]:not(.apos-template)').remove();
         _.each(snippets, function(snippet) {
           var $snippet = apos.fromTemplate($snippets.find('[data-item].apos-template'));
-
           var $title = $snippet.find('[data-title]');
           $title.text(snippet.title);
           $title.attr('data-slug', snippet.slug);
+          if (snippet.trash) {
+            $title.attr('data-trash', 1);
+          }
           self.addingToManager($el, $snippet, snippet);
           $snippets.append($snippet);
         });
@@ -231,6 +270,24 @@ function AposSnippets(optionsArg) {
   $('body').on('click', '[data-edit-' + self._css + ']', function() {
     var slug = $(this).data('slug');
     var snippet;
+
+    if ($(this).data('trash')) {
+      if (confirm('Bring this item back from the trash?')) {
+        $.ajax({
+          url: self._action + '/trash',
+          data: { slug: slug, trash: 0 },
+          type: 'POST',
+          success: function() {
+            triggerRefresh();
+          },
+          error: function() {
+            alert('You do not have access or the item has been deleted.');
+          }
+        });
+      }
+      return false;
+    }
+
     var $el = apos.modalFromTemplate('.apos-edit-' + self._css, {
       save: save,
       init: function(callback) {
@@ -250,14 +307,20 @@ function AposSnippets(optionsArg) {
           apos.suggestSlugOnTitleEdits($el.find('[name=title]'), $el.find('[name=slug]'));
 
           $el.on('click', '[data-action="delete"]', function() {
-            // TODO this should obviously be a pretty confirmation dialog
-            // with a type specific, internationalizable message
-            if (confirm('Are you sure you want to delete this permanently and forever?')) {
-              $.post(self._action + '/delete', { slug: slug }, function(data) {
-                apos.change(self._css);
+            apos.log('posting trash');
+            $.ajax({
+              url: self._action + '/trash',
+              data: { slug: slug, trash: 1 },
+              type: 'POST',
+              success: function() {
+                apos.log('trash success');
+                triggerRefresh();
                 $el.trigger('aposModalHide');
-              }, 'json');
-            }
+              },
+              error: function() {
+                alert('You do not have access or the item has been deleted.');
+              }
+            });
             return false;
           });
 
