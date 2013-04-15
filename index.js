@@ -165,15 +165,7 @@ snippets.Snippets = function(options, callback) {
 
     tags = req.body.tags;
 
-    async.series([ permissions, prepare, insert ], send);
-
-    function permissions(callback) {
-      return self._apos.permissions(req, 'edit-' + self._instance, null, function(err) {
-        // If there is no permissions error then we are cool
-        // enough to create a post
-        return callback(err);
-      });
-    }
+    async.series([ prepare, insert ], send);
 
     function prepare(callback) {
       snippet = { title: title, type: self._instance, tags: tags, areas: { thumbnail: { items: thumbnailContent }, body: { items: content } }, slug: slug, createdAt: new Date(), publishedAt: new Date() };
@@ -182,7 +174,7 @@ snippets.Snippets = function(options, callback) {
     }
 
     function insert(callback) {
-      return self._apos.putPage(slug, snippet, callback);
+      return self._apos.putPage(req, slug, snippet, callback);
     }
 
     function send(err) {
@@ -226,7 +218,7 @@ snippets.Snippets = function(options, callback) {
     content = JSON.parse(req.body.content);
     self._apos.sanitizeItems(content);
 
-    async.series([ getSnippet, permissions, massage, update, redirect ], send);
+    async.series([ getSnippet, massage, update, redirect ], send);
 
     function getSnippet(callback) {
       self._apos.getPage(req, originalSlug, function(err, page) {
@@ -244,14 +236,6 @@ snippets.Snippets = function(options, callback) {
       });
     }
 
-    function permissions(callback) {
-      return self._apos.permissions(req, 'edit-' + self._instance, snippet, function(err) {
-        // If there is no permissions error then we are cool
-        // enough to create a snippet
-        return callback(err);
-      });
-    }
-
     function massage(callback) {
       snippet.title = title;
       snippet.slug = slug;
@@ -262,7 +246,7 @@ snippets.Snippets = function(options, callback) {
     }
 
     function update(callback) {
-      self._apos.putPage(originalSlug, snippet, callback);
+      self._apos.putPage(req, originalSlug, snippet, callback);
     }
 
     function redirect(callback) {
@@ -304,7 +288,7 @@ snippets.Snippets = function(options, callback) {
     }
 
     function permissions(callback) {
-      return self._apos.permissions(req, 'edit-' + self._instance, snippet, function(err) {
+      return self._apos.permissions(req, 'edit-page', snippet, function(err) {
         // If there is no permissions error then we are cool
         // enough to trash the post
         return callback(err);
@@ -450,7 +434,7 @@ snippets.Snippets = function(options, callback) {
         if (err) {
           return callback(err);
         }
-        return self.importSaveItem(snippet, callback);
+        return self.importSaveItem(req, snippet, callback);
       });
     } catch (e) {
       console.log(e);
@@ -458,8 +442,8 @@ snippets.Snippets = function(options, callback) {
     }
   };
 
-  self.importSaveItem = function(snippet, callback) {
-    self._apos.putPage(snippet.slug, snippet, callback);
+  self.importSaveItem = function(req, snippet, callback) {
+    self._apos.putPage(req, snippet.slug, snippet, callback);
   };
 
   self._app.get(self._action + '/get', function(req, res) {
@@ -642,7 +626,7 @@ snippets.Snippets = function(options, callback) {
 
     function permissions(callback) {
       async.filter(snippets, function(snippet, callback) {
-        self._apos.permissions(req, 'edit-' + self._css, snippet, function(err) {
+        self._apos.permissions(req, 'edit-page', snippet, function(err) {
           if (editable) {
             return callback(!err);
           } else {
@@ -653,7 +637,7 @@ snippets.Snippets = function(options, callback) {
             //   console.log('randomly flunking view permissions');
             //   return callback(false);
             // }
-            self._apos.permissions(req, 'view-' + self._css, snippet, function(err) {
+            self._apos.permissions(req, 'view-page', snippet, function(err) {
               return callback(!err);
             });
           }
@@ -713,7 +697,7 @@ snippets.Snippets = function(options, callback) {
   // the pages module's `serve` method.
   //
   // If the page type group is not "snippet" (or as overridden via self._instance),
-  // self loader does nothing.
+  // this loader does nothing.
   //
   // Otherwise, if the page matches the URL
   // exactly, self function serves up the "main index" page of the snippet
@@ -723,9 +707,9 @@ snippets.Snippets = function(options, callback) {
   // URL to decide what to do. If the remainder is a slug, the snippet with that
   // slug is served (a "permalink page").
   //
-  // "Why would you want to make snippets public like self?" You wouldn't. But in
-  // a module that inherits from self one, like the blog module, self is the starting
-  // point for serving up blogs and permalink pages.
+  // "Why would you want to give snippets permalinks?" You typically wouldn't. But in
+  // a module that inherits from snippets, like the blog module, this is the starting
+  // point for serving up blogs (index pages) and permalink pages.
 
   self.loader = function(req, callback) {
     async.series([permissions, go], callback);
