@@ -53,6 +53,11 @@ function AposSnippets(optionsArg) {
 
   // Make a new snippet
   $('body').on('click', '[data-new-' + self._css + ']', function() {
+    self.launchNew();
+    return false;
+  });
+
+  self.launchNew = function() {
     var $el = apos.modalFromTemplate('.apos-new-' + self._css, {
       save: function(callback) {
         return self.insertOrUpdate($el, 'insert', {}, callback);
@@ -63,10 +68,12 @@ function AposSnippets(optionsArg) {
             self.afterPopulatingEditor($el, {}, callback);
           });
         });
+      },
+      next: function() {
+        self.launchNew();
       }
     });
-    return false;
-  });
+  };
 
   self.addingToManager = function($el, $snippet, snippet) {
   };
