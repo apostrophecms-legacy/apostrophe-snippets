@@ -269,8 +269,6 @@ function AposSnippets(optionsArg) {
   // Edit one snippet
   $('body').on('click', '[data-edit-' + self._css + ']', function() {
     var slug = $(this).data('slug');
-    var snippet;
-
     if ($(this).data('trash')) {
       if (confirm('Bring this item back from the trash?')) {
         $.ajax({
@@ -286,8 +284,14 @@ function AposSnippets(optionsArg) {
         });
       }
       return false;
+    } else {
+      self.edit(slug);
+      return false;
     }
+  });
 
+  self.edit = function(slug) {
+    var relaunch = false;
     var $el = apos.modalFromTemplate('.apos-edit-' + self._css, {
       save: save,
       init: function(callback) {
@@ -324,6 +328,17 @@ function AposSnippets(optionsArg) {
             return false;
           });
 
+          $el.on('click', '[data-action="versions"]', function() {
+            aposPages.browseVersions(snippet._id);
+            return false;
+          });
+
+          $el.attr('data-apos-trigger-revert', '');
+          $el.on('apos-change-revert', function() {
+            relaunch = true;
+            $el.trigger('aposModalHide');
+          });
+
           // TODO: looks like it's probably worth having the async module client side
           self.enableArea($el, 'body', snippet.areas.body, function() {
             self.enableSingleton($el, 'thumbnail', snippet.areas.thumbnail, 'slideshow', {
@@ -332,6 +347,13 @@ function AposSnippets(optionsArg) {
             });
           });
         });
+      },
+      afterHide: function(callback) {
+        // Relaunch after a world-changing event like reverting the snippet
+        if (relaunch) {
+          self.edit(slug);
+          return callback(null);
+        }
       }
     });
 
@@ -339,7 +361,7 @@ function AposSnippets(optionsArg) {
       return self.insertOrUpdate($el, 'update', { slug: slug }, callback);
     }
     return false;
-  });
+  };
 
   // Import snippets
   $('body').on('click', '[data-import-' + self._css + ']', function() {
