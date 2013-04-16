@@ -268,10 +268,7 @@ snippets.Snippets = function(options, callback) {
 
     var slug;
     var snippet;
-    console.log(req.query);
-    console.log(req.body);
     var trash = self._apos.sanitizeBoolean(req.body.trash);
-    console.log(trash);
 
     function get(callback) {
       slug = req.body.slug;
@@ -305,10 +302,8 @@ snippets.Snippets = function(options, callback) {
     function trashSnippet(callback) {
       var action;
       if (trash) {
-        console.log('trashing');
         action = { $set: { trash: true } };
       } else {
-        console.log('untrashing');
         action = { $unset: { trash: true } };
       }
       self._apos.pages.update({slug: snippet.slug}, action, callback);
@@ -881,7 +876,25 @@ snippets.Snippets = function(options, callback) {
 
   self.permalink = function(snippet, page) {
     return page.slug + '/' + snippet.slug;
-  }
+  };
+
+  // The default properties for snippets are already covered by the
+  // default properties for pages in general. Extend this to add more
+  // lines of diff-friendly text representing metadata relating to
+  // this type of snippet. Always call the superclass version
+  self.addDiffLines = function(snippet, lines) {
+  };
+
+  // Add a listener so we can contribute our own metadata to the set of lines used
+  // for the diffs between versions. Pass an inline function so that self.addDiffLines
+  // can be changed by a subclass of snippets (if we just assign it now, it'll be
+  // the default version above no matter what).
+
+  self._apos.addDiffListener(function(snippet, lines) {
+    if (snippet.type === self._instance) {
+      self.addDiffLines(snippet, lines);
+    }
+  });
 
   // Make sure that aposScripts and aposStylesheets summon our
   // browser-side UI assets for managing snippets

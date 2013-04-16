@@ -292,9 +292,11 @@ function AposSnippets(optionsArg) {
 
   self.edit = function(slug) {
     var relaunch = false;
+    var active = false;
     var $el = apos.modalFromTemplate('.apos-edit-' + self._css, {
       save: save,
       init: function(callback) {
+        active = true;
         $.getJSON(self._action + '/get', { slug: slug, editable: true }, function(data) {
           if ((!data) || (!data.length)) {
             // TODO all alerts should get prettified into something nicer
@@ -334,9 +336,14 @@ function AposSnippets(optionsArg) {
           });
 
           $el.attr('data-apos-trigger-revert', '');
+
+          // Without this check old dialogs can rise from the dead.
+          // TODO: figure out how to kill them more definitively when they are done.
           $el.on('apos-change-revert', function() {
-            relaunch = true;
-            $el.trigger('aposModalHide');
+            if (active) {
+              relaunch = true;
+              $el.trigger('aposModalHide');
+            }
           });
 
           // TODO: looks like it's probably worth having the async module client side
@@ -349,6 +356,7 @@ function AposSnippets(optionsArg) {
         });
       },
       afterHide: function(callback) {
+        active = false;
         // Relaunch after a world-changing event like reverting the snippet
         if (relaunch) {
           self.edit(slug);
