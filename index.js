@@ -535,7 +535,7 @@ snippets.Snippets = function(options, callback) {
     }
 
     var options = {};
-    extend(options, optionsArg, true);
+    extend(true, options, optionsArg);
 
     // Consume special options then remove them, turning the rest into mongo criteria
 
@@ -613,6 +613,9 @@ snippets.Snippets = function(options, callback) {
 
     function loadSnippets(callback) {
       q.toArray(function(err, snippetsArg) {
+        if (err) {
+          return callback(err);
+        }
         snippets = snippetsArg;
         got = snippets.length;
         return callback(err);
@@ -662,7 +665,7 @@ snippets.Snippets = function(options, callback) {
       // invoked zillions of times before we get the original desired number.
       if ((!err) && limit && (got === limit) && (snippets.length < got)) {
         var options = {};
-        extend(options, optionsArg, true);
+        extend(true, options, optionsArg);
         var oldSkip = options.skip || 0;
         options.skip = oldSkip + limit;
         // This is not ideal because we'll request fewer and fewer items on
@@ -804,13 +807,16 @@ snippets.Snippets = function(options, callback) {
   // Strategy: since a single site rarely has thousands of separate "blogs," it is
   // reasonable to fetch all the blogs and compare their metadata to the item. However
   // to maximize performance information about the pages examined is retained in
-  // req.bestPageCache for the lifetime of the request so that many calls for many
+  // req.aposBestPageCache for the lifetime of the request so that many calls for many
   // snippets do not result in an explosion of database activity on behalf of a
   // single request.
   //
   // The scoring algorithm was ported directly from Apostrophe 1.5's aEngineTools class.
 
   self.findBestPage = function(req, snippet, callback) {
+    if (req.aposBestPageCache && req.aposBestPageCache[snippet.type]) {
+      return go();
+    }
     var typeNames = _.map(typesByInstanceType[snippet.type] || [], function(type) { return type.name; });
     var pages = self._apos.pages.find({ type: { $in: typeNames }, slug: /^\// }).toArray(function(err, pages) {
       if (err) {
@@ -818,34 +824,28 @@ snippets.Snippets = function(options, callback) {
         console.log(err);
         return callback(err);
       }
-      // Play nice with invocations of findBestPage for other types
-      // as part of the same request
-      if (!req.bestPageCache) {
-        req.bestPageCache = {};
+      if (!req.aposBestPageCache) {
+        req.aposBestPageCache = {};
       }
-      if (!req.bestPageCache[snippet.type]) {
-        var viewable = [];
-        async.eachSeries(pages, function(page, callback) {
-          self._apos.permissions(req, 'view-page', page, function(err) {
-            if (!err) {
-              viewable.push(page);
-            }
-            return callback(null);
-          });
-        }, function(err) {
-          if (err) {
-            return callback(err);
+      var viewable = [];
+      async.eachSeries(pages, function(page, callback) {
+        self._apos.permissions(req, 'view-page', page, function(err) {
+          if (!err) {
+            viewable.push(page);
           }
-          req.bestPageCache[snippet.type] = viewable;
-          go();
+          return callback(null);
         });
-      } else {
+      }, function(err) {
+        if (err) {
+          return callback(err);
+        }
+        req.aposBestPageCache[snippet.type] = viewable;
         go();
-      }
+      });
     });
 
     function go() {
-      var viewable = req.bestPageCache[snippet.type];
+      var viewable = req.aposBestPageCache[snippet.type];
       var tags = snippet.tags || [];
       var bestScore;
       var best = null;
@@ -873,6 +873,12 @@ snippets.Snippets = function(options, callback) {
   //
   // It is commonplace to override this function. For instance,
   // blog posts add the publication date to the URL.
+  //
+  // TODO: this exposes that we're not really letting people change
+  // the root of the site from / yet. We need to make that a global
+  // option to the pages module and not just an option to pages.serve,
+  // or perhaps stuff it into req if we're really going to support
+  // multiple "sites" per domain etc.
 
   self.permalink = function(snippet, page) {
     return page.slug + '/' + snippet.slug;
