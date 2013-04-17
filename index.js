@@ -142,50 +142,6 @@ snippets.Snippets = function(options, callback) {
     return 'My Snippet';
   };
 
-  self._app.post(self._action + '/insert', function(req, res) {
-    var snippet;
-    var title;
-    var thumbnail;
-    var content;
-    var slug;
-    var tags;
-
-    title = req.body.title.trim();
-    // Validation is annoying, automatic cleanup is awesome
-    if (!title.length) {
-      title = self.getDefaultTitle();
-    }
-    slug = self._apos.slugify(title);
-
-    thumbnailContent = JSON.parse(req.body.thumbnail);
-    self._apos.sanitizeItems(thumbnailContent);
-
-    content = JSON.parse(req.body.content);
-    self._apos.sanitizeItems(content);
-
-    tags = req.body.tags;
-
-    async.series([ prepare, insert ], send);
-
-    function prepare(callback) {
-      snippet = { title: title, type: self._instance, tags: tags, areas: { thumbnail: { items: thumbnailContent }, body: { items: content } }, slug: slug, createdAt: new Date(), publishedAt: new Date() };
-      snippet.sortTitle = self._apos.sortify(snippet.title);
-      return self.beforeInsert(req, req.body, snippet, callback);
-    }
-
-    function insert(callback) {
-      return self._apos.putPage(req, slug, snippet, callback);
-    }
-
-    function send(err) {
-      if (err) {
-        res.statusCode = 500;
-        return res.send('error');
-      }
-      return res.send(JSON.stringify(snippet));
-    }
-  });
-
   self.beforeInsert = function(req, data, snippet, callback) {
     return callback(null);
   };
@@ -193,205 +149,6 @@ snippets.Snippets = function(options, callback) {
   self.beforeUpdate = function(req, data, snippet, callback) {
     return callback(null);
   };
-
-  self._app.post(self._action + '/update', function(req, res) {
-    var snippet;
-    var title;
-    var content;
-    var originalSlug;
-    var slug;
-    var tags;
-
-    title = self._apos.sanitizeString(req.body.title, self.getDefaultTitle());
-
-    tags = req.body.tags;
-
-    originalSlug = self._apos.sanitizeString(req.body.originalSlug);
-    slug = self._apos.slugify(req.body.slug);
-    if (!slug.length) {
-      slug = originalSlug;
-    }
-
-    thumbnailContent = JSON.parse(req.body.thumbnail);
-    self._apos.sanitizeItems(thumbnailContent);
-
-    content = JSON.parse(req.body.content);
-    self._apos.sanitizeItems(content);
-
-    async.series([ getSnippet, massage, update, redirect ], send);
-
-    function getSnippet(callback) {
-      self._apos.getPage(req, originalSlug, function(err, page) {
-        if (err) {
-          return callback(err);
-        }
-        if (!page) {
-          return callback('No such ' + self._instance);
-        }
-        if (page.type !== self._instance) {
-          return callback('Not a ' + self._instance);
-        }
-        snippet = page;
-        return callback(null);
-      });
-    }
-
-    function massage(callback) {
-      snippet.title = title;
-      snippet.slug = slug;
-      snippet.tags = tags;
-      snippet.sortTitle = self._apos.sortify(title);
-      snippet.areas = { thumbnail: { items: thumbnailContent }, body: { items: content } };
-      return self.beforeUpdate(req, req.body, snippet, callback);
-    }
-
-    function update(callback) {
-      self._apos.putPage(req, originalSlug, snippet, callback);
-    }
-
-    function redirect(callback) {
-      self._apos.updateRedirect(originalSlug, slug, callback);
-    }
-
-    function send(err) {
-      if (err) {
-        res.statusCode = 500;
-        console.log(err);
-        return res.send('error');
-      }
-      return res.send(JSON.stringify(snippet));
-    }
-  });
-
-  self._app.post(self._action + '/trash', function(req, res) {
-    async.series([ get, permissions, beforeTrash, trashSnippet], respond);
-
-    var slug;
-    var snippet;
-    var trash = self._apos.sanitizeBoolean(req.body.trash);
-
-    function get(callback) {
-      slug = req.body.slug;
-      return self._apos.pages.findOne({ slug: slug }, function(err, snippetArg) {
-        snippet = snippetArg;
-        if(!snippet) {
-          return callback('Not Found');
-        }
-        if (snippet.type !== self._instance) {
-          return callback('Not a ' + self._instance);
-        }
-        return callback(err);
-      });
-    }
-
-    function permissions(callback) {
-      return self._apos.permissions(req, 'edit-page', snippet, function(err) {
-        // If there is no permissions error then we are cool
-        // enough to trash the post
-        return callback(err);
-      });
-    }
-
-    function beforeTrash(callback) {
-      if (self.beforeTrash) {
-        return self.beforeTrash(req, snippet, trash, callback);
-      }
-      return callback(null);
-    }
-
-    function trashSnippet(callback) {
-      var action;
-      if (trash) {
-        action = { $set: { trash: true } };
-      } else {
-        action = { $unset: { trash: true } };
-      }
-      self._apos.pages.update({slug: snippet.slug}, action, callback);
-    }
-
-    function respond(err) {
-      if (err) {
-        res.statusCode = 404;
-        return res.send(err);
-      }
-      res.statusCode = 200;
-      return res.send('ok');
-    }
-  });
-
-  self._app.post(self._action + '/import', function(req, res) {
-    var file = req.files.file;
-    var rows = 0;
-    var headings = [];
-    var s = csv().from.stream(fs.createReadStream(file.path));
-    var active = 0;
-    var date = new Date();
-    req.aposImported = moment().format();
-    s.on('record', function(row, index) {
-      active++;
-      // s.pause() avoids an explosion of rows being processed simultaneously
-      // by async mongo calls, etc. However note this does not
-      // stop more events from coming in because the parser will
-      // keep going with its current block of raw data. So we still
-      // have to track the number of still-active async handleRow calls ):
-      // Also there is no guarantee imports are in order, however that shouldn't
-      // matter since we always rely on some index such as title or publication date
-      s.pause();
-      if (!index) {
-        handleHeadings(row, afterRow);
-      } else {
-        handleRow(row, function(err) {
-          if (!err) {
-            rows++;
-            return afterRow();
-          } else {
-            console.log(err);
-            s.end();
-            active--;
-          }
-        });
-      }
-      function afterRow() {
-        s.resume();
-        active--;
-      }
-    })
-    .on('error', function(count) {
-      respondWhenDone('error');
-    })
-    .on('end', function(count) {
-      respondWhenDone('ok');
-    });
-
-    function handleHeadings(row, callback) {
-      headings = row;
-      var i;
-      for (i = 0; (i < headings.length); i++) {
-        headings[i] = self._apos.camelName(headings[i]);
-      }
-      return callback();
-    }
-
-    function handleRow(row, callback) {
-      // Ignore blank rows without an error
-      if (!_.some(row, function(column) { return column !== ''; })) {
-        return callback(null);
-      }
-      var data = {};
-      var i;
-      for (i = 0; (i < headings.length); i++) {
-        data[headings[i]] = row[i];
-      }
-      self.importCreateItem(req, data, callback);
-    }
-
-    function respondWhenDone(status) {
-      if (active) {
-        return setTimeout(function() { respondWhenDone(status); }, 100);
-      }
-      res.send({ status: status, rows: rows });
-    }
-  });
 
   self.importCreateItem = function(req, data, callback) {
     // "Why the try/catch?" Because the CSV reader has some sort of
@@ -441,50 +198,304 @@ snippets.Snippets = function(options, callback) {
     self._apos.putPage(req, snippet.slug, snippet, callback);
   };
 
-  self._app.get(self._action + '/get', function(req, res) {
-    self.get(req, req.query, function(err, snippets) {
-      return res.send(JSON.stringify(snippets));
-    });
-  });
+  self.addStandardRoutes = function() {
+    self._app.post(self._action + '/insert', function(req, res) {
+      var snippet;
+      var title;
+      var thumbnail;
+      var content;
+      var slug;
+      var tags;
 
-  self._app.get(self._action + '/get-one', function(req, res) {
-    self.get(req, req.query, function(err, snippets) {
-      if (snippets && snippets.length) {
-        res.send(JSON.stringify(snippets[0]));
-      } else {
-        res.send(JSON.stringify(null));
+      title = req.body.title.trim();
+      // Validation is annoying, automatic cleanup is awesome
+      if (!title.length) {
+        title = self.getDefaultTitle();
+      }
+      slug = self._apos.slugify(title);
+
+      thumbnailContent = JSON.parse(req.body.thumbnail);
+      self._apos.sanitizeItems(thumbnailContent);
+
+      content = JSON.parse(req.body.content);
+      self._apos.sanitizeItems(content);
+
+      tags = req.body.tags;
+
+      async.series([ prepare, insert ], send);
+
+      function prepare(callback) {
+        snippet = { title: title, type: self._instance, tags: tags, areas: { thumbnail: { items: thumbnailContent }, body: { items: content } }, slug: slug, createdAt: new Date(), publishedAt: new Date() };
+        snippet.sortTitle = self._apos.sortify(snippet.title);
+        return self.beforeInsert(req, req.body, snippet, callback);
+      }
+
+      function insert(callback) {
+        return self._apos.putPage(req, slug, snippet, callback);
+      }
+
+      function send(err) {
+        if (err) {
+          res.statusCode = 500;
+          return res.send('error');
+        }
+        return res.send(JSON.stringify(snippet));
       }
     });
-  });
 
-  self._app.get(self._action + '/autocomplete', function(req, res) {
-    var options = {
-      fields: { title: 1, _id: 1 },
-      limit: 10
-    };
-    if (req.query.term !== undefined) {
-      options.titleSearch = req.query.term;
-    } else if (req.query.ids !== undefined) {
-      options._id = { $in: req.query.ids };
-    } else {
-      res.statusCode = 404;
-      return res.send('bad arguments');
-    }
-    // Format it as value & id properties for compatibility with jquery UI autocomplete
-    self.get(req, options, function(err, snippets) {
-      return res.send(
-        JSON.stringify(_.map(snippets, function(snippet) {
-            return { value: snippet.title, id: snippet._id };
-        }))
-      );
+
+    self._app.post(self._action + '/update', function(req, res) {
+      var snippet;
+      var title;
+      var content;
+      var originalSlug;
+      var slug;
+      var tags;
+
+      title = self._apos.sanitizeString(req.body.title, self.getDefaultTitle());
+
+      tags = req.body.tags;
+
+      originalSlug = self._apos.sanitizeString(req.body.originalSlug);
+      slug = self._apos.slugify(req.body.slug);
+      if (!slug.length) {
+        slug = originalSlug;
+      }
+
+      thumbnailContent = JSON.parse(req.body.thumbnail);
+      self._apos.sanitizeItems(thumbnailContent);
+
+      content = JSON.parse(req.body.content);
+      self._apos.sanitizeItems(content);
+
+      async.series([ getSnippet, massage, update, redirect ], send);
+
+      function getSnippet(callback) {
+        self._apos.getPage(req, originalSlug, function(err, page) {
+          if (err) {
+            return callback(err);
+          }
+          if (!page) {
+            return callback('No such ' + self._instance);
+          }
+          if (page.type !== self._instance) {
+            return callback('Not a ' + self._instance);
+          }
+          snippet = page;
+          return callback(null);
+        });
+      }
+
+      function massage(callback) {
+        snippet.title = title;
+        snippet.slug = slug;
+        snippet.tags = tags;
+        snippet.sortTitle = self._apos.sortify(title);
+        snippet.areas = { thumbnail: { items: thumbnailContent }, body: { items: content } };
+        return self.beforeUpdate(req, req.body, snippet, callback);
+      }
+
+      function update(callback) {
+        self._apos.putPage(req, originalSlug, snippet, callback);
+      }
+
+      function redirect(callback) {
+        self._apos.updateRedirect(originalSlug, slug, callback);
+      }
+
+      function send(err) {
+        if (err) {
+          res.statusCode = 500;
+          console.log(err);
+          return res.send('error');
+        }
+        return res.send(JSON.stringify(snippet));
+      }
     });
-  });
+
+    self._app.post(self._action + '/trash', function(req, res) {
+      async.series([ get, permissions, beforeTrash, trashSnippet], respond);
+
+      var slug;
+      var snippet;
+      var trash = self._apos.sanitizeBoolean(req.body.trash);
+
+      function get(callback) {
+        slug = req.body.slug;
+        return self._apos.pages.findOne({ slug: slug }, function(err, snippetArg) {
+          snippet = snippetArg;
+          if(!snippet) {
+            return callback('Not Found');
+          }
+          if (snippet.type !== self._instance) {
+            return callback('Not a ' + self._instance);
+          }
+          return callback(err);
+        });
+      }
+
+      function permissions(callback) {
+        return self._apos.permissions(req, 'edit-page', snippet, function(err) {
+          // If there is no permissions error then we are cool
+          // enough to trash the post
+          return callback(err);
+        });
+      }
+
+      function beforeTrash(callback) {
+        if (self.beforeTrash) {
+          return self.beforeTrash(req, snippet, trash, callback);
+        }
+        return callback(null);
+      }
+
+      function trashSnippet(callback) {
+        var action;
+        if (trash) {
+          action = { $set: { trash: true } };
+        } else {
+          action = { $unset: { trash: true } };
+        }
+        self._apos.pages.update({slug: snippet.slug}, action, callback);
+      }
+
+      function respond(err) {
+        if (err) {
+          res.statusCode = 404;
+          return res.send(err);
+        }
+        res.statusCode = 200;
+        return res.send('ok');
+      }
+    });
+
+    self._app.post(self._action + '/import', function(req, res) {
+      var file = req.files.file;
+      var rows = 0;
+      var headings = [];
+      var s = csv().from.stream(fs.createReadStream(file.path));
+      var active = 0;
+      var date = new Date();
+      req.aposImported = moment().format();
+      s.on('record', function(row, index) {
+        active++;
+        // s.pause() avoids an explosion of rows being processed simultaneously
+        // by async mongo calls, etc. However note this does not
+        // stop more events from coming in because the parser will
+        // keep going with its current block of raw data. So we still
+        // have to track the number of still-active async handleRow calls ):
+        // Also there is no guarantee imports are in order, however that shouldn't
+        // matter since we always rely on some index such as title or publication date
+        s.pause();
+        if (!index) {
+          handleHeadings(row, afterRow);
+        } else {
+          handleRow(row, function(err) {
+            if (!err) {
+              rows++;
+              return afterRow();
+            } else {
+              console.log(err);
+              s.end();
+              active--;
+            }
+          });
+        }
+        function afterRow() {
+          s.resume();
+          active--;
+        }
+      })
+      .on('error', function(count) {
+        respondWhenDone('error');
+      })
+      .on('end', function(count) {
+        respondWhenDone('ok');
+      });
+
+      function handleHeadings(row, callback) {
+        headings = row;
+        var i;
+        for (i = 0; (i < headings.length); i++) {
+          headings[i] = self._apos.camelName(headings[i]);
+        }
+        return callback();
+      }
+
+      function handleRow(row, callback) {
+        // Ignore blank rows without an error
+        if (!_.some(row, function(column) { return column !== ''; })) {
+          return callback(null);
+        }
+        var data = {};
+        var i;
+        for (i = 0; (i < headings.length); i++) {
+          data[headings[i]] = row[i];
+        }
+        self.importCreateItem(req, data, callback);
+      }
+
+      function respondWhenDone(status) {
+        if (active) {
+          return setTimeout(function() { respondWhenDone(status); }, 100);
+        }
+        res.send({ status: status, rows: rows });
+      }
+    });
+
+    self._app.get(self._action + '/get', function(req, res) {
+      self.get(req, req.query, function(err, snippets) {
+        return res.send(JSON.stringify(snippets));
+      });
+    });
+
+    self._app.get(self._action + '/get-one', function(req, res) {
+      self.get(req, req.query, function(err, snippets) {
+        if (snippets && snippets.length) {
+          res.send(JSON.stringify(snippets[0]));
+        } else {
+          res.send(JSON.stringify(null));
+        }
+      });
+    });
+
+    self._app.get(self._action + '/autocomplete', function(req, res) {
+      var options = {
+        fields: { title: 1, _id: 1 },
+        limit: 10
+      };
+      if (req.query.term !== undefined) {
+        options.titleSearch = req.query.term;
+      } else if (req.query.ids !== undefined) {
+        options._id = { $in: req.query.ids };
+      } else {
+        res.statusCode = 404;
+        return res.send('bad arguments');
+      }
+      // Format it as value & id properties for compatibility with jquery UI autocomplete
+      self.get(req, options, function(err, snippets) {
+        return res.send(
+          JSON.stringify(_.map(snippets, function(snippet) {
+              return { value: snippet.title, id: snippet._id };
+          }))
+        );
+      });
+    });
+  };
+
+  self.addStandardRoutes();
+
+  // Extra routes added at project level or in a module that extends this module
+  if (options.addRoutes) {
+    options.addRoutes();
+  }
 
   // Serve our assets. This is the final route so it doesn't
-  // beat out the rest.
+  // beat out the rest. (TODO: consider moving all asset routes so that this
+  // is not an issue anymore.)
   //
   // You don't override js and stylesheet assets, rather you serve more of them
-  // from your own module and enhance what's already in browserland
+  // from your own module and enhance what's already in browserland.
   self._app.get(self._action + '/*', self._apos.static(self._webAssetDir + '/public'));
 
   self._apos.addLocal(self._menuName, function(args) {
