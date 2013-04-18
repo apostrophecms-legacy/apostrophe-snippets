@@ -169,7 +169,7 @@ function AposSnippets(optionsArg) {
       slug: $el.find('[name="slug"]').val(),
       type: $el.find('[name="type"]').val(),
       thumbnail: self.getSingletonJSON($el, 'thumbnail'),
-      content: self.getAreaJSON($el, 'body'),
+      body: self.getAreaJSON($el, 'body'),
       originalSlug: options.slug
     };
 

@@ -150,6 +150,74 @@ snippets.Snippets = function(options, callback) {
     return callback(null);
   };
 
+  // Fields to be imported or read from the browser when saving a new item.
+  // You can read properties directly or leverage this mechanism to handle the types
+  // that it supports painlessly. It's not meant to cover everything, just tricky
+  // field types that would otherwise be very challenging to implement, such as areas.
+  // (In fact, right now it only covers areas!)
+
+  self.convertFields = [
+    {
+      // This one will always import as an empty area for now when importing CSV.
+      // TODO: allow URLs in CSV to be imported.
+      name: 'thumbnail',
+      type: 'area'
+    },
+    {
+      name: 'body',
+      type: 'area'
+    }
+  ];
+
+  // Very handy for imports of all kinds: convert plaintext to an area with
+  // one rich text item if it is not blank, otherwise an empty area. null and
+  // undefined are tolerated and converted to empty areas.
+  self.textToArea = function(text) {
+    var area = { items: [] };
+    if ((typeof(text) === 'string') && text.length) {
+      area.items.push({
+        type: 'richText',
+        content: self._apos.escapeHtml(text)
+      });
+    }
+    return area;
+  };
+
+  // Converters from various formats for various types
+  self.converters = {
+    csv: {
+      area: function(data, name, snippet) {
+        if (!snippet.areas) {
+          snippet.areas = {};
+        }
+        snippet.areas[name] = self.textToArea(data[name]);
+      }
+    },
+    form: {
+      area: function(data, name, snippet) {
+        var content = [];
+        try {
+          content = JSON.parse(data[name]);
+        } catch (e) {
+          // Always recover graciously and import something reasonable, like an empty area
+        }
+        self._apos.sanitizeItems(content);
+        if (!snippet.areas) {
+          snippet.areas = {};
+        }
+        snippet.areas[name] = { items: content };
+      }
+    }
+  };
+
+  self.convertAllFields = function(from, data, snippet) {
+    _.each(self.convertFields, function(field) {
+      self.converters[from][field.type](data, field.name, snippet);
+    });
+  };
+
+  self.areas = [ 'thumbnail', 'body' ];
+
   self.importCreateItem = function(req, data, callback) {
     // "Why the try/catch?" Because the CSV reader has some sort of
     // try/catch of its own that is making it impossible to log any
@@ -164,19 +232,15 @@ snippets.Snippets = function(options, callback) {
 
       var snippet = {
         type: self._instance,
-        areas: {
-          body: {
-            items: [
-              {
-                type: 'richText',
-                content: data.richText || (data.text ? self._apos.escapeHtml(data.text) : '')
-              }
-            ]
-          }
-        },
+        areas: {},
         title: data.title || self.getDefaultTitle(),
         tags: tags
       };
+
+      console.log('convert all');
+      self.convertAllFields('csv', data, snippet);
+      console.log('after convert all');
+
       snippet.slug = self._apos.slugify(snippet.title);
       snippet.sortTitle = self._apos.sortify(snippet.title);
       // Record when the import happened so that later we can offer a UI
@@ -214,19 +278,16 @@ snippets.Snippets = function(options, callback) {
       }
       slug = self._apos.slugify(title);
 
-      thumbnailContent = JSON.parse(req.body.thumbnail);
-      self._apos.sanitizeItems(thumbnailContent);
+      snippet = { title: title, type: self._instance, tags: tags, areas: {}, slug: slug, createdAt: new Date(), publishedAt: new Date() };
+      snippet.sortTitle = self._apos.sortify(snippet.title);
 
-      content = JSON.parse(req.body.content);
-      self._apos.sanitizeItems(content);
+      self.convertAllFields('form', req.body, snippet);
 
       tags = req.body.tags;
 
       async.series([ prepare, insert ], send);
 
       function prepare(callback) {
-        snippet = { title: title, type: self._instance, tags: tags, areas: { thumbnail: { items: thumbnailContent }, body: { items: content } }, slug: slug, createdAt: new Date(), publishedAt: new Date() };
-        snippet.sortTitle = self._apos.sortify(snippet.title);
         return self.beforeInsert(req, req.body, snippet, callback);
       }
 
@@ -262,12 +323,6 @@ snippets.Snippets = function(options, callback) {
         slug = originalSlug;
       }
 
-      thumbnailContent = JSON.parse(req.body.thumbnail);
-      self._apos.sanitizeItems(thumbnailContent);
-
-      content = JSON.parse(req.body.content);
-      self._apos.sanitizeItems(content);
-
       async.series([ getSnippet, massage, update, redirect ], send);
 
       function getSnippet(callback) {
@@ -287,11 +342,12 @@ snippets.Snippets = function(options, callback) {
       }
 
       function massage(callback) {
+        snippet.areas = {};
+        self.convertAllFields('form', req.body, snippet);
         snippet.title = title;
         snippet.slug = slug;
         snippet.tags = tags;
         snippet.sortTitle = self._apos.sortify(title);
-        snippet.areas = { thumbnail: { items: thumbnailContent }, body: { items: content } };
         return self.beforeUpdate(req, req.body, snippet, callback);
       }
 
@@ -907,7 +963,7 @@ snippets.Snippets = function(options, callback) {
   // can be changed by a subclass of snippets (if we just assign it now, it'll be
   // the default version above no matter what).
 
-  self._apos.addDiffListener(function(snippet, lines) {
+  self._apos.addListener('diff', function(snippet, lines) {
     if (snippet.type === self._instance) {
       self.addDiffLines(snippet, lines);
     }
