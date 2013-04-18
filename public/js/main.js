@@ -69,7 +69,8 @@ function AposSnippets(optionsArg) {
         // limit controls in areas
         return self.enableArea($el, 'body', null, function() {
           return self.enableSingleton($el, 'thumbnail', null, 'slideshow', { limit: 1, label: 'Thumbnail' }, function() {
-            self.afterPopulatingEditor($el, {}, callback);
+            // Pass empty areas object to simplify logic elsewhere
+            self.afterPopulatingEditor($el, { areas: {} }, callback);
           });
         });
       },
