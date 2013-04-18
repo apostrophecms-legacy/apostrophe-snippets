@@ -229,12 +229,14 @@ snippets.Snippets = function(options, callback) {
       var categories = self._apos.sanitizeString(data.categories);
       categories = self._apos.tagsToArray(categories);
       tags = tags.concat(categories);
+      var published = self._apos.sanitizeBoolean(data.published, true);
 
       var snippet = {
         type: self._instance,
         areas: {},
         title: data.title || self.getDefaultTitle(),
-        tags: tags
+        tags: tags,
+        published: published
       };
 
       console.log('convert all');
@@ -263,6 +265,8 @@ snippets.Snippets = function(options, callback) {
   };
 
   self.addStandardRoutes = function() {
+    // TODO: refactor lots of duplication in /insert and /update
+
     self._app.post(self._action + '/insert', function(req, res) {
       var snippet;
       var title;
@@ -270,6 +274,7 @@ snippets.Snippets = function(options, callback) {
       var content;
       var slug;
       var tags;
+      var published = self._apos.sanitizeBoolean(req.body.published, true);
 
       title = req.body.title.trim();
       // Validation is annoying, automatic cleanup is awesome
@@ -278,7 +283,7 @@ snippets.Snippets = function(options, callback) {
       }
       slug = self._apos.slugify(title);
 
-      snippet = { title: title, type: self._instance, tags: tags, areas: {}, slug: slug, createdAt: new Date(), publishedAt: new Date() };
+      snippet = { title: title, published: published, type: self._instance, tags: tags, areas: {}, slug: slug, createdAt: new Date(), publishedAt: new Date() };
       snippet.sortTitle = self._apos.sortify(snippet.title);
 
       self.convertAllFields('form', req.body, snippet);
@@ -312,6 +317,7 @@ snippets.Snippets = function(options, callback) {
       var originalSlug;
       var slug;
       var tags;
+      var published = self._apos.sanitizeBoolean(req.body.published, true);
 
       title = self._apos.sanitizeString(req.body.title, self.getDefaultTitle());
 
@@ -348,6 +354,7 @@ snippets.Snippets = function(options, callback) {
         snippet.slug = slug;
         snippet.tags = tags;
         snippet.sortTitle = self._apos.sortify(title);
+        snippet.published = published;
         return self.beforeUpdate(req, req.body, snippet, callback);
       }
 

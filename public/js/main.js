@@ -63,6 +63,10 @@ function AposSnippets(optionsArg) {
         return self.insertOrUpdate($el, 'insert', {}, callback);
       },
       init: function(callback) {
+      $el.find('[name=published]').val(1);
+        // TODO: these cascades mean we should have async.series browser-side.
+        // Also we should provide an easier way to enable areas, and a way to
+        // limit controls in areas
         return self.enableArea($el, 'body', null, function() {
           return self.enableSingleton($el, 'thumbnail', null, 'slideshow', { limit: 1, label: 'Thumbnail' }, function() {
             self.afterPopulatingEditor($el, {}, callback);
@@ -170,6 +174,7 @@ function AposSnippets(optionsArg) {
       type: $el.find('[name="type"]').val(),
       thumbnail: self.getSingletonJSON($el, 'thumbnail'),
       body: self.getAreaJSON($el, 'body'),
+      published: $el.find('[name=published]').val(),
       originalSlug: options.slug
     };
 
@@ -315,6 +320,17 @@ function AposSnippets(optionsArg) {
           $el.find('[name=title]').val(snippet.title);
           $el.find('[name=tags]').val(apos.tagsToString(snippet.tags));
           $el.find('[name=slug]').val(snippet.slug);
+
+          // TODO: this boolean field prep stuff is done often enough to belong
+          // in editor.js
+          var published = snippet.published;
+          if (published === undefined) {
+            published = 1;
+          } else {
+            // Simple POST friendly boolean values
+            published = published ? '1' : '0';
+          }
+          $el.find('[name=published]').val(published);
 
           // name=slug must always exist, at least as a hidden field, to support this
           apos.suggestSlugOnTitleEdits($el.find('[name=title]'), $el.find('[name=slug]'));
