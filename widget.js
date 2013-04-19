@@ -67,11 +67,15 @@ widget.Widget = function(options) {
         if (item.tags.length) {
           criteria.tags = { $in: item.tags };
         }
+        if (item.limit) {
+          criteria.limit = item.limit;
+        } else {
+          // Always set an upper limit
+          criteria.limit = 1000;
+        }
       } else if ((item.by === 'id') && (item.ids)) {
+        // Specific IDs were selected, do not look at the limit
         criteria._id = { $in: item.ids };
-      }
-      if (item.limit) {
-        criteria.limit = item.limit;
       }
 
       self.snippets.get(req, criteria, function(err, snippets) {
