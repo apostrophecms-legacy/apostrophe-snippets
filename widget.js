@@ -95,9 +95,6 @@ widget.Widget = function(options) {
             }
           });
         }
-        // TODO: this dummy req object is a problem. We need to pass the real
-        // request along in all loaders. For now we only link to public blogs
-        var req = {};
         async.eachSeries(snippets, function(snippet, callback) {
           self.snippets.findBestPage(req, snippet, function(err, page) {
             if (page) {
