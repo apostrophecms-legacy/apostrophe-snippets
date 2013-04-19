@@ -850,6 +850,9 @@ snippets.Snippets = function(options, callback) {
         req.template = self.renderer('index');
         // Generic noun so we can more easily inherit templates
         req.extras.items = snippets;
+        _.each(snippets, function(snippet) {
+          snippet.url = self.permalink(snippet, req.bestPage);
+        });
       }
       return callback(null);
     });
