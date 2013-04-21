@@ -845,6 +845,7 @@ snippets.Snippets = function(options, callback) {
           req.template = self.renderer('show');
           // Generic noun so we can more easily inherit templates
           req.extras.item = snippets[0];
+          req.extras.item.url = self.permalink(req.extras.item, req.bestPage);
         }
       } else {
         req.template = self.renderer('index');
