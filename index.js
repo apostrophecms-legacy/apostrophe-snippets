@@ -524,7 +524,7 @@ snippets.Snippets = function(options, callback) {
 
     self._app.get(self._action + '/autocomplete', function(req, res) {
       var options = {
-        fields: { title: 1, _id: 1 },
+        fields: self.getAutocompleteFields(),
         limit: 10
       };
       if (req.query.term !== undefined) {
@@ -539,11 +539,25 @@ snippets.Snippets = function(options, callback) {
       self.get(req, options, function(err, snippets) {
         return res.send(
           JSON.stringify(_.map(snippets, function(snippet) {
-              return { value: snippet.title, id: snippet._id };
+              return { value: self.getAutocompleteTitle(snippet), id: snippet._id };
           }))
         );
       });
     });
+  };
+
+  // Override me in subclasses in which duplicate titles are common and there
+  // is a way to disambiguate them, like publication dates for blogs or start
+  // dates for events
+  self.getAutocompleteTitle = function(snippet) {
+    return snippet.title;
+  };
+
+  // I bet you want some extra fields available along with the title to go with
+  // your custom getAutocompleteTitle. Override this to retrieve more stuff.
+  // We keep it to a minimum for performance.
+  self.getAutocompleteFields = function() {
+    return { title: 1, _id: 1 };
   };
 
   self.addStandardRoutes();
