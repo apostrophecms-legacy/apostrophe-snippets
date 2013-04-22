@@ -94,6 +94,7 @@ snippets.Snippets = function(options, callback) {
   self._apos = options.apos;
   self._pages = options.pages;
   self._app = options.app;
+  self._searchable = options.searchable || true;
   self._options = options;
   self._dirs = (options.dirs || []).concat([ __dirname ]);
   self._webAssetDir = options.webAssetDir || __dirname;
@@ -983,6 +984,18 @@ snippets.Snippets = function(options, callback) {
   self.addDiffLines = function(snippet, lines) {
   };
 
+  // The default properties for snippets are already covered by the
+  // default properties for pages in general. Extend this to add more
+  // search texts representing metadata relating to
+  // this type of snippet. Always call the superclass version. Example:
+  // texts.push({ weight: 20, text: snippet.address })
+  //
+  // The default search engine is very simplistic. Searches that match
+  // something weighted 11 or higher appear before everything else.
+
+  self.addSearchTexts = function(snippet, texts) {
+  };
+
   // Add a listener so we can contribute our own metadata to the set of lines used
   // for the diffs between versions. Pass an inline function so that self.addDiffLines
   // can be changed by a subclass of snippets (if we just assign it now, it'll be
@@ -991,6 +1004,39 @@ snippets.Snippets = function(options, callback) {
   self._apos.addListener('diff', function(snippet, lines) {
     if (snippet.type === self._instance) {
       self.addDiffLines(snippet, lines);
+    }
+  });
+
+  self._apos.addListener('index', function(snippet, lines) {
+    if (snippet.type === self._instance) {
+      self.addSearchTexts(snippet, lines);
+    }
+  });
+
+  self._apos.addListener('searchResult', function(req, res, page, context) {
+    // Not all types are searchable on all sites, snippets usually
+    // have this shut off because they have no permalinks
+    if (!self._searchable) {
+      return;
+    }
+    console.log('searchable for ' + self._instance);
+    // Don't mess with a result another listener already accepted
+    if (context.accepted) {
+      return;
+    }
+    if (self._instance === page.type) {
+      // Set the accepted flag so the pages module doesn't 404 the search result.
+      // Now we can asynchronously work on it
+      context.accepted = true;
+      // The result belongs to us now, let's figure out what to do with it.
+      return self.findBestPage(req, page, function(err, bestPage) {
+        if (!bestPage) {
+          res.statusCode = 404;
+          return res.send('Not Found');
+        }
+        var url = self.permalink(page, bestPage);
+        return res.redirect(url);
+      });
     }
   });
 
