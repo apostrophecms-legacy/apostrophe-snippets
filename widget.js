@@ -99,14 +99,7 @@ widget.Widget = function(options) {
             }
           });
         }
-        async.eachSeries(snippets, function(snippet, callback) {
-          self.snippets.findBestPage(req, snippet, function(err, page) {
-            if (page) {
-              snippet.url = self.snippets.permalink(snippet, page);
-            }
-            return callback(null);
-          });
-        }, send);
+        self.snippets.addUrls(req, snippets, send);
         function send(err) {
           item._snippets = snippets;
           return callback(null);

@@ -994,6 +994,19 @@ snippets.Snippets = function(options, callback) {
     }
   });
 
+  // Add the .url property to snippets so they can be clicked through
+  self.addUrls = function(req, snippets, callback) {
+    async.eachSeries(snippets, function(snippet, callback) {
+      console.log(snippet);
+      self.findBestPage(req, snippet, function(err, page) {
+        if (page) {
+          snippet.url = self.permalink(snippet, page);
+        }
+        return callback(null);
+      });
+    }, callback);
+  };
+
   // Make sure that aposScripts and aposStylesheets summon our
   // browser-side UI assets for managing snippets
 
