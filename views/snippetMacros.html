@@ -81,3 +81,50 @@
     <a href="#" data-action="dismiss" class="apos-control apos-button apos-cancel">Cancel</a>
   </div>
 {% endmacro %}
+
+{# A pill button with several mutually exclusive choices #}
+{% macro snippetPill(name, options) %}
+  <span class="apos-pill" data-pill data-name="{{ name }}">
+    {%- for pill in options -%}
+      <a class="apos-pill-choice {% if loop.first %}apos-first{% endif %}{% if loop.last %}apos-last{% endif %}" href="#" data-choice="{{ pill.value }}">{{ pill.label }}</a>
+    {%- endfor -%}
+  </span>
+{% endmacro %}
+
+{# Standard filters suitable for all snippet derivatives #}
+
+{% macro snippetFilters() %}
+  {{
+    snippetPill('trash',
+      [
+        {
+          value: '0',
+          label: 'Live'
+        },
+        {
+          value: '1',
+          label: 'Trash'
+        }
+      ]
+    )
+  }}
+  {{
+    snippetPill('published',
+      [
+        {
+          value: '1',
+          label: 'Published'
+        },
+        {
+          value: '0',
+          label: 'Draft'
+        },
+        {
+          value: 'any',
+          label: 'Both'
+        }
+      ]
+    )
+  }}
+  Search: <input type="text" name="search" /> <a href="#" class="apos-remove-search" data-remove-search>x</a>
+{% endmacro %}

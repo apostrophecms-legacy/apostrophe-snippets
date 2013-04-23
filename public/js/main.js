@@ -209,7 +209,9 @@ function AposSnippets(optionsArg) {
   self.filters = {};
 
   self.addFilterDefaults = function() {
-    self.filters.trash = 0;
+    self.filters.trash = '0';
+    self.filters.published = 'any';
+    self.filters.q = '';
   };
 
   self.addFilterDefaults();
@@ -229,14 +231,44 @@ function AposSnippets(optionsArg) {
       }
     });
 
-    $el.on('click', '[data-live]', function() {
-      self.filters.trash = 0;
+    // Set current active choices for pill buttons
+
+    _.each(['trash', 'published'], function(filter) {
+      // TODO building selectors like this is gross we need a cleaner method
+      $el.find('[data-pill][data-name="' + filter + '"] [data-choice="' + self.filters[filter] + '"]').addClass('apos-active');
+    });
+
+    // Pill buttons trigger events
+    $el.on('click', '[data-pill] [data-choice]', function() {
+      var $choice = $(this);
+      var $pill = $choice.closest('[data-pill]');
+      $pill.find('[data-choice]').removeClass('apos-active');
+      $choice.addClass('apos-active');
+      $el.trigger($pill.data('name'), [ $choice.attr('data-choice') ]);
+    });
+
+    $el.on('trash', function(e, choice) {
+      self.filters.trash = choice;
       triggerRefresh();
     });
 
-    $el.on('click', '[data-trash]', function() {
-      self.filters.trash = 1;
+    $el.on('published', function(e, choice) {
+      self.filters.published = choice;
       triggerRefresh();
+    });
+
+    $el.on('keyup', '[name=search]', function(e) {
+      if (e.keyCode === 13) {
+        self.filters.q = $el.find('[name=search]').val();
+        triggerRefresh();
+        return false;
+      }
+    });
+
+    $el.on('click', '[data-remove-search]', function() {
+      self.filters.q = '';
+      triggerRefresh();
+      return false;
     });
 
     // Using an event allows things like the new snippet and edit snippet dialogs to
@@ -337,13 +369,11 @@ function AposSnippets(optionsArg) {
           apos.suggestSlugOnTitleEdits($el.find('[name=title]'), $el.find('[name=slug]'));
 
           $el.on('click', '[data-action="delete"]', function() {
-            apos.log('posting trash');
             $.ajax({
               url: self._action + '/trash',
               data: { slug: slug, trash: 1 },
               type: 'POST',
               success: function() {
-                apos.log('trash success');
                 triggerRefresh();
                 $el.trigger('aposModalHide');
               },

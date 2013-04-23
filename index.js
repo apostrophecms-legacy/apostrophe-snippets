@@ -598,6 +598,40 @@ snippets.Snippets = function(options, callback) {
     };
   };
 
+  // Given an options object in which options[name] is a string
+  // set to '0', '1', or 'any', this method corrects options[name] to
+  // be suitable for use in a MongoDB criteria object. '0' means
+  // "the property must be false or absent," '1' means "the promperty must be
+  // true," and 'any' means "we don't care what the property is."
+  // An empty string is considered equivalent to '0'. This is not
+  // the same as apos.sanitizeBoolean which is concerned only with
+  // true or false and does not address "any." This method is used
+  // with GET or POST form submissions of filter settings.
+  //
+  // def should be set to '0', '1' or 'any' and defaults to 'any'.
+
+  self.convertBooleanFilterCriteria = function(name, options, def) {
+    // Consume special options then remove them, turning the rest into mongo criteria
+
+    if (def === undefined) {
+      def = 'any';
+    }
+    var value = (options[name] === undefined) ? def : options[name];
+    if (options[name] !== undefined) {
+      delete options[name];
+    }
+
+    if (value === 'any') {
+      // Don't care, show all
+    } else if ((!value) || (value === '0')) {
+      // Must be absent or false. Hooray for $ne
+      options[name] = { $ne: true };
+    } else {
+      // Must be true
+      options[name] = true;
+    }
+  };
+
   // Returns recent snippets the current user is permitted to read, in
   // alphabetical order by title. If options.editable is true, only
   // snippets the current user can edit are returned. If options.sort is
@@ -623,23 +657,6 @@ snippets.Snippets = function(options, callback) {
 
     var options = {};
     extend(true, options, optionsArg);
-
-    // Consume special options then remove them, turning the rest into mongo criteria
-
-    var trash = (options.trash === undefined) ? false : options.trash;
-    if (options.trash !== undefined) {
-      delete options['trash'];
-    }
-    // Accepts 1 and 0 as strings as truth values for convenience in query strings
-    if (trash === 'any') {
-      // Show both
-    } else if ((!trash) || (trash === '0')) {
-      // Show non-trash
-      options.trash = { $exists: false };
-    } else {
-      // Show trash
-      options.trash = true;
-    }
 
     var editable = options.editable;
     if (options.editable !== undefined) {
@@ -670,6 +687,18 @@ snippets.Snippets = function(options, callback) {
       delete options['titleSearch'];
       options.sortTitle = new RegExp(RegExp.quote(self._apos.sortify(titleSearch)));
     }
+
+    self.convertBooleanFilterCriteria('trash', options, '0');
+    self.convertBooleanFilterCriteria('published', options);
+
+    if (options.q && options.q.length) {
+      // Crude fulltext search support. It would be better to present
+      // highSearchText results before lowSearchText results, but right now
+      // we are doing a single query only
+      options.lowSearchText = self._apos.searchify(options.q);
+    }
+    // Don't let an empty or not-so-empty q screw up our query
+    delete options.q;
 
     options.type = self._instance;
 
