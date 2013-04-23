@@ -240,9 +240,7 @@ snippets.Snippets = function(options, callback) {
         published: published
       };
 
-      console.log('convert all');
       self.convertAllFields('csv', data, snippet);
-      console.log('after convert all');
 
       snippet.slug = self._apos.slugify(snippet.title);
       snippet.sortTitle = self._apos.sortify(snippet.title);
@@ -1019,7 +1017,6 @@ snippets.Snippets = function(options, callback) {
     if (!self._searchable) {
       return;
     }
-    console.log('searchable for ' + self._instance);
     // Don't mess with a result another listener already accepted
     if (context.accepted) {
       return;
@@ -1043,7 +1040,6 @@ snippets.Snippets = function(options, callback) {
   // Add the .url property to snippets so they can be clicked through
   self.addUrls = function(req, snippets, callback) {
     async.eachSeries(snippets, function(snippet, callback) {
-      console.log(snippet);
       self.findBestPage(req, snippet, function(err, page) {
         if (page) {
           snippet.url = self.permalink(snippet, page);
