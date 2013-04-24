@@ -272,7 +272,6 @@ snippets.Snippets = function(options, callback) {
       var thumbnail;
       var content;
       var slug;
-      var tags;
       var published = self._apos.sanitizeBoolean(req.body.published, true);
 
       title = req.body.title.trim();
@@ -281,6 +280,8 @@ snippets.Snippets = function(options, callback) {
         title = self.getDefaultTitle();
       }
       slug = self._apos.slugify(title);
+
+      tags = req.body.tags;
 
       snippet = { title: title, published: published, type: self._instance, tags: tags, areas: {}, slug: slug, createdAt: new Date(), publishedAt: new Date() };
       snippet.sortTitle = self._apos.sortify(snippet.title);
