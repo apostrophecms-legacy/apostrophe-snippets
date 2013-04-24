@@ -267,6 +267,7 @@ function AposSnippets(optionsArg) {
 
     $el.on('click', '[data-remove-search]', function() {
       self.filters.q = '';
+      $el.find('[name=search]').val('');
       triggerRefresh();
       return false;
     });

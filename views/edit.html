@@ -6,6 +6,10 @@
 
 {% block label %}Edit Snippet{% endblock %}
 
+{% block topButtons %}
+{{ snippetEditButtons() }}
+{% endblock %}
+
 {% block slug %}
   {# Snippet permalink pages are rarely used directly, so we don't #}
   {# usually allow snippet slugs to be edited. Just provide a hidden #}

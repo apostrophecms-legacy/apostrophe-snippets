@@ -6,9 +6,18 @@
     <div class="apos-modal-filters">
       {{ snippetFilters() }}
     </div>
-    <ul data-items>
-      <li class="apos-template" data-item><a href="#" data-edit-snippet data-title></a></li>
-    </ul>
+    <table data-items class="apos-manage-table">
+      <tr>
+        <th class="apos-manage-events-title">Title</th>
+        <th class="apos-manage-events-status">Tags</th>
+      </tr>
+      <tr class="apos-template" data-item>
+        <td>
+          <span><a href="#" data-edit-snippet data-title>Sample Title</a></span>
+        </td>
+        <td><span data-tags></span></td>
+      </tr>
+    </table>
   </div>
   <div class="apos-modal-footer">
     <a href="#" data-action="dismiss" class="apos-control apos-button apos-cancel">Done</a>
