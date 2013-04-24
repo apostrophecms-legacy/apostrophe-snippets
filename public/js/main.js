@@ -257,12 +257,22 @@ function AposSnippets(optionsArg) {
       triggerRefresh();
     });
 
+    function search() {
+      self.filters.q = $el.find('[name=search]').val();
+      triggerRefresh();
+      return false;
+    }
+
     $el.on('keyup', '[name=search]', function(e) {
       if (e.keyCode === 13) {
-        self.filters.q = $el.find('[name=search]').val();
-        triggerRefresh();
+        search();
         return false;
       }
+    });
+
+    $el.on('click', '[data-search-submit]', function(e) {
+      search();
+      return false;
     });
 
     $el.on('click', '[data-remove-search]', function() {

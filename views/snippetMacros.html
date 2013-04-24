@@ -126,5 +126,7 @@
       ]
     )
   }}
-  Search: <input type="text" name="search" /> <a href="#" class="apos-remove-search" data-remove-search>x</a>
+  {# In user testing we found that leaving out the submit button isn't great. #}
+  {# So if you remove it, make sure some other clickable thing is visible. -Tom #}
+  Search: <input type="text" name="search" /> <input type="submit" data-search-submit class="apos-search-submit" value="Go" /> <a href="#" class="apos-remove-search" data-remove-search>x</a>
 {% endmacro %}
