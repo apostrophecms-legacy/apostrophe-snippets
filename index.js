@@ -885,7 +885,9 @@ snippets.Snippets = function(options, callback) {
       }
       if (show) {
         if (!snippets.length) {
-          req.template = 'notfound';
+          // Correct way to request a 404 from a loader.
+          // Other loaders could still override this, which is good
+          req.notfound = true;
           return callback(null);
         } else {
           return self.show(req, snippets[0], callback);
