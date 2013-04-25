@@ -879,6 +879,15 @@ snippets.Snippets = function(options, callback) {
       criteria.slug = slug;
     }
     self.addCriteria(req, criteria);
+    // If we are requesting a specific slug, remove the tags criterion.
+    // In theory we should be strict about this, but in practice this is
+    // sometimes necessary to make sure permalink pages are available when
+    // users have not created any really appropriate snippet page. TODO:
+    // consider whether to go back to being strict, after we resolve
+    // any concerns with DR.
+    if (slug) {
+      criteria.tags = undefined;
+    }
     return self.get(req, criteria, function(err, snippets) {
       if (err) {
         return callback(err);
