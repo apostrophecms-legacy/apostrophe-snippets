@@ -830,7 +830,7 @@ snippets.Snippets = function(options, callback) {
     async.series([permissions, go], callback);
 
     function permissions(callback) {
-      // Does self person have any business editing snippets? If so make that
+      // Does this person have any business editing snippets? If so make that
       // fact available to templates so they can offer buttons to access
       // the admin interface conveniently
       self._apos.permissions(req, 'edit-' + self._css, null, function(err) {
@@ -865,41 +865,70 @@ snippets.Snippets = function(options, callback) {
   // after the page itself, and to look for a snippets with a slug matching the
   // rest of the URL if there is.
   //
-  // Often overridden when subclassing. For instance, the blog places the publication
-  // date in the URL before the slug of the post, just to make things feel bloggier.
-  //
+  // It's not uncommon to override this completely, but before you do that, look at
+  // the isShow, show, index and addCriteria methods to see if overriding them is enough
+  // for your needs.
+
   self.dispatch = function(req, callback) {
     var permalink = false;
     var criteria = {};
-    if (req.remainder.length) {
-      // Perhaps it's a snippet permalink
-      criteria.slug = req.remainder.substr(1);
-      permalink = true;
+    var show = false;
+    var slug = self.isShow(req);
+    if (slug !== false) {
+      show = true;
+      criteria.slug = slug;
     }
     self.addCriteria(req, criteria);
-    self.get(req, criteria, function(err, snippets) {
+    return self.get(req, criteria, function(err, snippets) {
       if (err) {
         return callback(err);
       }
-      if (permalink) {
+      if (show) {
         if (!snippets.length) {
           req.template = 'notfound';
+          return callback(null);
         } else {
-          req.template = self.renderer('show');
-          // Generic noun so we can more easily inherit templates
-          req.extras.item = snippets[0];
-          req.extras.item.url = self.permalink(req.extras.item, req.bestPage);
+          return self.show(req, snippets[0], callback);
         }
       } else {
-        req.template = self.renderer('index');
-        // Generic noun so we can more easily inherit templates
-        req.extras.items = snippets;
-        _.each(snippets, function(snippet) {
-          snippet.url = self.permalink(snippet, req.bestPage);
-        });
+        return self.index(req, snippets, callback);
       }
       return callback(null);
     });
+  };
+
+  // If this request looks like a request for a 'show' page (a permalink),
+  // this method returns the expected snippet slug. Otherwise it returns
+  // false. Override this to match URLs with extra vanity components like
+  // the publication date in an article URL.
+  self.isShow = function(req) {
+    if (req.remainder.length) {
+      // Perhaps it's a snippet permalink
+      return req.remainder.substr(1);
+    }
+    return false;
+  };
+
+  // The standard implementation of a 'show' page for a single snippet, for your
+  // overriding convenience
+  self.show = function(req, snippet, callback) {
+    req.template = self.renderer('show');
+    // Generic noun so we can more easily inherit templates
+    req.extras.item = snippet;
+    req.extras.item.url = self.permalink(req.extras.item, req.bestPage);
+    return callback(null);
+  };
+
+  // The standard implementation of an 'index' page for many snippets, for your
+  // overriding convenience
+  self.index = function(req, snippets, callback) {
+    req.template = self.renderer('index');
+    _.each(snippets, function(snippet) {
+      snippet.url = self.permalink(snippet, req.bestPage);
+    });
+    // Generic noun so we can more easily inherit templates
+    req.extras.items = snippets;
+    return callback(null);
   };
 
   self.addCriteria = function(req, criteria) {
