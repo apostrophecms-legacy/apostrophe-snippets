@@ -507,13 +507,17 @@ snippets.Snippets = function(options, callback) {
     });
 
     self._app.get(self._action + '/get', function(req, res) {
-      self.get(req, req.query, function(err, snippets) {
+      var options = {};
+      self.addApiCriteria(req.query, options);
+      self.get(req, options, function(err, snippets) {
         return res.send(JSON.stringify(snippets));
       });
     });
 
     self._app.get(self._action + '/get-one', function(req, res) {
-      self.get(req, req.query, function(err, snippets) {
+      var options = {};
+      self.addApiCriteria(req.query, options);
+      self.get(req, options, function(err, snippets) {
         if (snippets && snippets.length) {
           res.send(JSON.stringify(snippets[0]));
         } else {
@@ -521,6 +525,13 @@ snippets.Snippets = function(options, callback) {
         }
       });
     });
+
+    // A good extension point for adding criteria specifically for the /get and
+    // get-one API calls used when managing content
+    self.addApiCriteria = function(query, criteria) {
+      extend(true, criteria, query);
+      criteria.editable = true;
+    };
 
     self._app.get(self._action + '/autocomplete', function(req, res) {
       var options = {
@@ -535,6 +546,7 @@ snippets.Snippets = function(options, callback) {
         res.statusCode = 404;
         return res.send('bad arguments');
       }
+      options.publishedAt = 'any';
       // Format it as value & id properties for compatibility with jquery UI autocomplete
       self.get(req, options, function(err, snippets) {
         return res.send(
@@ -673,6 +685,7 @@ snippets.Snippets = function(options, callback) {
     if (limit !== undefined) {
       delete options['limit'];
     }
+
     var skip = options.skip || undefined;
     if (skip !== undefined) {
       delete options['skip'];
@@ -1157,7 +1170,15 @@ snippets.Snippets = function(options, callback) {
   self._apos.pushGlobalCall('@.replaceType(?, new @())', browser.pages, self.name, browser.construct);
 
   if (options.widget) {
-    widget({ apos: self._apos, icon: self.icon, app: self._app, snippets: self, name: self.name, label: self.label });
+    var widgetConstructor;
+    // Let subclasses and customized projects override the widget constructor.
+    // If it's truthy but not a function, supply the standard constructor.
+    if (typeof(options.widget) === 'function') {
+      widgetConstructor = options.widget;
+    } else {
+      widgetConstructor = snippets.widget.Widget;
+    }
+    new widgetConstructor({ apos: self._apos, icon: self.icon, app: self._app, snippets: self, name: self.name, label: self.label });
     self._apos.pushGlobalCall('@.addWidgetType()', browser.construct);
   }
 
@@ -1174,4 +1195,3 @@ snippets.Snippets = function(options, callback) {
 };
 
 snippets.widget = widget;
-

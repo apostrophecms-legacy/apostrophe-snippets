@@ -34,6 +34,23 @@ widget.Widget = function(options) {
   self.pushAsset('script', 'widget');
   self.pushAsset('stylesheet', 'widget');
 
+  self.addCriteria = function(item, criteria) {
+    if ((item.by === 'tag') && (item.tags)) {
+      if (item.tags.length) {
+        criteria.tags = { $in: item.tags };
+      }
+      if (item.limit) {
+        criteria.limit = item.limit;
+      } else {
+        // Always set an upper limit
+        criteria.limit = 1000;
+      }
+    } else if ((item.by === 'id') && (item.ids)) {
+      // Specific IDs were selected, do not look at the limit
+      criteria._id = { $in: item.ids };
+    }
+  };
+
   self.apos.itemTypes[self.name] = {
     widget: true,
     label: self.label,
@@ -63,20 +80,8 @@ widget.Widget = function(options) {
 
     load: function(req, item, callback) {
       var criteria = {};
-      if ((item.by === 'tag') && (item.tags)) {
-        if (item.tags.length) {
-          criteria.tags = { $in: item.tags };
-        }
-        if (item.limit) {
-          criteria.limit = item.limit;
-        } else {
-          // Always set an upper limit
-          criteria.limit = 1000;
-        }
-      } else if ((item.by === 'id') && (item.ids)) {
-        // Specific IDs were selected, do not look at the limit
-        criteria._id = { $in: item.ids };
-      }
+
+      self.addCriteria(item, criteria);
 
       self.snippets.get(req, criteria, function(err, snippets) {
         if (err) {
