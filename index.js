@@ -533,6 +533,11 @@ snippets.Snippets = function(options, callback) {
       criteria.editable = true;
     };
 
+    // Extension point. The blog module uses this to add
+    // publishedAt = 'any'
+    self.addExtraAutocompleteCriteria = function(req, criteria) {
+    };
+
     self._app.get(self._action + '/autocomplete', function(req, res) {
       var options = {
         fields: self.getAutocompleteFields(),
@@ -546,7 +551,7 @@ snippets.Snippets = function(options, callback) {
         res.statusCode = 404;
         return res.send('bad arguments');
       }
-      options.publishedAt = 'any';
+      self.addExtraAutocompleteCriteria(req, options);
       // Format it as value & id properties for compatibility with jquery UI autocomplete
       self.get(req, options, function(err, snippets) {
         return res.send(
