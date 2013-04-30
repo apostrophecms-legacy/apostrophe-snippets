@@ -110,6 +110,10 @@ widget.Widget = function(options) {
           return callback(null);
         }
       });
+    },
+
+    empty: function(item) {
+      return (!item._snippets) || (!item._snippets.length);
     }
   };
 };

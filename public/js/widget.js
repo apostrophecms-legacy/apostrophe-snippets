@@ -48,21 +48,17 @@ AposSnippets.addWidgetType = function(options) {
         self.$tags.val(apos.tagsToString(self.data.tags));
         self.$limit = self.$el.find('[name="limit"]');
         self.$limit.val(self.data.limit);
-        apos.log('self.$limit length is ' + self.$limit.length);
         self.$ids = self.$el.find('[data-ids]');
-        apos.log('self.$ids length is ' + self.$ids.length);
         self.populate();
         self.$title = self.$el.find('[name="title"]');
         self.$title.autocomplete({
           minLength: 1,
           source: self.action + '/autocomplete',
           focus: function(event, ui) {
-            apos.log('focus');
             self.$title.val(ui.item.title);
             return false;
           },
           select: function(event, ui) {
-            apos.log('select');
             self.$title.val('');
             self.add(ui.item);
             return false;
@@ -92,12 +88,9 @@ AposSnippets.addWidgetType = function(options) {
 
       self.add = function(id) {
         var $item = apos.fromTemplate(self.$ids.find('[data-id].apos-template'));
-        apos.log($item.length);
         $item.attr('data-snippet-id', id.id);
         $item.find('[data-title]').text(id.value);
         self.$ids.append($item);
-        apos.log("appended:");
-        apos.log($item[0]);
       };
 
       self.debrief = function(callback) {
@@ -107,7 +100,9 @@ AposSnippets.addWidgetType = function(options) {
         self.data.ids = _.map(self.$ids.find('[data-id]:not(.apos-template)'), function(el) {
           return $(el).data('snippetId');
         });
-        self.exists = (self.data.by === 'tag') || (!!self.data.ids.length);
+        // Don't force them to pick something, it's common to want to go back
+        // to an empty singleton
+        self.exists = true;
         return callback();
       };
 
