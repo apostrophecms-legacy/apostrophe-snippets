@@ -554,6 +554,10 @@ snippets.Snippets = function(options, callback) {
       self.addExtraAutocompleteCriteria(req, options);
       // Format it as value & id properties for compatibility with jquery UI autocomplete
       self.get(req, options, function(err, snippets) {
+        // Put the snippets in id order
+        if (req.query.ids) {
+          snippets = self._apos.orderById(req.query.ids, snippets);
+        }
         return res.send(
           JSON.stringify(_.map(snippets, function(snippet) {
               return { value: self.getAutocompleteTitle(snippet), id: snippet._id };

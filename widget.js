@@ -90,6 +90,7 @@ widget.Widget = function(options) {
           return callback(err);
         }
         if (item.by === 'id') {
+          snippets = self.apos.orderById(item.ids, snippets);
           // Put them in the same order as the ids that were manually selected
           // (you can't do this with mongodb sort, so we do it here)
           var snippetsById = {};
