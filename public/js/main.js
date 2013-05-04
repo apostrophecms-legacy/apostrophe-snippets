@@ -1,7 +1,9 @@
 // NOTES FOR REUSE:
 //
-// If your custom "subclass" of snippets has a distinct setting for the instance option
-// on the server side, you must pass that option on the browser side as well.
+// If you create a new snippet page type on the server side, there must also be
+// a matching constructor on the browser side which extends this one. If your
+// page type (not instance type) is "blog" then your constructor must be named
+// "AposBlog".
 //
 // After calling the constructor you can $.extend it with methods as follows.
 // Note that "manager" refers to the main dialog presenting a list of many items

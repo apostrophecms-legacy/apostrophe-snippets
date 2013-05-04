@@ -1195,7 +1195,7 @@ snippets.Snippets = function(options, callback) {
   // in a javascript object (not the one you'd expect, either) http://stackoverflow.com/questions/4012998/what-it-the-significance-of-the-javascript-constructor-property
   var browser = {
     pages: browserOptions.pages || 'aposPages',
-    construct: browserOptions.construct || getManagerName(self._instance)
+    construct: browserOptions.construct || getBrowserConstructor()
   };
   self._pages.addType(self);
   self._apos.pushGlobalCall('@.replaceType(?, new @(?))', browser.pages, self.name, browser.construct, { name: self.name, instance: self._instance, icon: self._icon, css: self._css, typeCss: self._typeCss, manager: self.manager });
@@ -1213,8 +1213,8 @@ snippets.Snippets = function(options, callback) {
     self._apos.pushGlobalCall('@.addWidgetType()', browser.construct);
   }
 
-  function getManagerName() {
-    return 'Apos' + self._instance.charAt(0).toUpperCase() + self._instance.substr(1) + 's';
+  function getBrowserConstructor() {
+    return 'Apos' + self.name.charAt(0).toUpperCase() + self.name.substr(1);
   }
 
   if (callback) {
