@@ -681,7 +681,6 @@ snippets.Snippets = function(options, callback) {
       return result;
     });
 
-    console.log(self.name);
     // Make sure that aposScripts and aposStylesheets summon our
     // browser-side UI assets for managing snippets
 
@@ -1219,7 +1218,6 @@ snippets.Snippets = function(options, callback) {
   }
 
   if (callback) {
-    console.log('invoking callback');
     // Invoke callback on next tick so that the constructor's return
     // value can be assigned to a variable in the same closure where
     // the callback resides
