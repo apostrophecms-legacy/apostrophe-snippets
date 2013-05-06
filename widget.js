@@ -32,7 +32,9 @@ widget.Widget = function(options) {
   // Make sure that aposScripts and aposStylesheets summon our assets
 
   self.pushAsset('script', 'widget');
-  self.pushAsset('stylesheet', 'widget');
+  // So far we've always kept this in the same file with the rest of the module's CSS,
+  // so don't clutter up the console with 404s in dev
+  // self.pushAsset('stylesheet', 'widget');
 
   self.addCriteria = function(item, criteria) {
     if ((item.by === 'tag') && (item.tags)) {

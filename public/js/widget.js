@@ -13,10 +13,11 @@
 AposSnippets.addWidgetType = function(options) {
   options = options || {};
   // _class contains properties common to all instances of the widget
+  // Having this here is redundant and we need to figure out how to kill it
   var _class = {
     name: options.name || 'snippets',
     label: options.label || 'Snippets',
-    action: options.action || '/apos-snippet',
+    action: options.action || '/apos-snippets',
     defaultLimit: options.defaultLimit || 1
   };
 

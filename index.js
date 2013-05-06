@@ -83,11 +83,6 @@ function snippets(options, callback) {
 
 snippets.Snippets = function(options, callback) {
   var self = this;
-  // These are "public" so the object can be passed directly to pages.addType
-  self.name = options.name || 'snippets';
-  self.label = options.label || 'Snippets';
-  // Used just for the widget right now, could be handy elsewhere
-  self.icon = options.icon || 'snippets';
 
   // "Protected" properties. We want modules like the blog to be able
   // to access these, thus no variables defined in the closure
@@ -96,8 +91,33 @@ snippets.Snippets = function(options, callback) {
   self._app = options.app;
   self._searchable = options.searchable || true;
   self._options = options;
-  self._dirs = (options.dirs || []).concat([ __dirname ]);
-  self._webAssetDir = options.webAssetDir || __dirname;
+
+  // self.modules allows us to find the directory path and web asset path to
+  // each module in the inheritance tree when subclassing. Necessary to push all
+  // relevant assets to the browser and to implement template overrides.
+  //
+  // The final subclass appears at the start of the list, which is right for a
+  // chain of template overrides
+  self._modules = (options.modules || []).concat([ { dir: __dirname, name: 'snippets' } ]);
+
+  // Compute the web directory name for use in asset paths
+  _.each(self._modules, function(module) {
+    module.web = '/apos-' + self._apos.cssName(module.name);
+  });
+
+  // The same list in reverse order, for use in pushing assets (all versions of the
+  // asset file are pushed to the browser, starting with the snippets class, because
+  // CSS and JS are cumulative and CSS is very order dependent)
+  //
+  // Use slice(0) to make sure we get a copy and don't alter the original
+  self._reverseModules = self._modules.slice(0).reverse();
+
+  // These are "public" so the object can be passed directly to pages.addType
+  self.name = options.name || 'snippets';
+  self.label = options.label || 'Snippets';
+  // Used just for the widget right now, could be handy elsewhere
+  self.icon = options.icon || 'snippets';
+
   // The type property of the page object used to store the snippet, also
   // passed to views for use in CSS classes etc. Should be camel case. These
   // page objects will not have slugs beginning with /
@@ -112,7 +132,7 @@ snippets.Snippets = function(options, callback) {
   // All partials generated via self.renderer can see these properties
   self._rendererGlobals = options.rendererGlobals || {};
 
-  self._action = '/apos-' + self._css;
+  self._action = '/apos-' + self._typeCss;
 
   // Render a partial, looking for overrides in our preferred places
   self.render = function(name, data) {
@@ -129,7 +149,7 @@ snippets.Snippets = function(options, callback) {
         data = {};
       }
       _.defaults(data, self._rendererGlobals);
-      return self._apos.partial(name, data, _.map(self._dirs, function(dir) { return dir + '/views'; }));
+      return self._apos.partial(name, data, _.map(self._modules, function(module) { return module.dir + '/views'; }));
     };
   };
 
@@ -138,7 +158,12 @@ snippets.Snippets = function(options, callback) {
       // Render templates in our own nunjucks context
       self._apos.pushAsset('template', self.renderer(name));
     } else {
-      return self._apos.pushAsset(type, name, self._webAssetDir, self._action);
+      // We're interested in ALL versions of main.js or main.css, starting
+      // with the base one (snippets module version)
+
+      _.each(self._reverseModules, function(module) {
+        return self._apos.pushAsset(type, name, module.dir, module.web);
+      });
     }
   };
 
@@ -682,14 +707,16 @@ snippets.Snippets = function(options, callback) {
     // Make sure that aposScripts and aposStylesheets summon our
     // browser-side UI assets for managing snippets
 
-    self.pushAsset('script', 'main');
-
-    self.pushAsset('stylesheet', 'main');
     self.pushAsset('template', 'new');
     self.pushAsset('template', 'edit');
     self.pushAsset('template', 'manage');
     self.pushAsset('template', 'import');
   }
+
+  // We still need a browser side js file even if we're not the manager,
+  // and we may as well be allowed a stylesheet
+  self.pushAsset('script', 'main');
+  self.pushAsset('stylesheet', 'main');
 
   // END OF MANAGER FUNCTIONALITY
 
@@ -699,7 +726,13 @@ snippets.Snippets = function(options, callback) {
   //
   // You don't override js and stylesheet assets, rather you serve more of them
   // from your own module and enhance what's already in browserland.
-  self._app.get(self._action + '/*', self._apos.static(self._webAssetDir + '/public'));
+  //
+  // TODO: this will be redundant, although harmlessly so, if there are
+  // several snippet-derived modules active in the project
+
+  _.each(self._modules, function(module) {
+    self._app.get(module.web + '/*', self._apos.static(module.dir + '/public'));
+  });
 
   // Given an options object in which options[name] is a string
   // set to '0', '1', or 'any', this method corrects options[name] to
@@ -1183,9 +1216,6 @@ snippets.Snippets = function(options, callback) {
 
   // Register the snippet-reuse widget unless we've been told not to
   _.defaults(options, { widget: true });
-  if (options.widget) {
-    self.pushAsset('script', 'widget');
-  }
 
   var browserOptions = options.browser || {};
 
@@ -1196,7 +1226,7 @@ snippets.Snippets = function(options, callback) {
     construct: browserOptions.construct || getBrowserConstructor()
   };
   self._pages.addType(self);
-  self._apos.pushGlobalCall('@.replaceType(?, new @(?))', browser.pages, self.name, browser.construct, { name: self.name, instance: self._instance, icon: self._icon, css: self._css, typeCss: self._typeCss, manager: self.manager });
+  self._apos.pushGlobalCall('@.replaceType(?, new @(?))', browser.pages, self.name, browser.construct, { name: self.name, instance: self._instance, icon: self._icon, css: self._css, typeCss: self._typeCss, manager: self.manager, action: self._action });
 
   if (options.widget) {
     var widgetConstructor;

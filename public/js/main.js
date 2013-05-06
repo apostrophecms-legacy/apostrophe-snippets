@@ -37,7 +37,7 @@ function AposSnippets(options) {
   self._typeCss = options.typeCss;
   self.manager = options.manager;
 
-  self._action = '/apos-' + self._css;
+  self._action = options.action;
 
   // PAGE SETTINGS FOR THIS TYPE
 
