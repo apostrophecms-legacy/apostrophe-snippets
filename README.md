@@ -94,20 +94,20 @@ By nesting all of our other functions and methods inside this constructor we ens
 
 Next we'll need to call the constructor for the snippets module so that we can inherit its behavior. (Other programming languages call this "invoking the base class constructor" or something similar.) But first we'll alter some of its options so that the snippets module manipulates and talks about blog posts instead of snippets. Note, however, that we use the `_.defaults` method to achieve this. This ensures that we don't interfere if the options have already been set, either at the project level (`app.js`) or by a subclass of the blog module (yes, you can subclass a subclass).
 
-  _.defaults(options, {
-    instance: 'blogPost',
-    name: options.name || 'blog',
-    label: options.name || 'Blog',
-    // Don't specify an icon unless it is actually present in the icon font
-    // (TODO: make it easier for third parties to add icons)
-    icon: false,
-    // Overridden separately so that one can have types that just
-    // override the templates and don't mess with replacing
-    // all of the javascript and CSS
-    webAssetDir: __dirname,
-    // The default would be aposBlogPostMenu, this is more natural
-    menuName: 'aposBlogMenu'
-  });
+    _.defaults(options, {
+      instance: 'blogPost',
+      name: options.name || 'blog',
+      label: options.name || 'Blog',
+      // Don't specify an icon unless it is actually present in the icon font
+      // (TODO: make it easier for third parties to add icons)
+      icon: false,
+      // Overridden separately so that one can have types that just
+      // override the templates and don't mess with replacing
+      // all of the javascript and CSS
+      webAssetDir: __dirname,
+      // The default would be aposBlogPostMenu, this is more natural
+      menuName: 'aposBlogMenu'
+    });
 
 ### Instance Types: Carving Out Our Own Content Type
 
@@ -492,34 +492,34 @@ Here we extend `addApiCriteria` to explicitly include posts whose publication da
 
 Fair question. You still need to subclass snippets (or, in this case, subclass the blog which is a subclass of snippets; it works the same way). But you don't have to do everything. Here's how we subclass the blog module in one of our projects to introduce a separate page type for "press releases." All we wanted was an index page that displays regualr blog posts a little bit differently:
 
-  // First initialize the blog. You must do this first. These functions are called in sequence via async.series
+    // First initialize the blog. You must do this first. These functions are called in sequence via async.series
 
-  function initAposBlog(callback) {
-    blog = require('apostrophe-blog')({
-      apos: apos,
-      pages: pages,
-      app: app,
-      widget: true,
-      dirs: [ __dirname+'/overrides/apostrophe-blog' ]
-    }, callback);
-  }
+    function initAposBlog(callback) {
+      blog = require('apostrophe-blog')({
+        apos: apos,
+        pages: pages,
+        app: app,
+        widget: true,
+        dirs: [ __dirname+'/overrides/apostrophe-blog' ]
+      }, callback);
+    }
 
-  // Now initialize press releases
+    // Now initialize press releases
 
-  function initAposPressReleases(callback) {
-    pressReleases = require('./lib/modules/pressReleases/index.js')({
-      apos: apos,
-      pages: pages,
-      app: app,
-      widget: true,
-      dirs: [ __dirname+'/lib/modules/pressReleases/views' ],
-      browser: {
-        construct: 'PressReleases'
-      },
-      // No special widget for press releases
-      widget: false
-    }, callback);
-  }
+    function initAposPressReleases(callback) {
+      pressReleases = require('./lib/modules/pressReleases/index.js')({
+        apos: apos,
+        pages: pages,
+        app: app,
+        widget: true,
+        dirs: [ __dirname+'/lib/modules/pressReleases/views' ],
+        browser: {
+          construct: 'PressReleases'
+        },
+        // No special widget for press releases
+        widget: false
+      }, callback);
+    }
 
 Here's `lib/modules/pressReleases/index.js`:
 
