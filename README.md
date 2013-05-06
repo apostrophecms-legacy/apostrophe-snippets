@@ -67,6 +67,8 @@ Subclasses of snippets can extend their behavior on both the server side and the
 
 The simplest example of a subclass of snippets is currently the `apostrophe-blog` module. Let's take a look at how it works.
 
+### Your module and its server-side code
+
 The `apostrophe-blog` module is a separate npm module, with its own `index.js` file as an entry point on the server side (the file that is loaded by `require('apostrophe-blog')`). npm modules are a great way to distribute subclasses of snippets as open source. But if you need a private subclass in your project, we recommend creating a `lib/modules/mymodule` folder, requiring `index.js` from there explicitly, and otherwise writing your code exactly as you would in a public npm module.
 
 We structure `index.js` this way:
@@ -238,6 +240,20 @@ There's also another way to achieve the same goal. This technique is worth looki
 Here we stash the original method in the variable `superDispatch`, then use the `call` keyword to invoke it as if it were still a method.
 
 This is an important technique because in many cases we do need the default behavior of the original method and we don't want to completely override it. When you completely override something you become responsible for keeping track of any changes in the original method. It's better to override as little as possible.
+
+### The Page Loader Function
+
+The dispatcher is called from a page loader function built in to the snippets module. Page loader functions implement the listener pattern and are given a chance to intervene when pages in the page tree are retrieved by the `apostrophe-pages` module. See the `apostrophe-pages` module for more information about page loader functions in general.
+
+All you need to know right now is that you must add this page loader function to the `load` option passed when configuring `apostrophe-pages` in `app.js`:
+
+    load: [
+      // Load the global virtual page with things like the shared footer
+      'global',
+      // Custom loaders for snippets and their derivatives
+      snippets.loader,
+      blog.loader, ...
+    ]
 
 ### Adding New Properties To Your Snippets
 
@@ -548,6 +564,15 @@ Here's `lib/modules/pressReleases/index.js`:
         process.nextTick(function() { return callback(null); });
       }
     };
+
+Don't forget to register the page loader function in `app.js` where you configure the `apostrophe-pages` module:
+
+    load: [
+      ...
+      snippets.loader,
+      blog.loader,
+      pressReleases.loader
+    ]
 
 We also need a bare-bones `lib/modules/pressReleases/public/js/main.js` file on the browser side:
 
