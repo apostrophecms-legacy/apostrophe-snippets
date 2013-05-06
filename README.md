@@ -103,13 +103,13 @@ Next we'll need to call the constructor for the snippets module so that we can i
       // Don't specify an icon unless it is actually present in the icon font
       // (TODO: make it easier for third parties to add icons)
       icon: false,
-      // Overridden separately so that one can have types that just
-      // override the templates and don't mess with replacing
-      // all of the javascript and CSS
-      webAssetDir: __dirname,
       // The default would be aposBlogPostMenu, this is more natural
       menuName: 'aposBlogMenu'
     });
+
+    options.modules = (options.modules || []).concat([ { dir: __dirname, name: 'blog' } ]);
+
+`_.defaults` is simple enough, but what is all this `options.modules` business? `options.modules` is a list containing information about all of the parent classes of our subclass, so that the snippets module can deliver all of the necessary CSS and JavaScript assets to the browser. Each entry in the array has a `dir` property and a `name` property. The `name` property should match the `name` option. The `name` option will be overridden if someone subclasses our blog, but every subclass just adds more elements to the `modules` array so that information about all of the parent classes is available.
 
 ### Instance Types: Carving Out Our Own Content Type
 
