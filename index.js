@@ -241,8 +241,6 @@ snippets.Snippets = function(options, callback) {
       });
     };
 
-    self.areas = [ 'thumbnail', 'body' ];
-
     self.importCreateItem = function(req, data, callback) {
       // "Why the try/catch?" Because the CSV reader has some sort of
       // try/catch of its own that is making it impossible to log any
