@@ -1,3 +1,5 @@
+{% include 'formMacros.html' %}
+
 {% macro renderSnippets(items, pageUrl) %}
   {% if items %}
     {% for item in items %}
@@ -8,59 +10,32 @@
   {% endif %}
 {% endmacro %}
 
-{% macro renderSnippet(item, pageUrl) %}
-  <div class="apos-snippet">
-    <div class="apos-snippet-heading">
-      <h4><a href="{{ pageUrl }}/{{ item.slug }}">{{ item.title | e }}</a></h4>
-    </div>
-    <div class="apos-snippet-body">{{ aposArea({ area: item.areas.body }) }}</div>
-  </div>
+{% macro snippetText(name, label) %}
+  {{ formText(name, label) }}
 {% endmacro %}
 
-{# Standard form markup, for convenience and consistency #}
-
-{% macro snippetText(name, label) %}
-  <fieldset class="apos-fieldset apos-fieldset-text apos-fieldset-{{ label | css }}">
-    <label>{{ label | e }}</label>
-    <input name="{{ name | e }}" type="text">
-  </fieldset>
+{% macro snippetTags(name, label) %}
+  {{ formTags(name, label) }}
 {% endmacro %}
 
 {% macro snippetTextarea(name, label) %}
-  <fieldset class="apos-fieldset apos-fieldset-editor apos-fieldset-{{ label | css }}">
-    <label>{{ label | e }}</label>
-    <textarea name="{{ name | e }}" rows="4"></textarea>
-  </fieldset>
+  {{ formTextarea(name, label) }}
 {% endmacro %}
 
 {% macro snippetSelect(name, label, choices) %}
-  <fieldset class="apos-fieldset apos-fieldset-select apos-fieldset-{{ label | css }}">
-    <label>{{ label | e }}</label>
-    <select name="{{ name | e }}">
-      {% for choice in choices %}
-        <option value="{{ choice.name | e }}">{{ choice.label | e }}</option>
-      {% endfor %}
-    </select>
+{{ formSelect(name, label, choices) }}
   </fieldset>
 {% endmacro %}
 
 {# See enableArea in snippets' main.js for the necessary plumbing, including #}
 {# specifying the type we want for the singleton #}
 {% macro snippetSingleton(name, label) %}
-  <fieldset class="apos-fieldset apos-fieldset-singleton apos-fieldset-{{ label | css }}">
-    <label>{{ name }}</label>
-    {# js adds this singleton to the dialog #}
-    <div data-{{ name }}-edit-view></div>
-  </fieldset>
+  {{ formSingleton(name, label) }}
 {% endmacro %}
 
 {# See enableArea in snippets' main.js for the necessary plumbing #}
 {% macro snippetArea(name, label) %}
-  <fieldset class="apos-fieldset apos-fieldset-editor apos-fieldset-{{ label | css }}">
-    <label>{{ label | e }}</label>
-    {# js adds this area to the dialog #}
-    <div data-{{ name }}-edit-view></div>
-  </fieldset>
+  {{ formArea(name, label) }}
 {% endmacro %}
 
 {# These promote a consistent interface in the various "manage" dialogs for types #}
@@ -84,11 +59,7 @@
 
 {# A pill button with several mutually exclusive choices #}
 {% macro snippetPill(name, options) %}
-  <span class="apos-pill" data-pill data-name="{{ name }}">
-    {%- for pill in options -%}
-      <a class="apos-pill-choice {% if loop.first %}apos-first{% endif %}{% if loop.last %}apos-last{% endif %}" href="#" data-choice="{{ pill.value }}">{{ pill.label }}</a>
-    {%- endfor -%}
-  </span>
+  {{ formPill(name, options) }}
 {% endmacro %}
 
 {# Standard filters suitable for all snippet derivatives #}
