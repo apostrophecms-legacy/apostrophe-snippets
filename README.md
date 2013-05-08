@@ -154,11 +154,17 @@ Since snippets are pages, we can leverage all the capabilities already baked int
 
 ### Invoking the Base Class Constructor
 
-Now that we've set up our options, it's time to invoke the snippet module's constructor so that we can inherit everything it does for us:
+Now that we've set up our options, it's time to invoke the snippet module's constructor so that we can inherit everything it does for us. Then, after doing additional work, we should invoke the callback if any.
 
     // Call the base class constructor. Don't pass the callback, we want to invoke it
     // ourselves after constructing more stuff
     snippets.Snippets.call(this, options, null);
+
+    ... do more work here, as described in the following sections ...
+
+    if (callback) {
+      process.nextTick(function() { return callback(null); });
+    }
 
 "What is this `.call` business about?"
 
