@@ -1114,7 +1114,8 @@ snippets.Snippets = function(options, callback) {
       return go();
     }
     var typeNames = _.map(typesByInstanceType[snippet.type] || [], function(type) { return type.name; });
-    var pages = self._apos.pages.find({ type: { $in: typeNames }, slug: /^\// }).toArray(function(err, pages) {
+    // Pages in the trash are never good permalinks
+    var pages = self._apos.pages.find({ trash: { $exists: false }, type: { $in: typeNames }, slug: /^\// }).toArray(function(err, pages) {
       if (err) {
         console.log('error is:');
         console.log(err);
