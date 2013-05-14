@@ -785,9 +785,9 @@ snippets.Snippets = function(options, callback) {
   // options.titleSearch is used to search the titles of all snippets for a
   // particular string using a fairly tolerant algorithm.
 
-  self.get = function(req, optionsArg, callback) {
-    if (!callback) {
-      callback = optionsArg;
+  self.get = function(req, optionsArg, mainCallback) {
+    if (!mainCallback) {
+      mainCallback = optionsArg;
       optionsArg = {};
     }
 
@@ -867,10 +867,29 @@ snippets.Snippets = function(options, callback) {
     function loadSnippets(callback) {
       q.toArray(function(err, snippetsArg) {
         if (err) {
+          console.log(err);
           return callback(err);
         }
         snippets = snippetsArg;
         got = snippets.length;
+        // This is a good idea, but we need to figure out how to make sure it all
+        // ends in a browser redirect and doesn't break blog, events or map, and
+        // also guard against loops
+        //
+        // // If this all started with a slug parameter that possibly no longer
+        // // exists, check the redirect table before giving up. If there is a redirect
+        // // recursively invoke the whole thing
+        // if (optionsArg.slug && (!got)) {
+        //   // Check the redirect table
+        //   return self._apos.redirects.findOne({ from: optionsArg.slug }, function(err, redirect) {
+        //     if (redirect) {
+        //       var newOptions = {};
+        //       extend(true, newOptions, optionsArg);
+        //       newOptions.slug = redirect.to;
+        //       return self.get(req, newOptions, mainCallback);
+        //     }
+        //   });
+        // }
         return callback(err);
       });
     }
@@ -938,9 +957,9 @@ snippets.Snippets = function(options, callback) {
         });
       }
       if (err) {
-        return callback(err);
+        return mainCallback(err);
       }
-      return callback(null, snippets);
+      return mainCallback(null, snippets);
     }
   };
 
