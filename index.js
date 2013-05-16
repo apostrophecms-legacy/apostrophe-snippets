@@ -91,6 +91,7 @@ snippets.Snippets = function(options, callback) {
   self._app = options.app;
   self._searchable = options.searchable || true;
   self._options = options;
+  self._perPage = options.perPage || 10;
 
   // self.modules allows us to find the directory path and web asset path to
   // each module in the inheritance tree when subclassing. Necessary to push all
@@ -556,17 +557,21 @@ snippets.Snippets = function(options, callback) {
       self._app.get(self._action + '/get', function(req, res) {
         var options = {};
         self.addApiCriteria(req.query, options);
-        self.get(req, options, function(err, snippets) {
-          return res.send(JSON.stringify(snippets));
+        self.get(req, options, function(err, results) {
+          if (err) {
+            res.statusCode = 500;
+            return res.send('error');
+          }
+          return res.send(JSON.stringify(results.snippets));
         });
       });
 
       self._app.get(self._action + '/get-one', function(req, res) {
         var options = {};
         self.addApiCriteria(req.query, options);
-        self.get(req, options, function(err, snippets) {
-          if (snippets && snippets.length) {
-            res.send(JSON.stringify(snippets[0]));
+        self.get(req, options, function(err, results) {
+          if (results && results.snippets.length) {
+            res.send(JSON.stringify(results.snippets[0]));
           } else {
             res.send(JSON.stringify(null));
           }
@@ -600,7 +605,12 @@ snippets.Snippets = function(options, callback) {
         }
         self.addExtraAutocompleteCriteria(req, options);
         // Format it as value & id properties for compatibility with jquery UI autocomplete
-        self.get(req, options, function(err, snippets) {
+        self.get(req, options, function(err, results) {
+          if (err) {
+            res.statusCode = 500;
+            return res.send('error');
+          }
+          var snippets = results.snippets;
           // Put the snippets in id order
           if (req.query.ids) {
             snippets = self._apos.orderById(req.query.ids, snippets);
@@ -784,6 +794,38 @@ snippets.Snippets = function(options, callback) {
   //
   // options.titleSearch is used to search the titles of all snippets for a
   // particular string using a fairly tolerant algorithm.
+  //
+  // FETCHING METADATA FOR FILTERS
+  //
+  // If options.fetch is present, snippets.get will deliver an object
+  // with a `snippets` property containing the array of snippets, rather
+  // than delivering the array of snippets directly.
+  //
+  // If options.fetch.tags is true, snippets.get will also deliver a
+  // `tags` property, containing all tags that are present on the snippets
+  // (ignoring limit and skip). This is useful to present a "filter by tag"
+  // interface.
+  //
+  // LIMITING METADATA RESULTS
+  //
+  // When you pass options.fetch.tags = true, the .tags property returned
+  // is NOT restricted by any `tags` criteria present in `optionsArg`, so
+  // that you may present alternatives to the tag you are currently filtering by.
+  //
+  // However, you may still need to restrict the tags somewhat, for instance because
+  // the entire page is locked down to show only things tagged red, green or blue.
+  // You could do this after the fact but that would require MongoDB to do more
+  // work up front. So for efficiency's sake, you can supply an object as the value
+  // of options.fetch.tags, with an `only` property restricting the possible results:
+  //
+  // options.fetch.tags = { only: [ 'red', 'green', 'blue' ] }
+  //
+  // Conversely, you may need to ensure a particular tag *does* appear in results.tags,
+  // usually because it is the tag the user is manually filtering by right now:
+  //
+  // Include 'blue' in the result even if it matches no snippets
+  //
+  // options.fetch.tags { only: [ 'red', 'green', 'blue' ], always: 'blue' }
 
   self.get = function(req, optionsArg, mainCallback) {
     if (!mainCallback) {
@@ -800,24 +842,21 @@ snippets.Snippets = function(options, callback) {
     }
 
     var sort = options.sort || { sortTitle: 1 };
-    if (options.sort !== undefined) {
-      delete options['sort'];
-    }
+    delete options.sort;
 
     var limit = options.limit || undefined;
-    if (limit !== undefined) {
-      delete options['limit'];
-    }
+    // Don't get cute about when to delete, it never hurts, and if you're not very
+    // careful you're going to fail to delete if it was set to '0' (see the or above)
+    delete options.limit;
 
     var skip = options.skip || undefined;
-    if (skip !== undefined) {
-      delete options['skip'];
-    }
+    delete options.skip;
 
     var fields = options.fields || undefined;
-    if (options.fields !== undefined) {
-      delete options['fields'];
-    }
+    delete options.fields;
+
+    var fetch = options.fetch;
+    delete options.fetch;
 
     var titleSearch = options.titleSearch || undefined;
     if (options.titleSearch !== undefined) {
@@ -852,17 +891,23 @@ snippets.Snippets = function(options, callback) {
     // We can fix it by just storing the permissions for a page in the page.
 
     var q = self._apos.pages.find(options, args).sort(sort);
-    if (limit !== undefined) {
-      q.limit(limit);
-    }
-    if (skip !== undefined) {
-      q.skip(skip);
-    }
 
-    var snippets;
+    // For now we have to implement limit and skip ourselves because of the way
+    // our permissions callback works. TODO: research whether we can make permissions
+    // checks something that can be part of our single query to mongodb
+
+    // if (limit !== undefined) {
+    //   q.limit(limit);
+    // }
+    // if (skip !== undefined) {
+    //   q.skip(skip);
+    // }
+
+    var results = {};
     var got;
+    var total;
 
-    async.series([loadSnippets, permissions, loadWidgets], done);
+    async.series([loadSnippets, permissions, skipLimitAndTotal, loadWidgets, fetchExtras], done);
 
     function loadSnippets(callback) {
       q.toArray(function(err, snippetsArg) {
@@ -870,7 +915,7 @@ snippets.Snippets = function(options, callback) {
           console.log(err);
           return callback(err);
         }
-        snippets = snippetsArg;
+        results.snippets = snippetsArg;
         got = snippets.length;
         // This is a good idea, but we need to figure out how to make sure it all
         // ends in a browser redirect and doesn't break blog, events or map, and
@@ -895,7 +940,7 @@ snippets.Snippets = function(options, callback) {
     }
 
     function permissions(callback) {
-      async.filter(snippets, function(snippet, callback) {
+      async.filter(results.snippets, function(snippet, callback) {
         self._apos.permissions(req, 'edit-page', snippet, function(err) {
           if (editable) {
             return callback(!err);
@@ -918,48 +963,98 @@ snippets.Snippets = function(options, callback) {
       });
     }
 
+    // Brute force strategy is the only one that works with 'skip' and 'total'
+    // in the mix until we put permissions in the database
+    function skipLimitAndTotal(callback) {
+      var limited = [];
+      var i;
+      skip = skip || 0;
+      limit = limit || 1000000000;
+      results.total = results.snippets.length;
+      for (i = skip; (i < skip + limit); i++) {
+        if (results.snippets[i]) {
+          limited.push(results.snippets[i]);
+        } else {
+          break;
+        }
+      }
+      results.snippets = limited;
+      return callback(null);
+    }
+
     function loadWidgets(callback) {
       // Use eachSeries to avoid devoting overwhelming mongodb resources
       // to a single user's request. There could be many snippets on this
       // page, and callLoadersForPage is parallel already
-      async.eachSeries(snippets, function(snippet, callback) {
+      async.eachSeries(results.snippets, function(snippet, callback) {
         self._apos.callLoadersForPage(req, snippet, callback);
       }, function(err) {
         return callback(err);
       });
     }
 
+    function fetchExtras(callback) {
+      if (!fetch) {
+        return callback(null);
+      }
+      return self.fetchMetadataForFilters(fetch, options, results, callback);
+    }
+
     function done(err) {
-      // If there are more items potentially available in the database, and we
-      // dropped some due to a lack of view or edit permissions, we should go back
-      // and get some more. We can get rid of this if we manage to implement
-      // permissions as part of queries later, but it usually doesn't have to be
-      // invoked zillions of times before we get the original desired number.
-      if ((!err) && limit && (got === limit) && (snippets.length < got)) {
-        var options = {};
-        extend(true, options, optionsArg);
-        var oldSkip = options.skip || 0;
-        options.skip = oldSkip + limit;
-        // This is not ideal because we'll request fewer and fewer items on
-        // each try, eventually requesting one at a time. TODO: improve this
-        // algorithm to keep fetching more but not get confused about what
-        // the final goal is.
-        options.limit = limit - snippets.length;
-        return self.get(req, options, function(err, moreSnippets) {
-          var i;
-          for (i = 0; (i < moreSnippets.length); i++) {
-            if (snippets.length >= limit) {
-              break;
-            }
-            snippets.push(moreSnippets[i]);
+      return mainCallback(null, results);
+    }
+  };
+
+  // Add additional metadata like available tags to `results`. You should take advantage
+  // of the mongodb criteria in `criteria` to obtain only options that will
+  // return results. For instance, for tags, we fetch only tags that appear on
+  // at least one snippet that meets the other criteria that are currently active.
+  // This lets us avoid displaying filters that point to empty pages.
+  //
+  // You should retrieve options for a given filter only if `fetch.yourfiltername` is set
+  // (as seen below for `fetch.tags`). If `fetch.only` is set you must respect that
+  // limitation on the allowed values. If `fetch.always` is set you must always include
+  // that particular value in your results even if it matches no snippets.
+  //
+  // If `criteria` is already filtered by the property you are interested in, you should
+  // remove that property from `criteria` before querying. However you MUST restore
+  // that property to criteria` before calling the superclass version of this method.
+  // If you're nervous, copy `criteria` with extend(true, myCriteria, criteria).
+  //
+  // See the `fetchTags` function within this method for a well-executed example.
+
+  self.fetchMetadataForFilters = function(fetch, criteria, results, callback) {
+    // Written to accommodate fetching other filters' options easily
+    async.series([fetchTags], callback);
+    function fetchTags(callback) {
+      if (!fetch.tags) {
+        console.log('NOT fetching tags');
+        return callback(null);
+      }
+      // Always save criteria we modify and restore them later
+      var saveTagCriteria = criteria.tags;
+      delete criteria.tags;
+      if (typeof(fetch.tags) === 'object') {
+        if (fetch.tags.only) {
+          criteria.tags = fetch.tags.only;
+        }
+      }
+      self._apos.pages.distinct("tags", criteria, function(err, tags) {
+        if (err) {
+          return callback(err);
+        }
+        // Always restore any criteria we modified
+        criteria.tags = saveTagCriteria;
+        results.tags = tags;
+        if (fetch.tags.always) {
+          if (!_.contains(results.tags, fetch.tags.always)) {
+            results.tags.push(fetch.tags.always);
           }
-          return callback(err, snippets);
-        });
-      }
-      if (err) {
-        return mainCallback(err);
-      }
-      return mainCallback(null, snippets);
+        }
+        // alpha sort
+        results.tags.sort();
+        return callback(null);
+      });
     }
   };
 
@@ -1031,6 +1126,8 @@ snippets.Snippets = function(options, callback) {
     if (slug !== false) {
       show = true;
       criteria.slug = slug;
+    } else {
+      self.addPager(req, criteria);
     }
     self.addCriteria(req, criteria);
     // If we are requesting a specific slug, remove the tags criterion.
@@ -1042,24 +1139,49 @@ snippets.Snippets = function(options, callback) {
     if (slug) {
       criteria.tags = undefined;
     }
-    return self.get(req, criteria, function(err, snippets) {
+    return self.get(req, criteria, function(err, results) {
       if (err) {
         return callback(err);
       }
+
+      // Make the filter metadata (like tag lists) available to the template
+      req.extras.filters = _.omit(results, 'snippets');
+
       if (show) {
-        if (!snippets.length) {
+        if (!results.snippets.length) {
           // Correct way to request a 404 from a loader.
           // Other loaders could still override this, which is good
           req.notfound = true;
           return callback(null);
         } else {
-          return self.show(req, snippets[0], callback);
+          return self.show(req, results.snippets[0], callback);
         }
       } else {
-        return self.index(req, snippets, callback);
+        self.setPagerTotal(req, results.total);
+        return self.index(req, results.snippets, callback);
       }
       return callback(null);
     });
+  };
+
+  // Sets up req.extras.pager and adds skip and limit to the criteria.
+  // YOU MUST ALSO CALL setPagerTotal after the total number of items available
+  // is known (results.total in the get callback).
+
+  self.addPager = function(req, criteria) {
+    var pageNumber = self._apos.sanitizeInteger(req.query.page, 1, 1);
+    req.extras.pager = {
+      page: pageNumber
+    };
+    criteria.skip = self._perPage * (pageNumber - 1);
+    criteria.limit = self._perPage;
+  };
+
+  self.setPagerTotal = function(req, total) {
+    req.extras.pager.total = Math.ceil(total / self._perPage);
+    if (req.extras.pager.total < 1) {
+      req.extras.pager.total = 1;
+    }
   };
 
   // If this request looks like a request for a 'show' page (a permalink),
@@ -1097,8 +1219,23 @@ snippets.Snippets = function(options, callback) {
   };
 
   self.addCriteria = function(req, criteria) {
+    criteria.fetch = {
+      tags: {}
+    };
     if (req.page.typeSettings && req.page.typeSettings.tags && req.page.typeSettings.tags.length) {
       criteria.tags = { $in: req.page.typeSettings.tags };
+      // This restriction also applies when fetching distinct tags
+      criteria.fetch.tags = { only: req.page.typeSettings.tags };
+    }
+    if (req.query.tag) {
+      // Override the criteria for fetching snippets but leave criteria.fetch.tags
+      // alone
+      criteria.tags = { $in: [ req.query.tag ] };
+      // Always return the active tag as one of the filter choices even if
+      // there are no results in this situation. Otherwise the user may not be
+      // able to see the state of the filter (for instance if it is expressed
+      // as a select element)
+      criteria.fetch.tags.always = req.query.tag;
     }
   };
 

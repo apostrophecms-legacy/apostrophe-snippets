@@ -85,12 +85,13 @@ widget.Widget = function(options) {
 
       self.addCriteria(item, criteria);
 
-      self.snippets.get(req, criteria, function(err, snippets) {
+      self.snippets.get(req, criteria, function(err, results) {
         if (err) {
           item._snippets = [];
           console.log(err);
           return callback(err);
         }
+        var snippets = results.snippets;
         if (item.by === 'id') {
           snippets = self.apos.orderById(item.ids, snippets);
           // Put them in the same order as the ids that were manually selected
