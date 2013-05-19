@@ -744,40 +744,6 @@ snippets.Snippets = function(options, callback) {
     self._app.get(module.web + '/*', self._apos.static(module.dir + '/public'));
   });
 
-  // Given an options object in which options[name] is a string
-  // set to '0', '1', or 'any', this method corrects options[name] to
-  // be suitable for use in a MongoDB criteria object. '0' means
-  // "the property must be false or absent," '1' means "the promperty must be
-  // true," and 'any' means "we don't care what the property is."
-  // An empty string is considered equivalent to '0'. This is not
-  // the same as apos.sanitizeBoolean which is concerned only with
-  // true or false and does not address "any." This method is used
-  // with GET or POST form submissions of filter settings.
-  //
-  // def should be set to '0', '1' or 'any' and defaults to 'any'.
-
-  self.convertBooleanFilterCriteria = function(name, options, def) {
-    // Consume special options then remove them, turning the rest into mongo criteria
-
-    if (def === undefined) {
-      def = 'any';
-    }
-    var value = (options[name] === undefined) ? def : options[name];
-    if (options[name] !== undefined) {
-      delete options[name];
-    }
-
-    if (value === 'any') {
-      // Don't care, show all
-    } else if ((!value) || (value === '0')) {
-      // Must be absent or false. Hooray for $ne
-      options[name] = { $ne: true };
-    } else {
-      // Must be true
-      options[name] = true;
-    }
-  };
-
   // Returns recent snippets the current user is permitted to read, in
   // alphabetical order by title. If options.editable is true, only
   // snippets the current user can edit are returned. If options.sort is
@@ -827,186 +793,36 @@ snippets.Snippets = function(options, callback) {
   //
   // options.fetch.tags { only: [ 'red', 'green', 'blue' ], always: 'blue' }
 
-  self.get = function(req, optionsArg, mainCallback) {
-    if (!mainCallback) {
-      mainCallback = optionsArg;
-      optionsArg = {};
-    }
+  self.get = function(req, optionsArg, callback) {
 
     var options = {};
     extend(true, options, optionsArg);
-
-    var editable = options.editable;
-    if (options.editable !== undefined) {
-      delete options['editable'];
+    // For snippets the default sort is alpha
+    if (!options.sort) {
+      options.sort = { sortTitle: 1 };
     }
-
-    var sort = options.sort || { sortTitle: 1 };
-    delete options.sort;
-
-    var limit = options.limit || undefined;
-    // Don't get cute about when to delete, it never hurts, and if you're not very
-    // careful you're going to fail to delete if it was set to '0' (see the or above)
-    delete options.limit;
-
-    var skip = options.skip || undefined;
-    delete options.skip;
-
-    var fields = options.fields || undefined;
-    delete options.fields;
-
+    if (!options.type) {
+      options.type = self._instance;
+    }
     var fetch = options.fetch;
     delete options.fetch;
 
-    var titleSearch = options.titleSearch || undefined;
-    if (options.titleSearch !== undefined) {
-      delete options['titleSearch'];
-      options.sortTitle = new RegExp(RegExp.quote(self._apos.sortify(titleSearch)));
-    }
-
-    self.convertBooleanFilterCriteria('trash', options, '0');
-    self.convertBooleanFilterCriteria('published', options);
-
-    if (options.q && options.q.length) {
-      // Crude fulltext search support. It would be better to present
-      // highSearchText results before lowSearchText results, but right now
-      // we are doing a single query only
-      options.lowSearchText = self._apos.searchify(options.q);
-    }
-    // Don't let an empty or not-so-empty q screw up our query
-    delete options.q;
-
-    options.type = self._instance;
-
-    args = {};
-
-    if (fields !== undefined) {
-      args.fields = fields;
-    }
-
-    // TODO: with many snippets there is a performance problem with calling
-    // permissions separately on them. Pagination will have to be performed
-    // manually after all permissions have been checked. The A1.5 permissions
-    // model wasn't perfect but it was something you could do by joining tables.
-    // We can fix it by just storing the permissions for a page in the page.
-
-    var q = self._apos.pages.find(options, args).sort(sort);
-
-    // For now we have to implement limit and skip ourselves because of the way
-    // our permissions callback works. TODO: research whether we can make permissions
-    // checks something that can be part of our single query to mongodb
-
-    // if (limit !== undefined) {
-    //   q.limit(limit);
-    // }
-    // if (skip !== undefined) {
-    //   q.skip(skip);
-    // }
-
-    var results = {};
-    var got;
-    var total;
-
-    async.series([loadSnippets, permissions, skipLimitAndTotal, loadWidgets, fetchExtras], done);
-
-    function loadSnippets(callback) {
-      q.toArray(function(err, snippetsArg) {
-        if (err) {
-          console.log(err);
-          return callback(err);
-        }
-        results.snippets = snippetsArg;
-        got = snippets.length;
-        // This is a good idea, but we need to figure out how to make sure it all
-        // ends in a browser redirect and doesn't break blog, events or map, and
-        // also guard against loops
-        //
-        // // If this all started with a slug parameter that possibly no longer
-        // // exists, check the redirect table before giving up. If there is a redirect
-        // // recursively invoke the whole thing
-        // if (optionsArg.slug && (!got)) {
-        //   // Check the redirect table
-        //   return self._apos.redirects.findOne({ from: optionsArg.slug }, function(err, redirect) {
-        //     if (redirect) {
-        //       var newOptions = {};
-        //       extend(true, newOptions, optionsArg);
-        //       newOptions.slug = redirect.to;
-        //       return self.get(req, newOptions, mainCallback);
-        //     }
-        //   });
-        // }
+    return self._apos.get(req, options, function(err, results) {
+      if (err) {
         return callback(err);
-      });
-    }
-
-    function permissions(callback) {
-      async.filter(results.snippets, function(snippet, callback) {
-        self._apos.permissions(req, 'edit-page', snippet, function(err) {
-          if (editable) {
-            return callback(!err);
-          } else {
-            snippet._edit = !err;
-            // Good way to test the retry mechanism that fills the gap if
-            // some of the snippets lack permissions for this user
-            // if (Math.random() < 0.5) {
-            //   console.log('randomly flunking view permissions');
-            //   return callback(false);
-            // }
-            self._apos.permissions(req, 'view-page', snippet, function(err) {
-              return callback(!err);
-            });
-          }
-        });
-      }, function(snippetsArg) {
-        snippets = snippetsArg;
-        return callback(null);
-      });
-    }
-
-    // Brute force strategy is the only one that works with 'skip' and 'total'
-    // in the mix until we put permissions in the database
-    function skipLimitAndTotal(callback) {
-      var limited = [];
-      var i;
-      skip = skip || 0;
-      limit = limit || 1000000000;
-      results.total = results.snippets.length;
-      for (i = skip; (i < skip + limit); i++) {
-        if (results.snippets[i]) {
-          limited.push(results.snippets[i]);
-        } else {
-          break;
-        }
       }
-      results.snippets = limited;
-      return callback(null);
-    }
-
-    function loadWidgets(callback) {
-      // Use eachSeries to avoid devoting overwhelming mongodb resources
-      // to a single user's request. There could be many snippets on this
-      // page, and callLoadersForPage is parallel already
-      async.eachSeries(results.snippets, function(snippet, callback) {
-        self._apos.callLoadersForPage(req, snippet, callback);
-      }, function(err) {
-        return callback(err);
-      });
-    }
-
-    function fetchExtras(callback) {
-      if (!fetch) {
-        return callback(null);
+      results.snippets = results.pages;
+      delete results.pages;
+      if (fetch) {
+        return self.fetchMetadataForFilters(fetch, results.criteria, results, callback);
+      } else {
+        return callback(null, results);
       }
-      return self.fetchMetadataForFilters(fetch, options, results, callback);
-    }
-
-    function done(err) {
-      return mainCallback(null, results);
-    }
+    });
   };
 
   // Add additional metadata like available tags to `results`. You should take advantage
-  // of the mongodb criteria in `criteria` to obtain only options that will
+  // of the mongodb criteria in `criteria` to display only the choices that will
   // return results. For instance, for tags, we fetch only tags that appear on
   // at least one snippet that meets the other criteria that are currently active.
   // This lets us avoid displaying filters that point to empty pages.
@@ -1025,10 +841,15 @@ snippets.Snippets = function(options, callback) {
 
   self.fetchMetadataForFilters = function(fetch, criteria, results, callback) {
     // Written to accommodate fetching other filters' options easily
-    async.series([fetchTags], callback);
+    async.series([fetchTags], function(err) {
+      if (err) {
+        return callback(err);
+      }
+      return callback(null, results);
+    });
+
     function fetchTags(callback) {
       if (!fetch.tags) {
-        console.log('NOT fetching tags');
         return callback(null);
       }
       // Always save criteria we modify and restore them later
