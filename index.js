@@ -914,7 +914,6 @@ snippets.Snippets = function(options, callback) {
       // We consider a partial match to be good enough, depending on the
       // remainder of the URL
       req.page = req.bestPage;
-
       self.dispatch(req, callback);
     }
 
