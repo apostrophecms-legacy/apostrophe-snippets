@@ -761,6 +761,13 @@ snippets.Snippets = function(options, callback) {
   // options.titleSearch is used to search the titles of all snippets for a
   // particular string using a fairly tolerant algorithm.
   //
+  // PERMALINKING
+  //
+  // By default no ._url property is set on each item, as you often are rendering items
+  // on a specific page and want to set the ._url property to match. If you set the
+  // `permalink` option to true, the ._url property will be set for you, based on
+  // the findBestPage algorithm.
+  //
   // FETCHING METADATA FOR FILTERS
   //
   // If options.fetch is present, snippets.get will deliver an object
@@ -794,8 +801,8 @@ snippets.Snippets = function(options, callback) {
   // options.fetch.tags { only: [ 'red', 'green', 'blue' ], always: 'blue' }
 
   self.get = function(req, optionsArg, callback) {
-
     var options = {};
+    var results = null;
     extend(true, options, optionsArg);
     // For snippets the default sort is alpha
     if (!options.sort) {
@@ -806,19 +813,40 @@ snippets.Snippets = function(options, callback) {
     }
     var fetch = options.fetch;
     delete options.fetch;
+    var permalink = options.permalink;
+    delete options.permalink;
 
-    return self._apos.get(req, options, function(err, results) {
-      if (err) {
-        return callback(err);
-      }
-      results.snippets = results.pages;
-      delete results.pages;
+    return async.series([ query, metadata, permalinker ], function(err) {
+      return callback(err, results);
+    });
+
+    function query(callback) {
+      return self._apos.get(req, options, function(err, resultsArg) {
+        if (err) {
+          return callback(err);
+        }
+        results = resultsArg;
+        results.snippets = results.pages;
+        delete results.pages;
+        return callback(null);
+      });
+    }
+
+    function metadata(callback) {
       if (fetch) {
         return self.fetchMetadataForFilters(fetch, results.criteria, results, callback);
       } else {
-        return callback(null, results);
+        return callback(null);
       }
-    });
+    }
+
+    function permalinker(callback) {
+      if (permalink) {
+        return self.findBestPageForMany(req, results.snippets, callback);
+      } else {
+        return callback(null);
+      }
+    }
   };
 
   // Add additional metadata like available tags to `results`. You should take advantage
@@ -845,7 +873,7 @@ snippets.Snippets = function(options, callback) {
       if (err) {
         return callback(err);
       }
-      return callback(null, results);
+      return callback(null);
     });
 
     function fetchTags(callback) {
@@ -1138,6 +1166,17 @@ snippets.Snippets = function(options, callback) {
       });
       return callback(null, best);
     }
+  };
+
+  self.findBestPageForMany = function(req, items, callback) {
+    async.map(items, function(item, callback) {
+      return self.findBestPage(req, item, function(err, page) {
+        if (page) {
+          item._url = self.permalink(item, page);
+        }
+        return callback(err);
+      });
+    }, callback);
   };
 
   // Returns a "permalink" URL to the snippet, beginning with the
