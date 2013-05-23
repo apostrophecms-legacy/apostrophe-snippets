@@ -197,7 +197,23 @@ snippets.Snippets = function(options, callback) {
       return callback(null);
     };
 
+    self.afterInsert = function(req, data, snippet, callback) {
+      return callback(null);
+    };
+
     self.beforeUpdate = function(req, data, snippet, callback) {
+      return callback(null);
+    };
+
+    self.afterUpdate = function(req, data, snippet, callback) {
+      return callback(null);
+    };
+
+    self.beforeSave = function(req, data, snippet, callback) {
+      return callback(null);
+    };
+
+    self.afterSave = function(req, data, snippet, callback) {
       return callback(null);
     };
 
@@ -295,12 +311,23 @@ snippets.Snippets = function(options, callback) {
         // Record when the import happened so that later we can offer a UI
         // to find these groups and remove them if desired
         snippet.imported = req.aposImported;
-        self.beforeInsert(req, data, snippet, function(err) {
-          if (err) {
-            return callback(err);
-          }
-          return self.importSaveItem(req, snippet, callback);
-        });
+        async.series([
+          function(callback) {
+            self.beforeInsert(req, data, snippet, callback);
+          },
+          function(callback) {
+            self.beforeSave(req, data, snippet, callback);
+          },
+          function(callback) {
+            self.importSaveItem(req, snippet, callback);
+          },
+          function(callback) {
+            self.afterInsert(req, data, snippet, callback);
+          },
+          function(callback) {
+            self.afterSave(req, data, snippet, callback);
+          },
+        ], callback);
       } catch (e) {
         console.log(e);
         throw e;
@@ -338,14 +365,26 @@ snippets.Snippets = function(options, callback) {
 
         tags = req.body.tags;
 
-        async.series([ prepare, insert ], send);
+        async.series([ beforeInsert, beforeSave, insert, afterInsert, afterSave ], send);
 
-        function prepare(callback) {
+        function beforeInsert(callback) {
           return self.beforeInsert(req, req.body, snippet, callback);
+        }
+
+        function beforeSave(callback) {
+          return self.beforeSave(req, req.body, snippet, callback);
         }
 
         function insert(callback) {
           return self._apos.putPage(req, slug, snippet, callback);
+        }
+
+        function afterInsert(callback) {
+          return self.afterInsert(req, req.body, snippet, callback);
+        }
+
+        function afterSave(callback) {
+          return self.afterSave(req, req.body, snippet, callback);
         }
 
         function send(err) {
@@ -356,7 +395,6 @@ snippets.Snippets = function(options, callback) {
           return res.send(JSON.stringify(snippet));
         }
       });
-
 
       self._app.post(self._action + '/update', function(req, res) {
         var snippet;
@@ -403,11 +441,28 @@ snippets.Snippets = function(options, callback) {
           snippet.tags = tags;
           snippet.sortTitle = self._apos.sortify(title);
           snippet.published = published;
-          return self.beforeUpdate(req, req.body, snippet, callback);
+          return async.series([
+            function(callback) {
+              return self.beforeUpdate(req, req.body, snippet, callback);
+            },
+            function(callback) {
+              return self.beforeSave(req, req.body, snippet, callback);
+            }
+          ], callback);
         }
 
         function update(callback) {
-          self._apos.putPage(req, originalSlug, snippet, callback);
+          async.series([
+            function(callback) {
+              self._apos.putPage(req, originalSlug, snippet, callback);
+            },
+            function(callback) {
+              self.afterUpdate(req, originalSlug, snippet, callback);
+            },
+            function(callback) {
+              self.afterSave(req, originalSlug, snippet, callback);
+            }
+          ], callback);
         }
 
         function redirect(callback) {
@@ -744,9 +799,8 @@ snippets.Snippets = function(options, callback) {
     self._app.get(module.web + '/*', self._apos.static(module.dir + '/public'));
   });
 
-  // Returns recent snippets the current user is permitted to read, in
-  // alphabetical order by title. If options.editable is true, only
-  // snippets the current user can edit are returned. If options.sort is
+  // Returns snippets the current user is permitted to read. If options.editable
+  // is true, only snippets the current user can edit are returned. If options.sort is
   // present, it is passed to mongo's sort() method. All other properties of
   // options are merged with the MongoDB criteria object used to
   // select the relevant snippets. If options.sort is present, it is passed

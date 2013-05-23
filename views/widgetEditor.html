@@ -1,5 +1,5 @@
 {% extends "baseWidgetEditor.html" %}
-
+{% include "formMacros.html" %}
 {% block widgetVars %}
   {% set widgetClass = 'apos-snippets-widget-editor' %}
 {% endblock %}
@@ -30,13 +30,7 @@ Or just use tags to pull in snippets.
   <input type="radio" name="by" value="id" />
 </fieldset>
 
-<fieldset class="apos-fieldset apos-fieldset-text apos-fieldset-typeahead">
-  <label>Titles</label>
-  <input type="text" name="title" />
-  <ul data-ids>
-    <li data-id class="apos-template"><span data-title>Title</span> <a class="apos-remove">x</a></li>
-  </ul>
-</fieldset>
+{{ formTypeaheadList('ids', 'Titles') }}
 
 {% endblock %}
 
