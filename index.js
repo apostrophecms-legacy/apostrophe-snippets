@@ -617,7 +617,7 @@ snippets.Snippets = function(options, callback) {
             res.statusCode = 500;
             return res.send('error');
           }
-          return res.send(JSON.stringify(results.snippets));
+          return res.send(JSON.stringify(results));
         });
       });
 
@@ -637,6 +637,13 @@ snippets.Snippets = function(options, callback) {
       // get-one API calls used when managing content
       self.addApiCriteria = function(query, criteria) {
         extend(true, criteria, query);
+        // Make sure these are converted to numbers, but only if they are present at all
+        if (criteria.skip !== undefined) {
+          criteria.skip = self._apos.sanitizeInteger(criteria.skip);
+        }
+        if (criteria.limit !== undefined) {
+          criteria.limit = self._apos.sanitizeInteger(criteria.limit);
+        }
         criteria.editable = true;
       };
 

@@ -38,6 +38,8 @@ function AposSnippets(options) {
   self.manager = options.manager;
 
   self._action = options.action;
+  // "Manage" pagination
+  self._managePerPage = options.managePerPage || 20;
 
   // PAGE SETTINGS FOR THIS TYPE
 
@@ -223,6 +225,8 @@ function AposSnippets(options) {
     // Manage all snippets
     $('body').on('click', '[data-manage-' + self._css + ']', function() {
       var snippets;
+      var page = 1;
+      var total;
 
       self.addFilterDefaults();
 
@@ -251,30 +255,44 @@ function AposSnippets(options) {
         $el.trigger($pill.data('name'), [ $choice.attr('data-choice') ]);
       });
 
+      // Be sure to reset to page 1 when changing the filters in any way
+
       $el.on('trash', function(e, choice) {
         self.filters.trash = choice;
+        page = 1;
         triggerRefresh();
       });
 
       $el.on('published', function(e, choice) {
         self.filters.published = choice;
+        page = 1;
         triggerRefresh();
       });
 
       function search() {
         self.filters.q = $el.find('[name=search]').val();
+        page = 1;
         triggerRefresh();
         return false;
       }
 
+      function pager() {
+        // Rebuild pager based on 'page' and 'total'
+        $.get('/apos/pager', { page: page, total: total }, function(data) {
+          $el.find('[data-pager-box]').html(data);
+        });
+      }
+
       $el.on('keyup', '[name=search]', function(e) {
         if (e.keyCode === 13) {
+          page = 1;
           search();
           return false;
         }
       });
 
       $el.on('click', '[data-search-submit]', function(e) {
+        page = 1;
         search();
         return false;
       });
@@ -282,6 +300,13 @@ function AposSnippets(options) {
       $el.on('click', '[data-remove-search]', function() {
         self.filters.q = '';
         $el.find('[name=search]').val('');
+        page = 1;
+        triggerRefresh();
+        return false;
+      });
+
+      $el.on('click', '[data-page]', function() {
+        page = $(this).attr('data-page');
         triggerRefresh();
         return false;
       });
@@ -290,7 +315,7 @@ function AposSnippets(options) {
       // tell us we should refresh our list and UI
 
       $el.on('apos-change-' + self._css, function(e, callback) {
-        var criteria = { editable: 1 };
+        var criteria = { editable: 1, skip: (page - 1) * self._managePerPage, limit: self._managePerPage };
         $.extend(true, criteria, self.filters);
 
         // Make sure the filter UI reflects the filter state
@@ -303,7 +328,13 @@ function AposSnippets(options) {
         }
 
         $.getJSON(self._action + '/get', criteria, function(data) {
-          snippets = data;
+          snippets = data.snippets;
+          // Compute total pages from total snippets
+          total = Math.ceil(data.total / self._managePerPage);
+          if (total < 1) {
+            total = 1;
+          }
+          pager();
           $snippets = $el.find('[data-items]');
           $snippets.find('[data-item]:not(.apos-template)').remove();
           _.each(snippets, function(snippet) {
@@ -357,13 +388,13 @@ function AposSnippets(options) {
         save: save,
         init: function(callback) {
           active = true;
-          $.getJSON(self._action + '/get', { slug: slug, editable: true }, function(data) {
-            if ((!data) || (!data.length)) {
+          $.getJSON(self._action + '/get-one', { slug: slug, editable: true }, function(data) {
+            if (!data) {
               // TODO all alerts should get prettified into something nicer
               alert('That item does not exist or you do not have permission to edit it.');
               return callback('no such item');
             }
-            snippet = data.pop();
+            snippet = data;
 
             $el.find('[name=title]').val(snippet.title);
             $el.find('[name=tags]').val(apos.tagsToString(snippet.tags));
