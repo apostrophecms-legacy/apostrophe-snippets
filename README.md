@@ -31,7 +31,9 @@ Note that the snippet module's initialization function requires a callback. Sinc
 
 ### Overriding Snippet Templates
 
-If you'd like to just create custom templates for an existing snippet module, you can create a project-specific override of that module. The current Apostrophe "best-practice" for this involves creating a top-level directory named "lib" (i.e. /my-project/lib/), and then creating custom versions of the template there (i.e. /my-project/lib/snippets). The bare requirements for each of these template overrides is an index.js file (/my-project/lib/snippets/index.js) and a client-side file called "main.js" which lives in a  directory named "public/js" (/my-project/lib/snippets/public/js/main.js). We'll take a brief look at the bare bones of these files below.
+If you'd like to just create custom templates for an existing snippet module, you can create a project-specific override of that module. The current Apostrophe "best-practice" for this involves creating a top-level directory named "lib" (i.e. /my-project/lib/), and then creating custom versions of the template there (i.e. /my-project/lib/snippets).
+
+The bare requirements for each of these template overrides is an index.js file (/my-project/lib/snippets/index.js) and a client-side file called "main.js" which lives in a  directory named "public/js" (/my-project/lib/snippets/public/js/main.js). We'll take a brief look at the bare bones of these files below.
 
 But first, we'll need to update our app.js. Using our snippets example from above, we'll change our initAposSnippets function in app.js to the following:
 
