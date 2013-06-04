@@ -25,14 +25,84 @@ To enable snippets in a project, you'll need the following code (taken from `app
       app: app,
       searchable: false,
       widget: true,
-      dirs: [ __dirname+'/overrides/apostrophe-snippets' ]
     }, callback);
 
 Note that the snippet module's initialization function requires a callback. Since most modules relating to Apostrophe require callbacks we recommend using `async.series` to easily call them all in sequence. See the sandbox project for a simple example.
 
 ### Overriding Snippet Templates
 
-Also note the `dirs` option. The code above sets up the directory `overrides/apostrophe-snippets` as a base directory for overriding the nunjucks templates that come with the snippets module. If you create the `overrides/apostrophe-snippets/views` folder in your project, you can populate it with modified copies of `index.html`, `show.html`, `widget.html` and `snippetMacros.html`. You do not have to override every template, and you do not have to override templates at all. If you do not wish to, just don't specify the `dirs` option, or start out with a blank `views` folder.
+If you'd like to just create custom templates for an existing snippet module, you can create a project-specific override of that module. The current Apostrophe "best-practice" for this involves creating a top-level directory named "lib" (i.e. /my-project/lib/), and then creating custom versions of the template there (i.e. /my-project/lib/snippets).
+
+The bare requirements for each of these template overrides is an index.js file (/my-project/lib/snippets/index.js) and a client-side file called "main.js" which lives in a  directory named "public/js" (/my-project/lib/snippets/public/js/main.js). We'll take a brief look at the bare bones of these files below.
+
+But first, we'll need to update our app.js. Using our snippets example from above, we'll change our initAposSnippets function in app.js to the following:
+
+    var snippets;
+    ...
+    // After initializing Express, apostrophe and apostrophe-pages
+    snippets = require('./lib/snippets/index.js')({
+      apos: apos,
+      pages: pages,
+      app: app,
+      searchable: false,
+      widget: true,
+    }, callback);
+
+Note that we are now requiring our local overide of the module instead of the npm installed "apostrophe-snippets." We can do this because we'll be calling that module in our local override. Let's dig into these two files:
+
+To begin with, we'll need to create a server-side file called "index.js" directly inside our custom module folder (i.e. /my-project/lib/snippets/index.js ). The file should roughly contain the following:
+
+    // Extend the snippets module just enough to get our own views folder
+    var _ = require('underscore');
+    var snippets = require('apostrophe-snippets');
+
+    module.exports = mySnippets;
+
+    function mySnippets(options, callback) {
+      return new mySnippets.MySnippets(options, callback);
+    }
+
+    mySnippets.MySnippets = function(options, callback) {
+      var self = this;
+
+      options.modules = (options.modules || []).concat([ { dir: __dirname, name: 'mySnippets' } ]);
+
+      // We're not doing much other than establishing a context for template overrides,
+      // so just let the base constructor invoke the callback for us
+      return snippets.Snippets.call(this, options, callback);
+    };
+
+It's important to note that we're creating a specifically different directory with a different name (here, it's "mySnippets"). Without this specific name, the app won't know which directory to look in for various functions.
+
+In addition to the server-side file, we'll need to build a file for the browser to access and build from. So we'll create a file named "main.js" in a "js" directory inside of a "public" directory in this module override (i.e. /my-project/lib/snippets/public/js/main.js). We'll throw the following base functionality into that main.js file:
+
+    // No changes to the browser-side behavior of snippets for now
+
+    function MySnippets(options) {
+      var self = this;
+      AposSnippets.call(self, options);
+    }
+
+    MySnippets.addWidgetType = function(options) {
+      AposSnippets.addWidgetType(options);
+    };
+
+In this main.js file, we're simply connecting the override module to the original module's functionality. We're not getting fancy here (you can read about extending the functionality below).
+
+Once again, we'll need to update the aposInitSnippets function in our app.js to make sure we're calling the right constructor on the browser-side:
+
+    snippets = require('./lib/modules/snippets/index.js')({
+      apos: apos,
+      pages: pages,
+      app: app,
+      searchable: false,
+      widget: true,
+      browser: {
+        construct: 'MySnippets'
+      }
+    }, callback);
+
+Now that we've got the overrides setup, we can create a "views" directory in the module overide folder and customize the templates for our project (i.e. /lib/snippets/views/templateFile.html). You can copy any or all files from the "views" directory of the original module, but note that to add any extra fields or extend the functionality of the module, you'll need to subclass that particular snippet (or simply create your own content type). Read on below about subclassing a snippets module.
 
 ### Inserting the Snippets Admin Menu
 
