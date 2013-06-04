@@ -31,7 +31,7 @@
 function AposSnippets(options) {
   var self = this;
 
-  // These are all provided via pushGlobalCall in snippets/index.js
+  // These are all provided via pushGlobalCallWhen in snippets/index.js
   self._instance = options.instance;
   self._css = options.css;
   self._typeCss = options.typeCss;
@@ -509,3 +509,118 @@ function AposSnippets(options) {
   }
   // END MANAGER FUNCTIONALITY
 }
+
+// GUIDE TO USE
+//
+// Call AposSnippets.addWidgetType() from your site.js to add this widget type, allowing
+// snippets to be inserted into areas on the site.
+//
+// Call AposSnippets.addWidgetType({ ... }) with different name, label, action and
+// defaultLimit options to provide a snippet widget for a different instance type
+// that otherwise behaves like the normal snippet widget.
+//
+// If these options are not enough, you can override methods of apos.widgetTypes[yourName]
+// as needed after this call.
+
+AposSnippets.addWidgetType = function(options) {
+  options = options || {};
+  // _class contains properties common to all instances of the widget
+  // Having this here is redundant and we need to figure out how to kill it
+  var _class = {
+    name: options.name || 'snippets',
+    label: options.label || 'Snippets',
+    action: options.action || '/apos-snippets',
+    defaultLimit: options.defaultLimit || 1
+  };
+
+  apos.widgetTypes[_class.name] = {
+    // For the rich content editor's menu
+    label: _class.label,
+
+    // Constructor
+    editor: function(options) {
+      var self = this;
+      self._class = _class;
+
+      self.action = self._class.action;
+      self.defaultLimit = options.limit || self._class.defaultLimit;
+      if (!options.messages) {
+        options.messages = {};
+      }
+      if (!options.messages.missing) {
+        options.messages.missing = 'Pick at least one.';
+      }
+
+      self.afterCreatingEl = function() {
+        if (self.data.limit === undefined) {
+          self.data.limit = self.defaultLimit;
+        }
+        self.$by = self.$el.find('[name="by"]');
+        self.$by.radio(self.data.by || 'id');
+        self.$tags = self.$el.find('[name="tags"]');
+        self.$tags.val(apos.tagsToString(self.data.tags));
+        self.$limit = self.$el.find('[name="limit"]');
+        self.$limit.val(self.data.limit);
+        self.$ids = self.$el.find('[data-ids]');
+        // Get the titles corresponding to the existing list of idss.
+        //
+        // We're going to get a prePreview call before this
+        // completes. Set a flag to indicate we're not done yet.
+        //
+        // prePreview will call debrief, which spots this flag and
+        // sets pendingCallback rather than calling back directly.
+        // We can then invoke pendingCallback here when we're
+        // good and ready.
+        //
+        // This would be easier if afterCreatingEl took a callback.
+        // TODO: refactor afterCreatingEl for all widgets.
+
+        self.pending = true;
+
+        // TODO: use of GET with a list of IDs is bad, use POST and
+        // make sure the routes accept POST
+        $.getJSON(self.action + '/autocomplete', { ids: self.data.ids || []}, function(data) {
+          self.pending = false;
+          self.$ids.selective({
+            data: data,
+            source: self.action + '/autocomplete',
+            sortable: true
+          });
+          if (self.pendingCallback) {
+            return self.pendingCallback();
+          }
+        });
+      };
+
+      self.debrief = function(callback) {
+        self.data.by = self.$by.radio();
+        self.data.tags = apos.tagsToArray(self.$tags.val());
+        self.data.limit = parseInt(self.$limit.val(), 10);
+        if (self.pending) {
+          self.pendingCallback = whenReady;
+          return;
+        } else {
+          return whenReady();
+        }
+        function whenReady() {
+          self.data.ids = self.$ids.selective('get');
+          // Don't force them to pick something, it's common to want to go back
+          // to an empty singleton
+          self.exists = true;
+          return callback();
+        }
+      };
+
+      self.type = options.type || self._class.name;
+      self.css = apos.cssName(self.type);
+      options.template = '.apos-' + self.css + '-widget-editor';
+
+      self.prePreview = self.debrief;
+      self.preSave = self.debrief;
+
+      // Parent class constructor shared by all widget editors
+      apos.widgetEditor.call(self, options);
+    }
+  };
+};
+

@@ -18,8 +18,8 @@ widget.Widget = function(options) {
   self.label = options.label || 'Snippets';
 
   // One asset folder for the whole snippets module is fine
-  self.pushAsset = function(type, name) {
-    self.snippets.pushAsset(type, name);
+  self.pushAsset = function(type, name, options) {
+    self.snippets.pushAsset(type, name, options);
   };
 
   // This widget should be part of the default set of widgets for areas
@@ -27,11 +27,8 @@ widget.Widget = function(options) {
   self.apos.defaultControls.push(self.name);
 
   // Include our editor template in the markup when aposTemplates is called
-  self.pushAsset('template', 'widgetEditor');
+  self.pushAsset('template', 'widgetEditor', { when: 'user' });
 
-  // Make sure that aposScripts and aposStylesheets summon our assets
-
-  self.pushAsset('script', 'widget');
   // So far we've always kept this in the same file with the rest of the module's CSS,
   // so don't clutter up the console with 404s in dev
   // self.pushAsset('stylesheet', 'widget');

@@ -154,16 +154,22 @@ snippets.Snippets = function(options, callback) {
     };
   };
 
-  self.pushAsset = function(type, name) {
+  self.pushAsset = function(type, name, optionsArg) {
+    var options = {};
+    if (optionsArg) {
+      extend(true, options, optionsArg);
+    }
     if (type === 'template') {
       // Render templates in our own nunjucks context
-      self._apos.pushAsset('template', self.renderer(name));
+      self._apos.pushAsset('template', self.renderer(name), options);
     } else {
       // We're interested in ALL versions of main.js or main.css, starting
       // with the base one (snippets module version)
 
       _.each(self._reverseModules, function(module) {
-        return self._apos.pushAsset(type, name, module.dir, module.web);
+        options.fs = module.dir;
+        options.web = module.web;
+        return self._apos.pushAsset(type, name, options);
       });
     }
   };
@@ -652,6 +658,17 @@ snippets.Snippets = function(options, callback) {
       self.addExtraAutocompleteCriteria = function(req, criteria) {
       };
 
+      // The autocomplete route returns an array of objects with
+      // label and value properties, suitable for use with
+      // $.autocompleteList. The label is the title, the value
+      // is the id of the snippet.
+      //
+      // Send either a term parameter, used for autocomplete search,
+      // or an ids array parameter, used to fetch title information
+      // about an existing list of ids. If neither is present the
+      // request is assumed to be for an empty array of ids and an
+      // empty array is returned.
+
       self._app.get(self._action + '/autocomplete', function(req, res) {
         var options = {
           fields: self.getAutocompleteFields(),
@@ -662,8 +679,10 @@ snippets.Snippets = function(options, callback) {
         } else if (req.query.ids !== undefined) {
           options._id = { $in: req.query.ids };
         } else {
-          res.statusCode = 404;
-          return res.send('bad arguments');
+          // Since arrays in REST queries are ambiguous,
+          // treat the absence of either parameter as an
+          // empty `ids` array
+          return res.send(JSON.stringify([]));
         }
         self.addExtraAutocompleteCriteria(req, options);
         // Format it as value & id properties for compatibility with jquery UI autocomplete
@@ -679,7 +698,7 @@ snippets.Snippets = function(options, callback) {
           }
           return res.send(
             JSON.stringify(_.map(snippets, function(snippet) {
-                return { value: self.getAutocompleteTitle(snippet), id: snippet._id };
+                return { label: self.getAutocompleteTitle(snippet), value: snippet._id };
             }))
           );
         });
@@ -779,16 +798,16 @@ snippets.Snippets = function(options, callback) {
     // Make sure that aposScripts and aposStylesheets summon our
     // browser-side UI assets for managing snippets
 
-    self.pushAsset('template', 'new');
-    self.pushAsset('template', 'edit');
-    self.pushAsset('template', 'manage');
-    self.pushAsset('template', 'import');
+    self.pushAsset('template', 'new', { when: 'user' });
+    self.pushAsset('template', 'edit', { when: 'user' });
+    self.pushAsset('template', 'manage', { when: 'user' });
+    self.pushAsset('template', 'import', { when: 'user' });
   }
 
-  // We still need a browser side js file even if we're not the manager,
-  // and we may as well be allowed a stylesheet
-  self.pushAsset('script', 'main');
-  self.pushAsset('stylesheet', 'main');
+  self.pushAsset('script', 'editor', { when: 'user' });
+  self.pushAsset('script', 'content', { when: 'always' });
+  self.pushAsset('stylesheet', 'editor', { when: 'user' });
+  self.pushAsset('stylesheet', 'content', { when: 'always' });
 
   // END OF MANAGER FUNCTIONALITY
 
@@ -1118,7 +1137,14 @@ snippets.Snippets = function(options, callback) {
   // The standard implementation of an 'index' page for many snippets, for your
   // overriding convenience
   self.index = function(req, snippets, callback) {
-    req.template = self.renderer('index');
+    // The infinite scroll plugin is expecting a 404 if it requests
+    // a page beyond the last one. Without it we keep trying to load
+    // more stuff forever
+    if (req.xhr && (req.query.page > 1) && (!snippets.length)) {
+      req.notfound = true;
+      return callback(null);
+    }
+    req.template = self.renderer(req.xhr ? 'indexAjax' : 'index');
     _.each(snippets, function(snippet) {
       snippet.url = self.permalink(snippet, req.bestPage);
     });
@@ -1270,7 +1296,7 @@ snippets.Snippets = function(options, callback) {
   };
 
   // CUSTOM PAGE SETTINGS TEMPLATE
-  self.pushAsset('template', 'pageSettings');
+  self.pushAsset('template', 'pageSettings', { when: 'user' });
 
   // Sanitize newly submitted page settings (never trust a browser)
   extend(self, {
@@ -1303,7 +1329,7 @@ snippets.Snippets = function(options, callback) {
     construct: browserOptions.construct || getBrowserConstructor()
   };
   self._pages.addType(self);
-  self._apos.pushGlobalCall('@.replaceType(?, new @(?))', browser.pages, self.name, browser.construct, { name: self.name, instance: self._instance, icon: self._icon, css: self._css, typeCss: self._typeCss, manager: self.manager, action: self._action });
+  self._apos.pushGlobalCallWhen('user', '@.replaceType(?, new @(?))', browser.pages, self.name, browser.construct, { name: self.name, instance: self._instance, icon: self._icon, css: self._css, typeCss: self._typeCss, manager: self.manager, action: self._action });
 
   if (options.widget) {
     var widgetConstructor;
@@ -1315,7 +1341,7 @@ snippets.Snippets = function(options, callback) {
       widgetConstructor = snippets.widget.Widget;
     }
     new widgetConstructor({ apos: self._apos, icon: self.icon, app: self._app, snippets: self, name: self.name, label: self.label });
-    self._apos.pushGlobalCall('@.addWidgetType()', browser.construct);
+    self._apos.pushGlobalCallWhen('user', '@.addWidgetType()', browser.construct);
   }
 
   function getBrowserConstructor() {
