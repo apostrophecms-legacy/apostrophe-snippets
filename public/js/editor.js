@@ -105,6 +105,10 @@ function AposSnippets(options) {
       return callback();
     };
 
+    self.beforeSave = function($el, data, callback) {
+      return callback();
+    };
+
     self.enableSingleton = function($el, name, area, type, optionsArg, callback) {
       if (typeof(optionsArg) === 'function') {
         callback = optionsArg;
@@ -192,7 +196,6 @@ function AposSnippets(options) {
       }
       // beforeSave is more convenient in most cases
       function afterAction() {
-        apos.log('calling beforeSave');
         self.beforeSave($el, data, go);
       }
 
