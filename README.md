@@ -464,12 +464,14 @@ As the name implies, this method converts the area to a JSON string ready to sen
 
 There are other methods you can override or extend. `addingToManager` is called before a snippet is added to the "manage blog posts" list view. The blog module overrides this method to add the publication date and tags of the snippet to fields that have been customized in each row of the `manage.html` template. (Note this method does not take a callback, as a reminder to keep it light and fast; loading something asynchronously for every row in the list view is just too slow.)
 
+```
   self.addingToManager = function($el, $snippet, snippet) {
     $snippet.find('[data-date]').text(snippet.publicationDate);
     if (snippet.tags !== null) {
       $snippet.find('[data-tags]').text(snippet.tags);
     }
   };
+```
 
 ### Pushing our JavaScript and CSS assets to the browser
 
