@@ -33,7 +33,7 @@ Note that the snippet module's initialization function requires a callback. Sinc
 
 If you'd like to just create custom templates for an existing snippet module, you can create a project-specific override of that module. The current Apostrophe "best-practice" for this involves creating a top-level directory named "lib" (i.e. /my-project/lib/), and then creating custom versions of the template there (i.e. /my-project/lib/snippets).
 
-The bare requirements for each of these template overrides is an index.js file (/my-project/lib/snippets/index.js) and a client-side file called "main.js" which lives in a  directory named "public/js" (/my-project/lib/snippets/public/js/main.js). We'll take a brief look at the bare bones of these files below.
+The bare requirements for each of these template overrides is an index.js file (/my-project/lib/snippets/index.js) and a client-side file called "editor.js" which lives in a  directory named "public/js" (/my-project/lib/snippets/public/js/editor.js). We'll take a brief look at the bare bones of these files below.
 
 But first, we'll need to update our app.js. Using our snippets example from above, we'll change our initAposSnippets function in app.js to the following:
 
@@ -74,7 +74,7 @@ To begin with, we'll need to create a server-side file called "index.js" directl
 
 It's important to note that we're creating a specifically different directory with a different name (here, it's "mySnippets"). Without this specific name, the app won't know which directory to look in for various functions.
 
-In addition to the server-side file, we'll need to build a file for the browser to access and build from. So we'll create a file named "main.js" in a "js" directory inside of a "public" directory in this module override (i.e. /my-project/lib/snippets/public/js/main.js). We'll throw the following base functionality into that main.js file:
+In addition to the server-side file, we'll need to build a file for the browser to access and build from. So we'll create a file named "editor.js" in a "js" directory inside of a "public" directory in this module override (i.e. /my-project/lib/snippets/public/js/editor.js). We'll throw the following base functionality into that editor.js file:
 
     // No changes to the browser-side behavior of snippets for now
 
@@ -87,7 +87,7 @@ In addition to the server-side file, we'll need to build a file for the browser 
       AposSnippets.addWidgetType(options);
     };
 
-In this main.js file, we're simply connecting the override module to the original module's functionality. We're not getting fancy here (you can read about extending the functionality below).
+In this editor.js file, we're simply connecting the override module to the original module's functionality. We're not getting fancy here (you can read about extending the functionality below).
 
 Once again, we'll need to update the aposInitSnippets function in our app.js to make sure we're calling the right constructor on the browser-side:
 
@@ -362,7 +362,7 @@ Note that we don't have to explicitly add these properties to `edit.html` as it 
 
 ### Sending Extra Properties to the Server: Subclassing on the Browser Side
 
-Next we'll need to send our extra properties to the server when a snippet is saved. Until this point all of the code we've looked at has been on the server side. But of course snippets also have browser-side JavaScript code to implement the "new," "edit" and "manage" dialogs. You can find that code in `apostrophe-snippets/public/js/main.js`.
+Next we'll need to send our extra properties to the server when a snippet is saved. Until this point all of the code we've looked at has been on the server side. But of course snippets also have browser-side JavaScript code to implement the "new," "edit" and "manage" dialogs. You can find that code in `apostrophe-snippets/public/js/editor.js`.
 
 Just like the server side code, this browser side code can be subclassed and extended. In fact, we must extend it for our new subclass of snippets to work. Here's how to do that:
 
@@ -370,9 +370,11 @@ Just like the server side code, this browser side code can be subclassed and ext
 
 2. Create a `js` subdirectory of that folder for your browser-side JavaScript files.
 
-3. Create a `main.js` file in that folder.
+3. Create an `editor.js` file and a `content.js` file in that folder.
 
-Here's what `main.js` looks like for the blog module:
+`editor.js` will house all of the logic for subclassing snippets and is only loaded in the browser if a user is logged in. `content.js` is always loaded, giving us a convenient way to split up the logic between the _editing_ interface of the blog and the javascript related to showing it. We won't be making use of `content.js` for our Blog, but if we were making a widget such as a slideshow that required some logic this is where we would put it.
+
+Here's what `editor.js` looks like for the blog module:
 
     function AposBlog(optionsArg) {
       ...
@@ -407,7 +409,7 @@ However, *please do not use the Apos prefix or the `apostrophe-` prefix for your
 
 Now the server will push a call to create a `MyBlog' object instead.
 
-But we still haven't seen how extra properties of a snippet are handled. So let's look at that code from `main.js` in the blog module.
+But we still haven't seen how extra properties of a snippet are handled. So let's look at that code from `editor.js` in the blog module.
 
 We'll create a `findExtraFields` function to take care of locating the fields in the form via jQuery and storing them in a `data` object provided by the caller. Note this function takes a callback so you can do time-consuming tasks if necessary:
 
@@ -471,12 +473,14 @@ There are other methods you can override or extend. `addingToManager` is called 
 
 ### Pushing our JavaScript and CSS assets to the browser
 
-Great, but how does our `main.js` file make it to the browser? And what about the various templates that are instantiated on the browser side to display modals like "New Blog Post" and "Manage Blog Posts?"
+Great, but how do our `editor.js` and `content.js` files make it to the browser? And what about the various templates that are instantiated on the browser side to display modals like "New Blog Post" and "Manage Blog Posts?"
 
 The answer is that the snippet module pushes them there for us:
 
-    self.pushAsset('script', 'main');
-    self.pushAsset('stylesheet', 'main');
+    self.pushAsset('script', 'editor');
+    self.pushAsset('stylesheet', 'editor');
+    self.pushAsset('script', 'content');
+    self.pushAsset('stylesheet', 'content');
     self.pushAsset('template', 'new');
     self.pushAsset('template', 'edit');
     self.pushAsset('template', 'manage');
@@ -484,7 +488,7 @@ The answer is that the snippet module pushes them there for us:
 
 As explained in the documentation of the main `apostrophe` module, the `pushAsset` call schedules scripts, stylesheets and templates to be "pushed" to the browser when building a complete webpage. Scripts and stylesheets are typically minified together in production, and templates that are pushed to the browser in this way are hidden at the end of the `body` element where they can be cloned when they are needed by the `apos.fromTemplate` method. And since we specified our own directory when setting up the `dirs` option, our versions of these files are found first.
 
-So you don't need to worry about delivering any of the above files (`main.js`, `main.less`, `new.html`, `edit.html`, `manage.html`, and `import.html`). But if you wish to push additional browser-side assets as part of every page request, now you know how.
+So you don't need to worry about delivering any of the above files (`editor.js`, `editor.less`, `content.js`, `content.less`, `new.html`, `edit.html`, `manage.html`, and `import.html`). But if you wish to push additional browser-side assets as part of every page request, now you know how.
 
 ### Saving Extra Properties on the Server
 
@@ -650,7 +654,7 @@ Don't forget to register the page loader function in `app.js` where you configur
       pressReleases.loader
     ]
 
-We also need a bare-bones `lib/modules/pressReleases/public/js/main.js` file on the browser side:
+We also need a bare-bones `lib/modules/pressReleases/public/js/editor.js` file on the browser side:
 
     function PressReleases(options) {
       var self = this;
