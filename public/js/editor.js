@@ -186,9 +186,14 @@ function AposSnippets(options) {
       };
 
       if (action === 'update') {
-        self.beforeUpdate($el, data, go);
+        self.beforeUpdate($el, data, afterAction);
       } else {
-        self.beforeInsert($el, data, go);
+        self.beforeInsert($el, data, afterAction);
+      }
+      // beforeSave is more convenient in most cases
+      function afterAction() {
+        apos.log('calling beforeSave');
+        self.beforeSave($el, data, go);
       }
 
       function go() {

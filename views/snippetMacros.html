@@ -76,6 +76,11 @@
   {{ formPill(name, options) }}
 {% endmacro %}
 
+{# See $.selective in content.js for the necessary plumbing #}
+{% macro snippetSelective(name, label) %}
+  {{ formSelective(name, label) }}
+{% endmacro %}
+
 {# Standard filters suitable for all snippet derivatives #}
 
 {% macro snippetFilters() %}

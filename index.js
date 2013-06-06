@@ -92,6 +92,7 @@ snippets.Snippets = function(options, callback) {
   self._searchable = options.searchable || true;
   self._options = options;
   self._perPage = options.perPage || 10;
+  self._browserOptions = options || {};
 
   // self.modules allows us to find the directory path and web asset path to
   // each module in the inheritance tree when subclassing. Necessary to push all
@@ -463,10 +464,10 @@ snippets.Snippets = function(options, callback) {
               self._apos.putPage(req, originalSlug, snippet, callback);
             },
             function(callback) {
-              self.afterUpdate(req, originalSlug, snippet, callback);
+              self.afterUpdate(req, req.body, snippet, callback);
             },
             function(callback) {
-              self.afterSave(req, originalSlug, snippet, callback);
+              self.afterSave(req, req.body, snippet, callback);
             }
           ], callback);
         }
@@ -1320,16 +1321,22 @@ snippets.Snippets = function(options, callback) {
   // Register the snippet-reuse widget unless we've been told not to
   _.defaults(options, { widget: true });
 
-  var browserOptions = options.browser || {};
-
-  // The option can't be .constructor because that has a special meaning
-  // in a javascript object (not the one you'd expect, either) http://stackoverflow.com/questions/4012998/what-it-the-significance-of-the-javascript-constructor-property
-  var browser = {
-    pages: browserOptions.pages || 'aposPages',
-    construct: browserOptions.construct || getBrowserConstructor()
-  };
+  var browser = options.browser || {};
+  var pages = browser.pages || 'aposPages';
+  var construct = browser.construct || getBrowserConstructor();
   self._pages.addType(self);
-  self._apos.pushGlobalCallWhen('user', '@.replaceType(?, new @(?))', browser.pages, self.name, browser.construct, { name: self.name, instance: self._instance, icon: self._icon, css: self._css, typeCss: self._typeCss, manager: self.manager, action: self._action });
+  var args = {
+    name: self.name,
+    instance: self._instance,
+    icon: self._icon,
+    css: self._css,
+    typeCss: self._typeCss,
+    manager: self.manager,
+    action: self._action
+  };
+  extend(true, args, browser.options || {});
+
+  self._apos.pushGlobalCallWhen('user', '@.replaceType(?, new @(?))', pages, self.name, construct, args);
 
   if (options.widget) {
     var widgetConstructor;
@@ -1341,7 +1348,7 @@ snippets.Snippets = function(options, callback) {
       widgetConstructor = snippets.widget.Widget;
     }
     new widgetConstructor({ apos: self._apos, icon: self.icon, app: self._app, snippets: self, name: self.name, label: self.label });
-    self._apos.pushGlobalCallWhen('user', '@.addWidgetType()', browser.construct);
+    self._apos.pushGlobalCallWhen('user', '@.addWidgetType()', construct);
   }
 
   function getBrowserConstructor() {
