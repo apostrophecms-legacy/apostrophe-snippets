@@ -144,7 +144,7 @@ function AposSnippets(options) {
           // inline, without a nested dialog box
 
           var $singleton = $editView.find('.apos-singleton:first');
-          $singleton.bind('apos-edited', function(e, data) {
+          $singleton.bind('aposEdited', function(e, data) {
             refreshSingleton([data]);
           });
 
@@ -322,7 +322,7 @@ function AposSnippets(options) {
       // Using an event allows things like the new snippet and edit snippet dialogs to
       // tell us we should refresh our list and UI
 
-      $el.on('apos-change-' + self._css, function(e, callback) {
+      $el.on(apos.eventName('aposChange', self.name), function(e, callback) {
         var criteria = { editable: 1, skip: (page - 1) * self._managePerPage, limit: self._managePerPage };
         $.extend(true, criteria, self.filters);
 
@@ -447,7 +447,7 @@ function AposSnippets(options) {
 
             // Without this check old dialogs can rise from the dead.
             // TODO: figure out how to kill them more definitively when they are done.
-            $el.on('apos-change-revert', function() {
+            $el.on('aposChangeRevert', function() {
               if (active) {
                 relaunch = true;
                 $el.trigger('aposModalHide');
@@ -513,7 +513,7 @@ function AposSnippets(options) {
     });
   }
   function triggerRefresh(callback) {
-    $el.trigger('apos-change-' + self._css, callback);
+    $el.trigger(apos.eventName('aposChange', self.name), callback);
   }
   // END MANAGER FUNCTIONALITY
 }

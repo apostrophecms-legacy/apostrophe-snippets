@@ -136,6 +136,10 @@ snippets.Snippets = function(options, callback) {
 
   self._action = '/apos-' + self._typeCss;
 
+  extend(true, self._rendererGlobals, {
+    type: _.pick(self, [ 'name', 'label', 'icon', '_instance', '_css', '_typeCss', '_menuName', '_action' ])
+  });
+
   // Render a partial, looking for overrides in our preferred places
   self.render = function(name, data) {
     return self.renderer(name)(data);
@@ -198,6 +202,18 @@ snippets.Snippets = function(options, callback) {
 
     self.getDefaultTitle = function() {
       return 'My Snippet';
+    };
+
+    self.authorAsEditor = function(req, snippet) {
+      if (req.user && (!req.user.permissions.admin)) {
+        // Always add the creator as a permitted editor
+        // so they retain the ability to manage their work,
+        // regardless of other permissions that may exist
+        if (!snippet.editPersonIds) {
+          snippet.editPersonIds = [];
+        }
+        snippet.editPersonIds.push(req.user._id);
+      }
     };
 
     self.beforeInsert = function(req, data, snippet, callback) {
@@ -314,12 +330,12 @@ snippets.Snippets = function(options, callback) {
         self.convertAllFields('csv', data, snippet);
 
         snippet.slug = self._apos.slugify(snippet.title);
-        snippet.sortTitle = self._apos.sortify(snippet.title);
         // Record when the import happened so that later we can offer a UI
         // to find these groups and remove them if desired
         snippet.imported = req.aposImported;
         async.series([
           function(callback) {
+            self.authorAsEditor(req, snippet);
             self.beforeInsert(req, data, snippet, callback);
           },
           function(callback) {
@@ -363,18 +379,21 @@ snippets.Snippets = function(options, callback) {
         }
         slug = self._apos.slugify(title);
 
-        tags = req.body.tags;
+        tags = self._apos.sanitizeTags(req.body.tags);
 
         snippet = { title: title, published: published, type: self._instance, tags: tags, areas: {}, slug: slug, createdAt: new Date(), publishedAt: new Date() };
         snippet.sortTitle = self._apos.sortify(snippet.title);
 
         self.convertAllFields('form', req.body, snippet);
 
-        tags = req.body.tags;
+        async.series([ permissions, beforeInsert, beforeSave, insert, afterInsert, afterSave ], send);
 
-        async.series([ beforeInsert, beforeSave, insert, afterInsert, afterSave ], send);
+        function permissions(callback) {
+          self._apos.permissions(req, 'edit-' + self._css, null, callback);
+        }
 
         function beforeInsert(callback) {
+          self.authorAsEditor(req, snippet);
           return self.beforeInsert(req, req.body, snippet, callback);
         }
 
@@ -396,6 +415,7 @@ snippets.Snippets = function(options, callback) {
 
         function send(err) {
           if (err) {
+            console.log(err);
             res.statusCode = 500;
             return res.send('error');
           }
@@ -414,7 +434,7 @@ snippets.Snippets = function(options, callback) {
 
         title = self._apos.sanitizeString(req.body.title, self.getDefaultTitle());
 
-        tags = req.body.tags;
+        tags = self._apos.sanitizeTags(req.body.tags);
 
         originalSlug = self._apos.sanitizeString(req.body.originalSlug);
         slug = self._apos.slugify(req.body.slug);
@@ -487,7 +507,7 @@ snippets.Snippets = function(options, callback) {
       });
 
       self._app.post(self._action + '/trash', function(req, res) {
-        async.series([ get, permissions, beforeTrash, trashSnippet], respond);
+        async.series([ get, beforeTrash, trashSnippet], respond);
 
         var slug;
         var snippet;
@@ -495,22 +515,14 @@ snippets.Snippets = function(options, callback) {
 
         function get(callback) {
           slug = req.body.slug;
-          return self._apos.pages.findOne({ slug: slug }, function(err, snippetArg) {
-            snippet = snippetArg;
+          return self.get(req, { slug: slug }, { editable: true }, function(err, results) {
+            if (err) {
+              return callback(err);
+            }
+            snippet = results.snippets[0];
             if(!snippet) {
               return callback('Not Found');
             }
-            if (snippet.type !== self._instance) {
-              return callback('Not a ' + self._instance);
-            }
-            return callback(err);
-          });
-        }
-
-        function permissions(callback) {
-          return self._apos.permissions(req, 'edit-page', snippet, function(err) {
-            // If there is no permissions error then we are cool
-            // enough to trash the post
             return callback(err);
           });
         }
@@ -529,7 +541,7 @@ snippets.Snippets = function(options, callback) {
           } else {
             action = { $unset: { trash: true } };
           }
-          self._apos.pages.update({slug: snippet.slug}, action, callback);
+          self._apos.pages.update({ slug: snippet.slug }, action, callback);
         }
 
         function respond(err) {
@@ -617,9 +629,10 @@ snippets.Snippets = function(options, callback) {
       });
 
       self._app.get(self._action + '/get', function(req, res) {
+        var criteria = {};
         var options = {};
-        self.addApiCriteria(req.query, options);
-        self.get(req, options, function(err, results) {
+        self.addApiCriteria(req.query, criteria, options);
+        self.get(req, criteria, options, function(err, results) {
           if (err) {
             res.statusCode = 500;
             return res.send('error');
@@ -629,9 +642,10 @@ snippets.Snippets = function(options, callback) {
       });
 
       self._app.get(self._action + '/get-one', function(req, res) {
+        var criteria = {};
         var options = {};
-        self.addApiCriteria(req.query, options);
-        self.get(req, options, function(err, results) {
+        self.addApiCriteria(req.query, criteria, options);
+        self.get(req, criteria, options, function(err, results) {
           if (results && results.snippets.length) {
             res.send(JSON.stringify(results.snippets[0]));
           } else {
@@ -642,21 +656,39 @@ snippets.Snippets = function(options, callback) {
 
       // A good extension point for adding criteria specifically for the /get and
       // get-one API calls used when managing content
-      self.addApiCriteria = function(query, criteria) {
-        extend(true, criteria, query);
+
+      self.addApiCriteria = function(queryArg, criteria, options) {
+
+        // Most of the "criteria" that come in via an API call belong in options
+        // (skip, limit, titleSearch, published, etc). Handle any cases that should
+        // go straight to the mongo criteria object
+
+        var query = {};
+        extend(true, query, queryArg);
+
+        var slug = self._apos.sanitizeString(query.slug);
+        if (slug.length) {
+          criteria.slug = query.slug;
+          // Don't let it become an option too
+          delete query.slug;
+        }
+
+        // Everything else is assumed to be an option
+        extend(true, options, query);
+
         // Make sure these are converted to numbers, but only if they are present at all
-        if (criteria.skip !== undefined) {
-          criteria.skip = self._apos.sanitizeInteger(criteria.skip);
+        if (options.skip !== undefined) {
+          options.skip = self._apos.sanitizeInteger(options.skip);
         }
-        if (criteria.limit !== undefined) {
-          criteria.limit = self._apos.sanitizeInteger(criteria.limit);
+        if (options.limit !== undefined) {
+          options.limit = self._apos.sanitizeInteger(options.limit);
         }
-        criteria.editable = true;
+        options.editable = true;
       };
 
       // Extension point. The blog module uses this to add
       // publishedAt = 'any'
-      self.addExtraAutocompleteCriteria = function(req, criteria) {
+      self.addExtraAutocompleteCriteria = function(req, criteria, options) {
       };
 
       // The autocomplete route returns an array of objects with
@@ -664,30 +696,41 @@ snippets.Snippets = function(options, callback) {
       // $.autocompleteList. The label is the title, the value
       // is the id of the snippet.
       //
-      // Send either a term parameter, used for autocomplete search,
-      // or an ids array parameter, used to fetch title information
+      // Send either a `term` parameter, used for autocomplete search,
+      // or a `values` array parameter, used to fetch title information
       // about an existing list of ids. If neither is present the
       // request is assumed to be for an empty array of ids and an
-      // empty array is returned.
+      // empty array is returned, not a 404.
+      //
+      // GET and POST are supported to allow for large `values`
+      // arrays.
 
-      self._app.get(self._action + '/autocomplete', function(req, res) {
+      self._app.all(self._action + '/autocomplete', function(req, res) {
+        var criteria = {};
         var options = {
           fields: self.getAutocompleteFields(),
           limit: 10
         };
-        if (req.query.term !== undefined) {
-          options.titleSearch = req.query.term;
-        } else if (req.query.ids !== undefined) {
-          options._id = { $in: req.query.ids };
+        var data = (req.method === 'POST') ? req.body : req.query;
+        if (data.term !== undefined) {
+          options.titleSearch = data.term;
+        } else if (data.values !== undefined) {
+          criteria._id = { $in: data.values };
         } else {
           // Since arrays in REST queries are ambiguous,
           // treat the absence of either parameter as an
           // empty `ids` array
           return res.send(JSON.stringify([]));
         }
-        self.addExtraAutocompleteCriteria(req, options);
+        // If requested, allow autocomplete to find unpublished
+        // things (published === 'any'). Note that this is still
+        // restricted by the permissions of the user making the request.
+        if (data.published !== undefined) {
+          options.published = data.published;
+        }
+        self.addExtraAutocompleteCriteria(req, criteria, options);
         // Format it as value & id properties for compatibility with jquery UI autocomplete
-        self.get(req, options, function(err, results) {
+        self.get(req, criteria, options, function(err, results) {
           if (err) {
             res.statusCode = 500;
             return res.send('error');
@@ -826,83 +869,93 @@ snippets.Snippets = function(options, callback) {
     self._app.get(module.web + '/*', self._apos.static(module.dir + '/public'));
   });
 
-  // Returns snippets the current user is permitted to read. If options.editable
-  // is true, only snippets the current user can edit are returned. If options.sort is
-  // present, it is passed to mongo's sort() method. All other properties of
-  // options are merged with the MongoDB criteria object used to
-  // select the relevant snippets. If options.sort is present, it is passed
-  // as the argument to the MongoDB sort() function, replacing the
-  // default alpha sort. optionsArg may be skipped.
+  // Returns snippets the current user is permitted to read.
   //
-  // options.limit indicates the maximum number of results.
+  // CRITERIA
   //
-  // If options.fields is present it is used to limit the fields returned
-  // by MongoDB for performance reasons (the second argument to MongoDB's find()).
+  // The criteria argument is combined with the standard MongoDB
+  // criteria for fetching snippets via MongoDB's `$and` keyword.
+  // This allows you to use any valid MongoDB criteria when
+  // fetching snippets.
   //
-  // options.titleSearch is used to search the titles of all snippets for a
-  // particular string using a fairly tolerant algorithm.
+  // OPTIONS
+  //
+  // The `options` argument provides *everything offered by
+  // the `apos.get` method's `options` argument*, plus the following:
   //
   // PERMALINKING
   //
-  // By default no ._url property is set on each item, as you often are rendering items
-  // on a specific page and want to set the ._url property to match. If you set the
-  // `permalink` option to true, the ._url property will be set for you, based on
-  // the findBestPage algorithm.
+  // By default no ._url property is set on each item, as you often
+  // are rendering items on a specific page and want to set the ._url
+  // property to match. If you set the `permalink` option to true, the
+  // ._url property will be set for you, based on the findBestPage
+  // algorithm.
   //
   // FETCHING METADATA FOR FILTERS
   //
-  // If options.fetch is present, snippets.get will deliver an object
-  // with a `snippets` property containing the array of snippets, rather
-  // than delivering the array of snippets directly.
-  //
-  // If options.fetch.tags is true, snippets.get will also deliver a
-  // `tags` property, containing all tags that are present on the snippets
-  // (ignoring limit and skip). This is useful to present a "filter by tag"
-  // interface.
+  // If `options.fetch.tags` is true, the `results` object will also
+  // contain a `tags` property, containing all tags that are present on
+  // the snippets when the criteria are taken into account
+  // (ignoring limit and skip). This is useful to present a
+  // "filter by tag" interface.
   //
   // LIMITING METADATA RESULTS
   //
-  // When you pass options.fetch.tags = true, the .tags property returned
-  // is NOT restricted by any `tags` criteria present in `optionsArg`, so
-  // that you may present alternatives to the tag you are currently filtering by.
+  // When you set options.fetch.tags to `true`, the `.tags` property
+  // returned is NOT restricted by any `tags` criteria present in
+  // `optionsArg`, so that you may present alternatives to the tag you
+  // are currently filtering by.
   //
-  // However, you may still need to restrict the tags somewhat, for instance because
-  // the entire page is locked down to show only things tagged red, green or blue.
-  // You could do this after the fact but that would require MongoDB to do more
-  // work up front. So for efficiency's sake, you can supply an object as the value
-  // of options.fetch.tags, with an `only` property restricting the possible results:
+  // However, you may still need to restrict the tags somewhat, for
+  // instance because the entire page is locked down to show only things
+  // tagged red, green or blue.
+  //
+  // You could do this after the fact but that would require MongoDB to
+  // do more work up front. So for efficiency's sake, you can supply an
+  // object as the value of options.fetch.tags, with an `only` property
+  // restricting the possible results:
   //
   // options.fetch.tags = { only: [ 'red', 'green', 'blue' ] }
   //
-  // Conversely, you may need to ensure a particular tag *does* appear in results.tags,
-  // usually because it is the tag the user is manually filtering by right now:
+  // Conversely, you may need to ensure a particular tag *does* appear
+  // in `results.tags` even if it never appears in the snippets returned,
+  // usually because it is the tag the user is manually filtering by
+  // right now:
   //
   // Include 'blue' in the result even if it matches no snippets
   //
-  // options.fetch.tags { only: [ 'red', 'green', 'blue' ], always: 'blue' }
+  // options.fetch.tags = { only: [ 'red', 'green', 'blue' ], always: 'blue' }
 
-  self.get = function(req, optionsArg, callback) {
+  self.get = function(req, userCriteria, optionsArg, callback) {
     var options = {};
+    var filterCriteria = {};
     var results = null;
     extend(true, options, optionsArg);
     // For snippets the default sort is alpha
     if (!options.sort) {
       options.sort = { sortTitle: 1 };
     }
-    if (!options.type) {
-      options.type = self._instance;
-    }
+    // filterCriteria is the right place to build up criteria
+    // specific to this method; we'll $and it with the user's
+    // criteria before passing it on to apos.get
+    filterCriteria.type = self._instance;
     var fetch = options.fetch;
-    delete options.fetch;
     var permalink = options.permalink;
-    delete options.permalink;
+
+    // Final criteria to pass to apos.get
+    var criteria = {
+      $and: [
+        userCriteria,
+        filterCriteria
+      ]
+    };
 
     return async.series([ query, metadata, permalinker ], function(err) {
       return callback(err, results);
     });
 
     function query(callback) {
-      return self._apos.get(req, options, function(err, resultsArg) {
+      return self._apos.get(req, criteria, options, function(err, resultsArg) {
         if (err) {
           return callback(err);
         }
@@ -1050,15 +1103,16 @@ snippets.Snippets = function(options, callback) {
   self.dispatch = function(req, callback) {
     var permalink = false;
     var criteria = {};
+    var options = {};
     var show = false;
     var slug = self.isShow(req);
     if (slug !== false) {
       show = true;
       criteria.slug = slug;
     } else {
-      self.addPager(req, criteria);
+      self.addPager(req, options);
     }
-    self.addCriteria(req, criteria);
+    self.addCriteria(req, criteria, options);
     // If we are requesting a specific slug, remove the tags criterion.
     // In theory we should be strict about this, but in practice this is
     // sometimes necessary to make sure permalink pages are available when
@@ -1066,9 +1120,9 @@ snippets.Snippets = function(options, callback) {
     // consider whether to go back to being strict, after we resolve
     // any concerns with DR.
     if (slug) {
-      criteria.tags = undefined;
+      delete criteria.tags;
     }
-    return self.get(req, criteria, function(err, results) {
+    return self.get(req, criteria, options, function(err, results) {
       if (err) {
         return callback(err);
       }
@@ -1097,13 +1151,13 @@ snippets.Snippets = function(options, callback) {
   // YOU MUST ALSO CALL setPagerTotal after the total number of items available
   // is known (results.total in the get callback).
 
-  self.addPager = function(req, criteria) {
+  self.addPager = function(req, options) {
     var pageNumber = self._apos.sanitizeInteger(req.query.page, 1, 1);
     req.extras.pager = {
       page: pageNumber
     };
-    criteria.skip = self._perPage * (pageNumber - 1);
-    criteria.limit = self._perPage;
+    options.skip = self._perPage * (pageNumber - 1);
+    options.limit = self._perPage;
   };
 
   self.setPagerTotal = function(req, total) {
@@ -1154,24 +1208,27 @@ snippets.Snippets = function(options, callback) {
     return callback(null);
   };
 
-  self.addCriteria = function(req, criteria) {
-    criteria.fetch = {
+  self.addCriteria = function(req, criteria, options) {
+    options.fetch = {
       tags: {}
     };
     if (req.page.typeSettings && req.page.typeSettings.tags && req.page.typeSettings.tags.length) {
       criteria.tags = { $in: req.page.typeSettings.tags };
       // This restriction also applies when fetching distinct tags
-      criteria.fetch.tags = { only: req.page.typeSettings.tags };
+      options.fetch.tags = { only: req.page.typeSettings.tags };
     }
     if (req.query.tag) {
-      // Override the criteria for fetching snippets but leave criteria.fetch.tags
+      // Override the criteria for fetching snippets but leave options.fetch.tags
       // alone
-      criteria.tags = { $in: [ req.query.tag ] };
-      // Always return the active tag as one of the filter choices even if
-      // there are no results in this situation. Otherwise the user may not be
-      // able to see the state of the filter (for instance if it is expressed
-      // as a select element)
-      criteria.fetch.tags.always = req.query.tag;
+      var tag = self._apos.sanitizeString(req.query.tag);
+      if (tag.length) {
+        criteria.tags = { $in: [ tag ] };
+        // Always return the active tag as one of the filter choices even if
+        // there are no results in this situation. Otherwise the user may not be
+        // able to see the state of the filter (for instance if it is expressed
+        // as a select element)
+        options.fetch.tags.always = tag;
+      }
     }
   };
 
@@ -1207,30 +1264,18 @@ snippets.Snippets = function(options, callback) {
     }
     var typeNames = _.map(typesByInstanceType[snippet.type] || [], function(type) { return type.name; });
     // Pages in the trash are never good permalinks
-    var pages = self._apos.pages.find({ trash: { $exists: false }, type: { $in: typeNames }, slug: /^\// }).toArray(function(err, pages) {
+    return self._apos.get(req, { type: { $in: typeNames }, slug: /^\// }, {}, function(err, results) {
       if (err) {
         console.log('error is:');
         console.log(err);
         return callback(err);
       }
+      var pages = results.pages;
       if (!req.aposBestPageCache) {
         req.aposBestPageCache = {};
       }
-      var viewable = [];
-      async.eachSeries(pages, function(page, callback) {
-        self._apos.permissions(req, 'view-page', page, function(err) {
-          if (!err) {
-            viewable.push(page);
-          }
-          return callback(null);
-        });
-      }, function(err) {
-        if (err) {
-          return callback(err);
-        }
-        req.aposBestPageCache[snippet.type] = viewable;
-        go();
-      });
+      req.aposBestPageCache[snippet.type] = pages;
+      go();
     });
 
     function go() {

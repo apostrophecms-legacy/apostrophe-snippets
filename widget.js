@@ -33,16 +33,16 @@ widget.Widget = function(options) {
   // so don't clutter up the console with 404s in dev
   // self.pushAsset('stylesheet', 'widget');
 
-  self.addCriteria = function(item, criteria) {
+  self.addCriteria = function(item, criteria, options) {
     if ((item.by === 'tag') && (item.tags)) {
       if (item.tags.length) {
         criteria.tags = { $in: item.tags };
       }
       if (item.limit) {
-        criteria.limit = item.limit;
+        options.limit = item.limit;
       } else {
         // Always set an upper limit
-        criteria.limit = 1000;
+        options.limit = 1000;
       }
     } else if ((item.by === 'id') && (item.ids)) {
       // Specific IDs were selected, do not look at the limit
@@ -79,10 +79,11 @@ widget.Widget = function(options) {
 
     load: function(req, item, callback) {
       var criteria = {};
+      var options = {};
 
-      self.addCriteria(item, criteria);
+      self.addCriteria(item, criteria, options);
 
-      self.snippets.get(req, criteria, function(err, results) {
+      self.snippets.get(req, criteria, options, function(err, results) {
         if (err) {
           item._snippets = [];
           console.log(err);

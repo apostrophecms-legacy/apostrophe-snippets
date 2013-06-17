@@ -52,6 +52,16 @@
   {{ formArea(name, label) }}
 {% endmacro %}
 
+{# A pill button with several mutually exclusive choices #}
+{% macro snippetPill(name, label, options) %}
+  {{ formPill(name, label, options) }}
+{% endmacro %}
+
+{# Just the pill button group itself, no fieldset #}
+{% macro snippetPillStandalone(name, options) %}
+  {{ formPillStandalone(name, options) }}
+{% endmacro %}
+
 {# These promote a consistent interface in the various "manage" dialogs for types #}
 
 {% macro snippetNewButtons() %}
@@ -71,11 +81,6 @@
   </div>
 {% endmacro %}
 
-{# A pill button with several mutually exclusive choices #}
-{% macro snippetPill(name, options) %}
-  {{ formPill(name, options) }}
-{% endmacro %}
-
 {# See $.selective in content.js for the necessary plumbing #}
 {% macro snippetSelective(name, label) %}
   {{ formSelective(name, label) }}
@@ -85,7 +90,7 @@
 
 {% macro snippetFilters() %}
   {{
-    snippetPill('trash',
+    snippetPillStandalone('trash',
       [
         {
           value: '0',
@@ -99,7 +104,7 @@
     )
   }}
   {{
-    snippetPill('published',
+    snippetPillStandalone('published',
       [
         {
           value: '1',
