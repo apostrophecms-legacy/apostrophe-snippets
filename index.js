@@ -1018,8 +1018,14 @@ snippets.Snippets = function(options, callback) {
       var saveTagCriteria = criteria.tags;
       delete criteria.tags;
       if (typeof(fetch.tags) === 'object') {
-        if (fetch.tags.only) {
-          criteria.tags = fetch.tags.only;
+        if (fetch.tags.only || fetch.tags.never) {
+          criteria.tags = {};
+          if (fetch.tags.only) {
+            criteria.tags.$in = fetch.tags.only;
+          }
+          if (fetch.tags.except) {
+            criteria.tags.$nin = fetch.tags.except;
+          }
         }
       }
       self._apos.pages.distinct("tags", criteria, function(err, tags) {
@@ -1027,7 +1033,11 @@ snippets.Snippets = function(options, callback) {
           return callback(err);
         }
         // Always restore any criteria we modified
-        criteria.tags = saveTagCriteria;
+        if (saveTagCriteria !== undefined) {
+          criteria.tags = saveTagCriteria;
+        } else {
+          delete criteria.tags;
+        }
         results.tags = tags;
         if (fetch.tags.always) {
           if (!_.contains(results.tags, fetch.tags.always)) {
@@ -1212,17 +1222,24 @@ snippets.Snippets = function(options, callback) {
     options.fetch = {
       tags: {}
     };
-    if (req.page.typeSettings && req.page.typeSettings.tags && req.page.typeSettings.tags.length) {
-      criteria.tags = { $in: req.page.typeSettings.tags };
-      // This restriction also applies when fetching distinct tags
-      options.fetch.tags = { only: req.page.typeSettings.tags };
+    if (req.page.typeSettings) {
+      if (req.page.typeSettings.tags && req.page.typeSettings.tags.length) {
+        options.tags = req.page.typeSettings.tags;
+        // This restriction also applies when fetching distinct tags
+        options.fetch.tags.only = req.page.typeSettings.tags;
+      }
+      if (req.page.typeSettings.notTags && req.page.typeSettings.notTags.length) {
+        options.notTags = req.page.typeSettings.notTags;
+        // This restriction also applies when fetching distinct tags
+        options.fetch.tags.except = req.page.typeSettings.notTags;
+      }
     }
     if (req.query.tag) {
       // Override the criteria for fetching snippets but leave options.fetch.tags
       // alone
       var tag = self._apos.sanitizeString(req.query.tag);
       if (tag.length) {
-        criteria.tags = { $in: [ tag ] };
+        options.tags = [ tag ];
         // Always return the active tag as one of the filter choices even if
         // there are no results in this situation. Otherwise the user may not be
         // able to see the state of the filter (for instance if it is expressed
@@ -1350,6 +1367,7 @@ snippets.Snippets = function(options, callback) {
       sanitize: function(data, callback) {
         var ok = {};
         ok.tags = self._apos.sanitizeTags(data.tags);
+        ok.notTags = self._apos.sanitizeTags(data.notTags);
         return callback(null, ok);
       }
     }

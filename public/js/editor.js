@@ -45,11 +45,15 @@ function AposSnippets(options) {
 
   self.settings = {
     serialize: function($el, $details) {
-      var data = { tags: apos.tagsToArray($details.find('[name="typeSettings[tags]"]').val()) };
+      var data = {
+        tags: apos.tagsToArray($details.findByName("typeSettings[tags]").val()),
+        notTags: apos.tagsToArray($details.findByName("typeSettings[notTags]").val())
+      };
       return data;
     },
     unserialize: function(data, $el, $details) {
-      $details.find('[name="typeSettings[tags]"]').val(apos.tagsToString(data.tags));
+      $details.findByName("typeSettings[tags]").val(apos.tagsToString(data.tags));
+      $details.findByName("typeSettings[notTags]").val(apos.tagsToString(data.notTags));
     }
   };
 
