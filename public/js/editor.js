@@ -212,7 +212,7 @@ function AposSnippets(options) {
             dataType: 'json',
             success: function(data) {
               // Let anything that cares about changes to items of this kind know
-              apos.change(self._css);
+              apos.change(self.name);
               return callback(null);
             },
             error: function() {
@@ -245,7 +245,7 @@ function AposSnippets(options) {
       $el = apos.modalFromTemplate('.apos-manage-' + self._css, {
         init: function(callback) {
           // We want to know if a snippet is modified
-          $el.attr('data-apos-trigger-' + self._css, '');
+          $el.attr('data-apos-trigger-' + apos.eventName(self.name), '');
           // Trigger an initial refresh
           triggerRefresh(callback);
         }
