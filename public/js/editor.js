@@ -573,7 +573,7 @@ AposSnippets.addWidgetType = function(options) {
         self.$tags.val(apos.tagsToString(self.data.tags));
         self.$limit = self.$el.find('[name="limit"]');
         self.$limit.val(self.data.limit);
-        self.$ids = self.$el.find('[data-ids]');
+        self.$ids = self.$el.find('[data-name="ids"]');
         // Get the titles corresponding to the existing list of idss.
         //
         // We're going to get a prePreview call before this
@@ -591,7 +591,7 @@ AposSnippets.addWidgetType = function(options) {
 
         // TODO: use of GET with a list of IDs is bad, use POST and
         // make sure the routes accept POST
-        $.getJSON(self.action + '/autocomplete', { ids: self.data.ids || []}, function(data) {
+        $.getJSON(self.action + '/autocomplete', { values: self.data.ids || []}, function(data) {
           self.pending = false;
           self.$ids.selective({
             data: data,
