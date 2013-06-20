@@ -1281,7 +1281,9 @@ snippets.Snippets = function(options, callback) {
     }
     var typeNames = _.map(typesByInstanceType[snippet.type] || [], function(type) { return type.name; });
     // Pages in the trash are never good permalinks
-    return self._apos.get(req, { type: { $in: typeNames }, slug: /^\// }, {}, function(err, results) {
+    // Make sure we don't get the areas which would result in
+    // super expensive callLoadersForPage calls
+    return self._apos.get(req, { type: { $in: typeNames }, slug: /^\// }, { fields: { areas: 0 } }, function(err, results) {
       if (err) {
         console.log('error is:');
         console.log(err);
