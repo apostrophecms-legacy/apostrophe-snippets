@@ -73,21 +73,45 @@ function AposSnippets(options) {
           return self.insertOrUpdate($el, 'insert', {}, callback);
         },
         init: function(callback) {
-        $el.find('[name=published]').val(1);
-          // TODO: these cascades mean we should have async.series browser-side.
-          // Also we should provide an easier way to enable areas, and a way to
-          // limit controls in areas
-          return self.enableArea($el, 'body', null, function() {
-            return self.enableSingleton($el, 'thumbnail', null, 'slideshow', { limit: 1, label: 'Thumbnail' }, function() {
-              // Pass empty areas object to simplify logic elsewhere
-              self.afterPopulatingEditor($el, { areas: {} }, callback);
-            });
-          });
+          $el.find('[name=published]').val(1);
+          return self.populateEditor($el, { areas: {} }, callback);
         },
         next: function() {
           self.launchNew();
         }
       });
+    };
+
+    self.populateEditor = function($el, snippet, callback) {
+      // TODO: these cascades mean we should have async.series browser-side.
+      // Also we should provide an easier way to enable areas, and a way to
+      // limit controls in areas
+
+      // using an enableBody function to keep the enableSingleton call out of self.launchNew
+      // in case it should be overridden
+      return self.enableBody($el, snippet, function() {
+        return self.enableThumbnail($el, snippet, function() {
+          self.afterPopulatingEditor($el, { areas: {} }, callback);
+        });
+      });
+    }
+
+    // Enable the body area. If your subclass doesn't want a body area,
+    // you can just invoke the callback and do nothing else in your
+    // override. However consider that it is useful for all snippet types
+    // that have something that could be reasonably described as the
+    // "body" to use a consistent name for that.
+
+    self.enableBody = function($el, snippet, callback) {
+      return self.enableArea($el, 'body', snippet.areas.body, callback);
+    };
+
+    // Enable the thumbnail singleton. If a thumbnail makes no sense for your
+    // snippet subclass, you can just invoke the callback after doing nothing
+    // else in your override.
+
+    self.enableThumbnail = function($el, snippet, callback) {
+      return self.enableSingleton($el, 'thumbnail', snippet.areas.thumbnail, 'slideshow', { limit: 1, label: 'Thumbnail' }, callback);
     };
 
     self.addingToManager = function($el, $snippet, snippet) {
@@ -458,13 +482,7 @@ function AposSnippets(options) {
               }
             });
 
-            // TODO: looks like it's probably worth having the async module client side
-            self.enableArea($el, 'body', snippet.areas.body, function() {
-              self.enableSingleton($el, 'thumbnail', snippet.areas.thumbnail, 'slideshow', {
-                limit: 1, label: 'Thumbnail' }, function() {
-                self.afterPopulatingEditor($el, snippet, callback);
-              });
-            });
+            return self.populateEditor($el, snippet, callback);
           });
         },
         afterHide: function(callback) {
