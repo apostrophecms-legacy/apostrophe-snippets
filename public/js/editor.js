@@ -91,7 +91,7 @@ function AposSnippets(options) {
       // in case it should be overridden
       return self.enableBody($el, snippet, function() {
         return self.enableThumbnail($el, snippet, function() {
-          self.afterPopulatingEditor($el, { areas: {} }, callback);
+          self.afterPopulatingEditor($el, snippet, callback);
         });
       });
     }
