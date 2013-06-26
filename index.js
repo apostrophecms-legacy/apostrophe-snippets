@@ -968,7 +968,7 @@ snippets.Snippets = function(options, callback) {
 
     function metadata(callback) {
       if (fetch) {
-        return self.fetchMetadataForFilters(fetch, results.criteria, results, callback);
+        return self.fetchMetadataForFilters(req, fetch, criteria, options, results, callback);
       } else {
         return callback(null);
       }
@@ -1001,7 +1001,7 @@ snippets.Snippets = function(options, callback) {
   //
   // See the `fetchTags` function within this method for a well-executed example.
 
-  self.fetchMetadataForFilters = function(fetch, criteria, results, callback) {
+  self.fetchMetadataForFilters = function(req, fetch, criteria, options, results, callback) {
     // Written to accommodate fetching other filters' options easily
     async.series([fetchTags], function(err) {
       if (err) {
@@ -1014,31 +1014,35 @@ snippets.Snippets = function(options, callback) {
       if (!fetch.tags) {
         return callback(null);
       }
-      // Always save criteria we modify and restore them later
-      var saveTagCriteria = criteria.tags;
-      delete criteria.tags;
-      if (typeof(fetch.tags) === 'object') {
-        if (fetch.tags.only || fetch.tags.never) {
-          criteria.tags = {};
-          if (fetch.tags.only) {
-            criteria.tags.$in = fetch.tags.only;
-          }
-          if (fetch.tags.except) {
-            criteria.tags.$nin = fetch.tags.except;
-          }
+      var getTagsOptions = {};
+      extend(true, getTagsOptions, options);
+      getTagsOptions.getDistinctTags = true;
+      // If we are filtering by one tag at the user's discretion,
+      // get a list of all other tags as alternative filter choices.
+      // But don't get tags that are not on the permitted list for
+      // this page.
+      if (req.query.tag) {
+        delete getTagsOptions.tags;
+        if (req.page.typeSettings.tags && req.page.typeSettings.tags.length) {
+          getTagsOptions.tags = req.page.typeSettings.tags;
         }
       }
-      self._apos.pages.distinct("tags", criteria, function(err, tags) {
+      self._apos.get(req, criteria, getTagsOptions, function(err, tags) {
         if (err) {
+          console.log(err);
           return callback(err);
         }
-        // Always restore any criteria we modified
-        if (saveTagCriteria !== undefined) {
-          criteria.tags = saveTagCriteria;
-        } else {
-          delete criteria.tags;
-        }
         results.tags = tags;
+        if (fetch.tags.only) {
+          results.tags = _.filter(results.tags, function(tag) {
+            return _.contains(fetch.tags.only, tag);
+          });
+        }
+        if (fetch.tags.never) {
+          results.tags = _.filter(results.tags, function(tag) {
+            return !_.contains(fetch.tags.only, tag);
+          });
+        }
         if (fetch.tags.always) {
           if (!_.contains(results.tags, fetch.tags.always)) {
             results.tags.push(fetch.tags.always);
