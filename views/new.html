@@ -12,7 +12,7 @@
       {% block slug %}{% endblock %}
       {{ snippetText('tags', 'Tags (comma-separated)') }}
       {# It's rare to unpublish a snippet, but it's used heavily for derivatives like articles #}
-      {{ snippetSelect('published', 'Published', [ { name: '0', label: 'No' }, { name: '1', label: 'Yes' }]) }}
+      {{ snippetBoolean('published', 'Published') }}
       {# The real work for these is in main.js, just get placeholders into the form #}
       {{ snippetArea('body', 'Body') }}
     </form>
