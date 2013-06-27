@@ -1209,7 +1209,7 @@ snippets.Snippets = function(options, callback) {
       req.notfound = true;
       return callback(null);
     }
-    req.template = self.renderer(req.xhr ? 'indexAjax' : 'index');
+    req.template = self.renderer((req.xhr && (!req.query.apos_refresh)) ? 'indexAjax' : 'index');
     _.each(snippets, function(snippet) {
       snippet.url = self.permalink(snippet, req.bestPage);
     });
