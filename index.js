@@ -1179,7 +1179,8 @@ snippets.Snippets = function(options, callback) {
       req.notfound = true;
       return callback(null);
     }
-    req.template = self.renderer(req.xhr ? 'indexAjax' : 'index');
+    req.template = self.renderer((req.xhr && (!req.query.apos_refresh)) ? 'indexAjax' : 'index');
+    // Generic noun so we can more easily inherit templates
     req.extras.items = snippets;
     return callback(null);
   };
