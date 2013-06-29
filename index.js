@@ -7,72 +7,12 @@ var async = require('async');
 var csv = require('csv');
 var moment = require('moment');
 
-// GUIDE TO USE
-//
-// To make it possible to manage snippets on the site, just call the Snippets
-// constructor and invoke the aposSnippetMenu local in your menu template.
-//
-// To make it possible to add a public "snippets page" that presents all snippets
-// alphabetically by title with links to drill down to individual snippets and can
-// be locked down by tag, paginated, etc., just add the snippets object to the pages
-// module via pages.addType(). You probably won't do this with snippets, but you'll
-// do it a lot with page types derived from snippets, such as blog and events.
-//
-// To add a snippets page with an alternate name in the page types menu and
-// overrides of some or all templates, set the `name`, `label` and `dirs` options when
-// invoking the snippets constructor (note that `/views`, `/public/css`, etc. are
-// automatically added as appropriate to directories in `dirs`). Then pass the
-// resulting object to addType. You can instantiate snippets as many times as
-// you need to.
-//
-// To create separate snippet repositories that are not visible in each other's
-// "manage" dialogs, set the `instance` option. The `instance` option is used to
-// set the `type` property in the `aposPages` collection and thus distinguishes
-// this data type from all others that are stored as pages (example: "blogPost").
-// End users don't see this, so change it only if your "subclass" of
-// snippets shouldn't be visible and editable in the same "pool" with others.
-//
-// Examples: snippets, blog posts and events are all separate conceptually and
-// should have separate settings for `instance`, while "faculty blogs" are just
-// an alternate presentation of the blog with some template overrides via the
-// `dirs` option and should be able to find the usual pool of blog posts.
-//
-// You can override any methods whose behavior you wish to modify with extend().
-// Notable possibilities include:
-//
-// `beforeInsert` receives the req object, the data source (req.body for the
-// common case, but from elsewhere in the importer), a snippet about to be inserted for
-// the first time, and a callback. Modify it to add additional fields, then invoke the
-// callback with a fatal error if any. Always sanitize rather than failing
-// if it is in any way possible. You receive both the req object and the data
-// source because the data source is not req.body in every case (for instance, a
-// bulk import uploaded as a file).
-//
-// `beforeUpdate` performs the same function for updates.
-//
-// `beforeDelete` gives you a chance to clean up related content when a snippet
-// is about to be deleted.
-//
-// `getDefaultTitle` returns the title used for a new snippet if no title is given.
-
-// To use the snippets modules directly just take advantage of the convenience
-// function it exports and you can skip typing 'new':
-//
-// var snippets = require('apostrophe-snippets')(options, function(err) { ... });
-//
-// To access the constructor function for use in an object that extends
-// snippets, you would write:
-//
-// var snippets = require('apostrophe-snippets');
-// ... Inside the constructor for the new object ...
-// snippets.Snippets.call(this, options, null);
-
 module.exports = snippets;
 
-// A mapping of all snippet types by instance type, for use in locating
-// types that are compatible with various instance types. For instance,
+// A mapping of all page type objects by instance type, for use in locating
+// page types that are compatible with various instance types. For instance,
 // if three variations on a blog are registered, all with the instance
-// option set to blogPost, then typesByBlogPost.blogPost will be an array
+// option set to blogPost, then typesByInstanceType.blogPost will be an array
 // of those three type objects
 
 var typesByInstanceType = {};
@@ -828,8 +768,14 @@ snippets.Snippets = function(options, callback) {
             res.statusCode = 404;
             return res.send('Not Found');
           }
-          var url = self.permalink(page, bestPage);
-          return res.redirect(url);
+          self.permalink(req, page, bestPage, function(err) {
+            if (err) {
+              res.statusCode = 404;
+              return res.send('Not Found');
+            } else {
+              return res.redirect(snippet.url);
+            }
+          });
         });
       }
     });
@@ -976,11 +922,32 @@ snippets.Snippets = function(options, callback) {
 
     function permalinker(callback) {
       if (permalink) {
-        return self.findBestPageForMany(req, results.snippets, callback);
+        if (permalink === true) {
+          // Find the best page for each one
+          return self.addUrls(req, results.snippets, callback);
+        } else {
+          // permalink is a specific page object
+          return self.addUrls(req, results.snippets, permalink, callback);
+        }
       } else {
         return callback(null);
       }
     }
+  };
+
+  self.getOne = function(req, criteria, optionsArg, callback) {
+    var options = {};
+    extend(true, options, optionsArg);
+    options.limit = 1;
+    if (!options.skip) {
+      options.skip = 0;
+    }
+    return self.get(req, criteria, options, function(err, results) {
+      if (err) {
+        return callback(err);
+      }
+      return callback(err, results.snippets[0]);
+    });
   };
 
   // Add additional metadata like available tags to `results`. You should take advantage
@@ -1117,7 +1084,7 @@ snippets.Snippets = function(options, callback) {
   self.dispatch = function(req, callback) {
     var permalink = false;
     var criteria = {};
-    var options = {};
+    var options = { permalink: req.bestPage };
     var show = false;
     var slug = self.isShow(req);
     if (slug !== false) {
@@ -1199,7 +1166,6 @@ snippets.Snippets = function(options, callback) {
     req.template = self.renderer('show');
     // Generic noun so we can more easily inherit templates
     req.extras.item = snippet;
-    req.extras.item.url = self.permalink(req.extras.item, req.bestPage);
     return callback(null);
   };
 
@@ -1214,10 +1180,6 @@ snippets.Snippets = function(options, callback) {
       return callback(null);
     }
     req.template = self.renderer(req.xhr ? 'indexAjax' : 'index');
-    _.each(snippets, function(snippet) {
-      snippet.url = self.permalink(snippet, req.bestPage);
-    });
-    // Generic noun so we can more easily inherit templates
     req.extras.items = snippets;
     return callback(null);
   };
@@ -1278,13 +1240,25 @@ snippets.Snippets = function(options, callback) {
   // single request.
   //
   // The scoring algorithm was ported directly from Apostrophe 1.5's aEngineTools class.
+  //
+  // If this algorithm is basically right for your subclass of snippets, but you
+  // want to match on a different property of the page's typeSettings object
+  // rather than tags, you can set self.bestPageMatchingProperty. If this property
+  // contains an array of snippet IDs, you can set self.bestPageById.
+  //
+  // For instance, the groups module does this:
+  //
+  // self.bestPageMatchingProperty = 'groupIds';
+  // self.bestPageById = true;
+  //
+  // If your needs for comparing the fitness of pages are greatly different you'll need
+  // to override the entire method.
 
   self.findBestPage = function(req, snippet, callback) {
     if (req.aposBestPageCache && req.aposBestPageCache[snippet.type]) {
       return go();
     }
     var typeNames = _.map(typesByInstanceType[snippet.type] || [], function(type) { return type.name; });
-    // Pages in the trash are never good permalinks
     // Make sure we don't get the areas which would result in
     // super expensive callLoadersForPage calls
     return self._apos.get(req, { type: { $in: typeNames }, slug: /^\// }, { fields: { areas: 0 } }, function(err, results) {
@@ -1302,13 +1276,14 @@ snippets.Snippets = function(options, callback) {
     });
 
     function go() {
+      var property = self.bestPageMatchingProperty || 'tags';
       var viewable = req.aposBestPageCache[snippet.type];
-      var tags = snippet.tags || [];
+      var tags = self.bestPageById ? ([ snippet._id ]) : (snippet[property] || []);
       var bestScore;
       var best = null;
       _.each(viewable, function(page) {
         var score = 0;
-        var pageTags = (page.typeSettings && page.typeSettings.tags) ? page.typeSettings.tags : [];
+        var pageTags = (page.typeSettings && page.typeSettings[property]) ? page.typeSettings[property] : [];
         if (!pageTags.length) {
           score = 1;
         }
@@ -1324,20 +1299,9 @@ snippets.Snippets = function(options, callback) {
     }
   };
 
-  self.findBestPageForMany = function(req, items, callback) {
-    async.map(items, function(item, callback) {
-      return self.findBestPage(req, item, function(err, page) {
-        if (page) {
-          item._url = self.permalink(item, page);
-        }
-        return callback(err);
-      });
-    }, callback);
-  };
-
-  // Returns a "permalink" URL to the snippet, beginning with the
-  // slug of the specified page. See findBestPage for a good way to
-  // choose a page beneath which to link this snippet.
+  // Sets the .url property of the snippet to a good permalink URL,
+  // beginning with the slug of the specified page. See findBestPage
+  // for a good way to choose a page beneath which to link this snippet.
   //
   // It is commonplace to override this function. For instance,
   // blog posts add the publication date to the URL.
@@ -1348,16 +1312,42 @@ snippets.Snippets = function(options, callback) {
   // or perhaps stuff it into req if we're really going to support
   // multiple "sites" per domain etc.
 
-  self.permalink = function(snippet, page) {
-    return page.slug + '/' + snippet.slug;
+  // This method must be efficient. Cache information in the req object
+  // to avoid making the same database query thousands of times as part
+  // of satisfying a single HTTP request.
+
+  // Default version is very simple but some subclasses may need to
+  // fetch additional information even though the best/current page
+  // is already known (in particular, the people module).
+
+  self.permalink = function(req, snippet, page, callback) {
+    snippet.url = page.slug + '/' + snippet.slug;
+    return callback(null);
   };
 
   // Add the .url property to snippets so they can be clicked through
-  self.addUrls = function(req, snippets, callback) {
+  // If 'page' is specified, link them all to that page. If 'page' is
+  // skipped, discover the best page to link each one to
+
+  self.addUrls = function(req, snippets, page, callback) {
+    if (arguments.length === 4) {
+      // Link them all to one page
+      return async.each(snippets, function(snippet, callback) {
+        return self.permalink(req, snippet, page, callback);
+       }, callback);
+    }
+
+    // Find best page for each
+    callback = page;
+    page = null;
+
     async.eachSeries(snippets, function(snippet, callback) {
       self.findBestPage(req, snippet, function(err, page) {
+        if (err) {
+          return callback(err);
+        }
         if (page) {
-          snippet.url = self.permalink(snippet, page);
+          return self.permalink(req, snippet, page, callback);
         }
         return callback(null);
       });
@@ -1368,7 +1358,7 @@ snippets.Snippets = function(options, callback) {
   self.pushAsset('template', 'pageSettings', { when: 'user' });
 
   // Sanitize newly submitted page settings (never trust a browser)
-  extend(self, {
+  extend(true, self, {
     settings: {
       sanitize: function(data, callback) {
         var ok = {};
@@ -1377,7 +1367,7 @@ snippets.Snippets = function(options, callback) {
         return callback(null, ok);
       }
     }
-  }, true);
+  });
 
   // WIDGET SETUP, ALSO BROWSER-SIDE SETUP FOR THE PAGE TYPE
 
