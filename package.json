@@ -1,6 +1,6 @@
 {
   "name": "apostrophe-snippets",
-  "version": "0.0.38",
+  "version": "0.0.39",
   "description": "Reusable content snippets for the Apostrophe content management system. The blog and events modules are built on this foundation, which is also useful in and of itself.",
   "main": "index.js",
   "scripts": {
