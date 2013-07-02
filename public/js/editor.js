@@ -436,16 +436,9 @@ function AposSnippets(options) {
             $el.find('[name=tags]').val(apos.tagsToString(snippet.tags));
             $el.find('[name=slug]').val(snippet.slug);
 
-            // TODO: this boolean field prep stuff is done often enough to belong
-            // in editor.js
-            var published = snippet.published;
-            if (published === undefined) {
-              published = 1;
-            } else {
-              // Simple POST friendly boolean values
-              published = published ? '1' : '0';
-            }
-            $el.find('[name=published]').val(published);
+            // Boolean fields must get an explicit '1' or '0' for
+            // the select element
+            $el.find('[name=published]').val(snippet.published ? '1' : '0');
 
             // name=slug must always exist, at least as a hidden field, to support this
             apos.suggestSlugOnTitleEdits($el.find('[name=title]'), $el.find('[name=slug]'));
