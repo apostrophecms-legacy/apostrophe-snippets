@@ -289,7 +289,7 @@ snippets.Snippets = function(options, callback) {
           },
           function(callback) {
             self.afterSave(req, data, snippet, callback);
-          },
+          }
         ], callback);
       } catch (e) {
         console.log(e);
@@ -1107,6 +1107,8 @@ snippets.Snippets = function(options, callback) {
       if (err) {
         return callback(err);
       }
+
+      req.extras.allTags = results.tags;
 
       // Make the filter metadata (like tag lists) available to the template
       req.extras.filters = _.omit(results, 'snippets');
