@@ -40,6 +40,7 @@ function AposSnippets(options) {
   self._action = options.action;
   // "Manage" pagination
   self._managePerPage = options.managePerPage || 20;
+  self.convertFields = options.convertFields;
 
   // PAGE SETTINGS FOR THIS TYPE
 
@@ -83,35 +84,26 @@ function AposSnippets(options) {
     };
 
     self.populateEditor = function($el, snippet, callback) {
-      // TODO: these cascades mean we should have async.series browser-side.
-      // Also we should provide an easier way to enable areas, and a way to
-      // limit controls in areas
-
-      // using an enableBody function to keep the enableSingleton call out of self.launchNew
-      // in case it should be overridden
-      return self.enableBody($el, snippet, function() {
-        return self.enableThumbnail($el, snippet, function() {
-          self.afterPopulatingEditor($el, snippet, callback);
-        });
+      self.populateFields($el, snippet, function() {
+        return self.afterPopulatingEditor($el, snippet, callback);
       });
-    }
-
-    // Enable the body area. If your subclass doesn't want a body area,
-    // you can just invoke the callback and do nothing else in your
-    // override. However consider that it is useful for all snippet types
-    // that have something that could be reasonably described as the
-    // "body" to use a consistent name for that.
-
-    self.enableBody = function($el, snippet, callback) {
-      return self.enableArea($el, 'body', snippet.areas.body, callback);
     };
 
-    // Enable the thumbnail singleton. If a thumbnail makes no sense for your
-    // snippet subclass, you can just invoke the callback after doing nothing
-    // else in your override.
-
-    self.enableThumbnail = function($el, snippet, callback) {
-      return self.enableSingleton($el, 'thumbnail', snippet.areas.thumbnail, 'slideshow', { limit: 1, label: 'Thumbnail' }, callback);
+    self.populateFields = function($el, snippet, callback) {
+      // This is a workaround for the lack of async.each client side.
+      // Think about bringing that into the browser.
+      function populateField(i) {
+        if (i >= self.convertFields.length) {
+          return callback(null);
+        }
+        var field = self.convertFields[i];
+        // Not all displayers use this
+        var $field = $el.findByName(field.name);
+        return self.displayers[field.type](snippet, field.name, $field, $el, field, function() {
+          return populateField(i + 1);
+        });
+      }
+      return populateField(0);
     };
 
     self.addingToManager = function($el, $snippet, snippet) {
@@ -205,17 +197,72 @@ function AposSnippets(options) {
       return apos.stringifyArea($el.find('[data-' + name + '-edit-view] [data-editable]'));
     };
 
+    self.converters = {
+      // Convert the tough cases
+      area: function(data, name, $field, $el, field) {
+        data[name] = self.getAreaJSON($el, name);
+      },
+      singleton: function(data, name, $field, $el, field) {
+        data[name] = self.getSingletonJSON($el, name);
+      },
+      // The rest are very simple because the server does
+      // the serious sanitization work (you can't trust a browser)
+      string: function(data, name, $field, $el, field) {
+        data[name] = $field.val();
+      },
+      boolean: function(data, name, $field, $el, field) {
+        data[name] = $field.val();
+      },
+      select: function(data, name, snippet, field) {
+        data[name] = $field.val();
+      },
+      integer: function(data, name, snippet, field) {
+        data[name] = $field.val();
+      }
+    };
+
+    self.displayers = {
+      // Display all the things
+      area: function(data, name, $field, $el, field, callback) {
+        return self.enableArea($el, name, data.areas[name], callback);
+      },
+      singleton: function(data, name, $field, $el, field, callback) {
+        return self.enableSingleton($el, name, data.areas[name], field.widgetType, field.options || {}, callback);
+      },
+      string: function(data, name, $field, $el, field, callback) {
+        $field.val(data[name]);
+        return callback();
+      },
+      select: function(data, name, $field, $el, field, callback) {
+        $field.val(data[name]);
+        return callback();
+      },
+      integer: function(data, name, $field, $el, field, callback) {
+        $field.val(data[name]);
+        return callback();
+      },
+      boolean: function(data, name, $field, $el, field, callback) {
+        $field.val(data[name] ? '1' : '0');
+        return callback();
+      }
+    };
+
     self.insertOrUpdate = function($el, action, options, callback) {
       var data = {
         title: $el.find('[name="title"]').val(),
         tags: apos.tagsToArray($el.find('[name="tags"]').val()),
         slug: $el.find('[name="slug"]').val(),
         type: $el.find('[name="type"]').val(),
-        thumbnail: self.getSingletonJSON($el, 'thumbnail'),
-        body: self.getAreaJSON($el, 'body'),
         published: $el.find('[name=published]').val(),
         originalSlug: options.slug
       };
+
+      // Easy conversion of custom fields, including all areas and singletons
+      _.each(self.convertFields, function(field) {
+        // This won't be enough for every type of field, so we pass $el too
+        var $field = $el.findByName(field.name);
+        self.converters[field.type](data, field.name, $field, $el, field);
+      });
 
       if (action === 'update') {
         self.beforeUpdate($el, data, afterAction);

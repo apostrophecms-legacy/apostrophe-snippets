@@ -181,23 +181,42 @@ snippets.Snippets = function(options, callback) {
     };
 
     // Fields to be imported or read from the browser when saving a new item.
-    // You can read properties directly or leverage this mechanism to handle the types
-    // that it supports painlessly. It's not meant to cover everything, just tricky
-    // field types that would otherwise be very challenging to implement, such as areas.
-    // (In fact, right now it only covers areas!)
+    // You can read properties directly or leverage this mechanism to handle
+    // the types that it supports painlessly. strings, booleans,
+    // integers, selects and areas are supported. You can set a 'def' (default)
+    // property, which is passed  to sanitizeBoolean, sanitizeString, etc. and
+    // also additional type-dependent properties like min and max
+    // (for integers) and choices (for selects).
+    //
+    // TODO: push this structure to the browser as well so extra code
+    // is not needed there in simple cases.
 
     self.convertFields = [
       {
         // This one will always import as an empty area for now when importing CSV.
         // TODO: allow URLs in CSV to be imported.
         name: 'thumbnail',
-        type: 'area'
+        type: 'singleton',
+        widgetType: 'slideshow',
+        options: {
+          limit: 1,
+          label: 'Thumbnail'
+        }
       },
       {
         name: 'body',
         type: 'area'
       }
     ];
+
+    // Simple way to add fields to the schema
+    if (options.addFields) {
+      self.convertFields = self.convertFields.concat(options.addFields);
+    }
+    // A function that alters the schema
+    if (options.alterFields) {
+      options.alterFields(self.convertFields);
+    }
 
     // Very handy for imports of all kinds: convert plaintext to an area with
     // one rich text item if it is not blank, otherwise an empty area. null and
@@ -213,36 +232,53 @@ snippets.Snippets = function(options, callback) {
       return area;
     };
 
-    // Converters from various formats for various types
-    self.converters = {
-      csv: {
-        area: function(data, name, snippet) {
-          if (!snippet.areas) {
-            snippet.areas = {};
-          }
-          snippet.areas[name] = self.textToArea(data[name]);
+    // Converters from various formats for various types. Define them all
+    // for the csv importer, then copy that as a starting point for
+    // regular forms and override those that are different (areas)
+    self.converters = {};
+    self.converters.csv = {
+      area: function(data, name, snippet, field) {
+        if (!snippet.areas) {
+          snippet.areas = {};
         }
+        snippet.areas[name] = self.textToArea(data[name]);
       },
-      form: {
-        area: function(data, name, snippet) {
-          var content = [];
-          try {
-            content = JSON.parse(data[name]);
-          } catch (e) {
-            // Always recover graciously and import something reasonable, like an empty area
-          }
-          self._apos.sanitizeItems(content);
-          if (!snippet.areas) {
-            snippet.areas = {};
-          }
-          snippet.areas[name] = { items: content };
-        }
+      string: function(data, name, snippet, field) {
+        snippet[name] = self._apos.sanitizeString(data[name], field.def);
+      },
+      boolean: function(data, name, snippet, field) {
+        snippet[name] = self._apos.sanitizeBoolean(data[name], field.def);
+      },
+      select: function(data, name, snippet, field) {
+        snippet[name] = self._apos.sanitizeSelect(data[name], field.choices, field.def);
+      },
+      integer: function(data, name, snippet, field) {
+        snippet[name] = self._apos.sanitizeInteger(data[name], field.def, field.min, field.max);
       }
+    };
+    // As far as the server is concerned a singleton is just an area
+    self.converters.csv.singleton = self.converters.csv.area;
+
+    self.converters.form = {};
+    extend(self.converters.form, self.converters.csv, true);
+
+    self.converters.form.singleton = self.converters.form.area = function(data, name, snippet) {
+      var content = [];
+      try {
+        content = JSON.parse(data[name]);
+      } catch (e) {
+        // Always recover graciously and import something reasonable, like an empty area
+      }
+      self._apos.sanitizeItems(content);
+      if (!snippet.areas) {
+        snippet.areas = {};
+      }
+      snippet.areas[name] = { items: content };
     };
 
     self.convertAllFields = function(from, data, snippet) {
       _.each(self.convertFields, function(field) {
-        self.converters[from][field.type](data, field.name, snippet);
+        self.converters[from][field.type](data, field.name, snippet, field);
       });
     };
 
@@ -1394,7 +1430,8 @@ snippets.Snippets = function(options, callback) {
     css: self._css,
     typeCss: self._typeCss,
     manager: self.manager,
-    action: self._action
+    action: self._action,
+    convertFields: self.convertFields
   };
   extend(true, args, browser.options || {});
 
