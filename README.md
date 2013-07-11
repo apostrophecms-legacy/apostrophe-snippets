@@ -333,6 +333,69 @@ All you need to know right now is that you must add this page loader function to
 
 ### Adding New Properties To Your Snippets
 
+*As of 7/11/13, there is a much easier way to do this.* Snippets now support a simple JSON format for creating a schema of fields. Both the browser side and the server side understand this, so all you have to do is add them to the dialogs as described below and set up the schema. You can still do it the hard way, however, if you need custom behavior.
+
+Here is a super-simple example of a project-level subclass of the people module (itself a subclass of snippets) that adds new fields painlessly. In addition to `string` and `boolean` shown here, you can use the types `area`, `singleton`, `choice` and `integer`:
+
+    var _ = require('underscore');
+    var people = require('apostrophe-people');
+
+    module.exports = myPeople;
+
+    function myPeople(options, callback) {
+      return new myPeople.MyPeople(options, callback);
+    }
+
+    myPeople.MyPeople = function(options, callback) {
+      var self = this;
+
+      options.modules = (options.modules || []).concat([ { dir: __dirname, name: 'myPeople' } ]);
+
+      // Extend people with custom fields. This is all you have to do as long as
+      // you don't have special UI or sanitization needs for your fields.
+
+      options.extraFields = [
+        {
+          name: 'workPhone',
+          type: 'string'
+        },
+        {
+          name: 'workFax',
+          type: 'string'
+        },
+        {
+          name: 'department',
+          type: 'string'
+        },
+        {
+          name: 'isRetired',
+          type: 'boolean'
+        },
+        {
+          name: 'isGraduate',
+          type: 'boolean'
+        },
+        {
+          name: 'classOf',
+          type: 'string'
+        },
+        {
+          name: 'location',
+          type: 'string'
+        }
+      ];
+
+      people.People.call(this, options, null);
+
+      if (callback) {
+        process.nextTick(function() { return callback(null); });
+      }
+    };
+
+There is also an `alterFields` option available. This must be a function which receives the fields array as its argument and modifies it. Use this when you need to change fields already configured for you.
+
+*TODO: document schemas in much more detail.*
+
 Blog posts have a property that regular snippets don't: a publication date. A blog post should not appear before its publication date. To implement that, we need to address several things:
 
 1. Editing that property, as part of the `new.html` and `edit.html` dialogs.
@@ -361,6 +424,8 @@ The real work of initializing these takes place in browser-side JavaScript.
 Note that we don't have to explicitly add these properties to `edit.html` as it extends `new.html`.
 
 ### Sending Extra Properties to the Server: Subclassing on the Browser Side
+
+*NOTE: you can skip this if you use the `addFields` option as described earlier.*
 
 Next we'll need to send our extra properties to the server when a snippet is saved. Until this point all of the code we've looked at has been on the server side. But of course snippets also have browser-side JavaScript code to implement the "new," "edit" and "manage" dialogs. You can find that code in `apostrophe-snippets/public/js/editor.js`.
 
