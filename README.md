@@ -354,7 +354,7 @@ Here is a super-simple example of a project-level subclass of the people module 
       // Extend people with custom fields. This is all you have to do as long as
       // you don't have special UI or sanitization needs for your fields.
 
-      options.extraFields = [
+      options.addFields = [
         {
           name: 'workPhone',
           type: 'string'
