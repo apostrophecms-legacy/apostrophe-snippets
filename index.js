@@ -206,6 +206,11 @@ snippets.Snippets = function(options, callback) {
       {
         name: 'body',
         type: 'area'
+      },
+      {
+        name: 'hideTitle',
+        type: 'boolean',
+        def: false
       }
     ];
 

@@ -8,6 +8,7 @@
   <div class="apos-modal-body">
     <form>
       {{ snippetText('title', 'Title') }}
+      {{ snippetBoolean('hideTitle', 'Hide Title') }}
       {# Slugs become editable later, allow the edit template to add them here #}
       {% block slug %}{% endblock %}
       {{ snippetText('tags', 'Tags (comma-separated)') }}
