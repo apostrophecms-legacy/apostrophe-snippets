@@ -423,7 +423,7 @@ function AposSnippets(options) {
           _.each(snippets, function(snippet) {
             var $snippet = apos.fromTemplate($snippets.find('[data-item].apos-template'));
             var $title = $snippet.find('[data-title]');
-            $title.text(snippet.title);
+            $title.text(snippet.title || '[NO TITLE]');
             $title.attr('data-slug', snippet.slug);
             if (snippet.trash) {
               $title.attr('data-trash', 1);
