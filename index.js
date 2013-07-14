@@ -837,8 +837,15 @@ snippets.Snippets = function(options, callback) {
 
   self.pushAsset('script', 'editor', { when: 'user' });
   self.pushAsset('script', 'content', { when: 'always' });
-  self.pushAsset('stylesheet', 'editor', { when: 'user' });
-  self.pushAsset('stylesheet', 'content', { when: 'always' });
+
+  // We've decided not to push stylesheets that live in the core
+  // Apostrophe modules, because we prefer to write LESS files in the
+  // sandbox project that can share imports. But you can add these calls
+  // back to your subclasses if you like keeping the LESS files with
+  // the modules.
+
+  // self.pushAsset('stylesheet', 'editor', { when: 'user' });
+  // self.pushAsset('stylesheet', 'content', { when: 'always' });
 
   // END OF MANAGER FUNCTIONALITY
 

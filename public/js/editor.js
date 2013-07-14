@@ -1,32 +1,6 @@
-// NOTES FOR REUSE:
-//
-// If you create a new snippet page type on the server side, there must also be
-// a matching constructor on the browser side which extends this one. If your
-// page type (not instance type) is "blog" then your constructor must be named
-// "AposBlog".
-//
-// After calling the constructor you can $.extend it with methods as follows.
-// Note that "manager" refers to the main dialog presenting a list of many items
-// and "editor" refers to the editor dialog for just one item. "beforeUpdate" and
-// "beforeInsert" relate to the save operation of the editor dialog.
-//
-// For simplicity all CSS names and data attribute names that need to be distinct to
-// this data type end with a hyphenated version of your instance option. Note that
-// this will be singular in all cases.
-//
-// addingToManager($el, $snippet, snippet)   <-- note no callback, keep it fast & simple
-// afterPopulatingManager($el, $snippets, snippets, callback)
-// afterPopulatingEditor($el, snippet, callback) <-- Sync custom fields from snippet to $el
-// beforeUpdate($el, data) <-- Sync custom fields from $el to data
-// beforeInsert($el, data) <-- Same for new items rather than existing items
-//
-// By default, if snippets are available as a page type, a custom page settings field is
-// presented allowing the user to pick the tags used to select snippets for display.
-// You can override this behavior and add your own fields with these methods, which are
-// grouped in the settings property:
-//
-// settings.serialize($el) <-- Sync custom page settings from typeSettings[] fields of $el, return an object
-// settings.unserialize(data, $el) <-- Copy properties from data to custom page settings in typeSettings[] fields of $el
+// JavaScript which enables editing of this module's content belongs here.
+
+// See this module's README for more information about subclassing snippets.
 
 function AposSnippets(options) {
   var self = this;
