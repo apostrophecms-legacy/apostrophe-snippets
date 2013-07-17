@@ -690,7 +690,7 @@ snippets.Snippets = function(options, callback) {
         var criteria = {};
         var options = {
           fields: self.getAutocompleteFields(),
-          limit: 10
+          limit: 50
         };
         var data = (req.method === 'POST') ? req.body : req.query;
         if (data.term !== undefined) {
