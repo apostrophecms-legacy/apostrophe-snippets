@@ -814,7 +814,7 @@ snippets.Snippets = function(options, callback) {
               res.statusCode = 404;
               return res.send('Not Found');
             } else {
-              return res.redirect(snippet.url);
+              return res.redirect(page.url);
             }
           });
         });
