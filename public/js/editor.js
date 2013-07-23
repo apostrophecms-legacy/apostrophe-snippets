@@ -187,10 +187,10 @@ function AposSnippets(options) {
       boolean: function(data, name, $field, $el, field) {
         data[name] = $field.val();
       },
-      select: function(data, name, snippet, field) {
+      select: function(data, name, $field, $el, field) {
         data[name] = $field.val();
       },
-      integer: function(data, name, snippet, field) {
+      integer: function(data, name, $field, $el, field) {
         data[name] = $field.val();
       }
     };
