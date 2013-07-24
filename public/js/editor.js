@@ -149,12 +149,17 @@ function AposSnippets(options) {
       }
     };
 
-    self.enableArea = function($el, name, area, callback) {
+    // options argument may be skipped
+    self.enableArea = function($el, name, area, options, callback) {
+      if (!callback) {
+        callback = options;
+        options = {};
+      }
       var items = [];
       if (area && area.items) {
         items = area.items;
       }
-      $.post('/apos/edit-virtual-area', { content: JSON.stringify(items) }, function(data) {
+      $.post('/apos/edit-virtual-area', { content: JSON.stringify(items), options: JSON.stringify(options) }, function(data) {
         var $editView = $el.find('[data-' + name + '-edit-view]');
         $editView.append(data);
         return callback(null);
@@ -198,7 +203,7 @@ function AposSnippets(options) {
     self.displayers = {
       // Display all the things
       area: function(data, name, $field, $el, field, callback) {
-        return self.enableArea($el, name, data.areas[name], callback);
+        return self.enableArea($el, name, data.areas[name], field.options || {}, callback);
       },
       singleton: function(data, name, $field, $el, field, callback) {
         return self.enableSingleton($el, name, data.areas[name], field.widgetType, field.options || {}, callback);

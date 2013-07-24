@@ -180,16 +180,16 @@ snippets.Snippets = function(options, callback) {
       return callback(null);
     };
 
-    // Fields to be imported or read from the browser when saving a new item.
+    // The schema: fields to be imported or read from the browser when saving
+    // an item. Also pushed as an option to the browser side manager object
+    // so that it can automatically handle these fields.
+    //
     // You can read properties directly or leverage this mechanism to handle
     // the types that it supports painlessly. strings, booleans,
     // integers, selects and areas are supported. You can set a 'def' (default)
     // property, which is passed  to sanitizeBoolean, sanitizeString, etc. and
     // also additional type-dependent properties like min and max
     // (for integers) and choices (for selects).
-    //
-    // TODO: push this structure to the browser as well so extra code
-    // is not needed there in simple cases.
 
     self.convertFields = [
       {
@@ -197,15 +197,16 @@ snippets.Snippets = function(options, callback) {
         // TODO: allow URLs in CSV to be imported.
         name: 'thumbnail',
         type: 'singleton',
-        widgetType: 'slideshow',
-        options: {
-          limit: 1,
-          label: 'Thumbnail'
-        }
+        widgetType: 'slideshow'
       },
       {
         name: 'body',
         type: 'area'
+        // options: {
+        //   slideshow: {
+        //     limit: 1
+        //   }
+        // }
       },
       {
         name: 'hideTitle',
