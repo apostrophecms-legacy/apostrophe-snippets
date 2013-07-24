@@ -197,7 +197,11 @@ snippets.Snippets = function(options, callback) {
         // TODO: allow URLs in CSV to be imported.
         name: 'thumbnail',
         type: 'singleton',
-        widgetType: 'slideshow'
+        widgetType: 'slideshow',
+        options: {
+          limit: 1,
+          label: 'Thumbnail'
+        }
       },
       {
         name: 'body',
