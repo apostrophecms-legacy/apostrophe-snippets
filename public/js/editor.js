@@ -55,6 +55,9 @@ function AposSnippets(options) {
           self.launchNew();
         }
       });
+      if (!$el.length) {
+        apos.log('ERROR: there is no template with the apos-new' + self._css + ' class. You probably need to copy and edit new.html and edit.html for your snippet subclass.');
+      }
     };
 
     self.populateEditor = function($el, snippet, callback) {
@@ -450,6 +453,9 @@ function AposSnippets(options) {
         save: save,
         init: function(callback) {
           active = true;
+          if (!$el.length) {
+            apos.log('ERROR: there is no template with the apos-edit' + self._css + ' class. You probably need to copy and edit new.html and edit.html for your snippet subclass.');
+          }
           $.getJSON(self._action + '/get-one', { slug: slug, editable: true }, function(data) {
             if (!data) {
               // TODO all alerts should get prettified into something nicer
