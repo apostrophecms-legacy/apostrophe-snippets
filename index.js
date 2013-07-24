@@ -927,7 +927,7 @@ snippets.Snippets = function(options, callback) {
     var results = null;
     extend(true, options, optionsArg);
     // For snippets the default sort is alpha
-    if (!options.sort) {
+    if (options.sort === undefined) {
       options.sort = { sortTitle: 1 };
     }
     // filterCriteria is the right place to build up criteria
