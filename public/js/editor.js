@@ -206,10 +206,10 @@ function AposSnippets(options) {
     self.displayers = {
       // Display all the things
       area: function(data, name, $field, $el, field, callback) {
-        return self.enableArea($el, name, data.areas[name], field.options || {}, callback);
+        return self.enableArea($el, name, data.areas ? data.areas[name] : null, field.options || {}, callback);
       },
       singleton: function(data, name, $field, $el, field, callback) {
-        return self.enableSingleton($el, name, data.areas[name], field.widgetType, field.options || {}, callback);
+        return self.enableSingleton($el, name, data.areas ? data.areas[name] : null, field.widgetType, field.options || {}, callback);
       },
       string: function(data, name, $field, $el, field, callback) {
         $field.val(data[name]);
