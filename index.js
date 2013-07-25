@@ -76,6 +76,15 @@ snippets.Snippets = function(options, callback) {
 
   self._action = '/apos-' + self._typeCss;
 
+  // Our chance to veto our snippets for display to the public as search results
+  self._apos.on('searchable', function(info) {
+    if (self._instance === info.page.type) {
+      if (!self._searchable) {
+        info.suitable = false;
+      }
+    }
+  });
+
   extend(true, self._rendererGlobals, {
     type: _.pick(self, [ 'name', 'label', 'icon', '_instance', '_css', '_typeCss', '_menuName', '_action' ])
   });
@@ -1477,6 +1486,10 @@ snippets.Snippets = function(options, callback) {
     // the callback resides
     process.nextTick(function() { return callback(null); });
   }
+};
+
+snippets.getManager = function(snippet) {
+  return typesByInstanceType[snippet.type];
 };
 
 snippets.widget = widget;
