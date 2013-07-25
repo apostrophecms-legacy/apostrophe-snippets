@@ -82,8 +82,8 @@
 {% endmacro %}
 
 {# See $.selective in content.js for the necessary plumbing #}
-{% macro snippetSelective(name, label) %}
-  {{ formSelective(name, label) }}
+{% macro snippetSelective(name, label, options) %}
+  {{ formSelective(name, label, options) }}
 {% endmacro %}
 
 {# Standard filters suitable for all snippet derivatives #}
