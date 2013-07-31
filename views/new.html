@@ -11,7 +11,7 @@
       {{ snippetBoolean('hideTitle', 'Hide Title') }}
       {# Slugs become editable later, allow the edit template to add them here #}
       {% block slug %}{% endblock %}
-      {{ snippetText('tags', 'Tags (comma-separated)') }}
+      {{ snippetTags('tags', 'Tags (comma-separated)') }}
       {# It's rare to unpublish a snippet, but it's used heavily for derivatives like articles #}
       {{ snippetBoolean('published', 'Published') }}
       {# The real work for these is in main.js, just get placeholders into the form #}

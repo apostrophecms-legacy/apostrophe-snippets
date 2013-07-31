@@ -82,7 +82,6 @@ widget.Widget = function(options) {
       var options = {};
 
       self.addCriteria(item, criteria, options);
-
       self.snippets.get(req, criteria, options, function(err, results) {
         if (err) {
           item._snippets = [];

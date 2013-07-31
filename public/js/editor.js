@@ -21,14 +21,14 @@ function AposSnippets(options) {
   self.settings = {
     serialize: function($el, $details) {
       var data = {
-        tags: apos.tagsToArray($details.findByName("typeSettings[tags]").val()),
-        notTags: apos.tagsToArray($details.findByName("typeSettings[notTags]").val())
+        tags: $details.find('[data-name="tags"]').selective('get'),
+        notTags: $details.find('[data-name="notTags"]').selective('get')
       };
       return data;
     },
     unserialize: function(data, $el, $details) {
-      $details.findByName("typeSettings[tags]").val(apos.tagsToString(data.tags));
-      $details.findByName("typeSettings[notTags]").val(apos.tagsToString(data.notTags));
+      apos.enableTags($details.find('[data-name="tags"]'), data.tags);
+      apos.enableTags($details.find('[data-name="notTags"]'), data.notTags);
     }
   };
 
@@ -232,12 +232,12 @@ function AposSnippets(options) {
     self.insertOrUpdate = function($el, action, options, callback) {
       var data = {
         title: $el.find('[name="title"]').val(),
-        tags: apos.tagsToArray($el.find('[name="tags"]').val()),
         slug: $el.find('[name="slug"]').val(),
         type: $el.find('[name="type"]').val(),
         published: $el.find('[name=published]').val(),
         originalSlug: options.slug
       };
+      data.tags = $el.find('[data-name="tags"]').selective('get');
 
       // Easy conversion of custom fields, including all areas and singletons
       _.each(self.convertFields, function(field) {
@@ -465,7 +465,7 @@ function AposSnippets(options) {
             snippet = data;
 
             $el.find('[name=title]').val(snippet.title);
-            $el.find('[name=tags]').val(apos.tagsToString(snippet.tags));
+            apos.enableTags($el.find('[data-name="tags"]'), snippet.tags);
             $el.find('[name=slug]').val(snippet.slug);
 
             // Boolean fields must get an explicit '1' or '0' for
@@ -612,8 +612,8 @@ AposSnippets.addWidgetType = function(options) {
         }
         self.$by = self.$el.find('[name="by"]');
         self.$by.radio(self.data.by || 'id');
-        self.$tags = self.$el.find('[name="tags"]');
-        self.$tags.val(apos.tagsToString(self.data.tags));
+        self.$tags = self.$el.find('[data-name="tags"]');
+        apos.enableTags(self.$tags, self.data.tags);
         self.$limit = self.$el.find('[name="limit"]');
         self.$limit.val(self.data.limit);
         self.$ids = self.$el.find('[data-name="ids"]');
@@ -649,7 +649,7 @@ AposSnippets.addWidgetType = function(options) {
 
       self.debrief = function(callback) {
         self.data.by = self.$by.radio();
-        self.data.tags = apos.tagsToArray(self.$tags.val());
+        self.data.tags = self.$tags.selective('get');
         self.data.limit = parseInt(self.$limit.val(), 10);
         if (self.pending) {
           self.pendingCallback = whenReady;
