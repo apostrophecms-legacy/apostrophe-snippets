@@ -67,6 +67,7 @@ function AposSnippets(options) {
     };
 
     self.populateFields = function($el, snippet, callback) {
+      apos.enableTags($el.find('[data-name="tags"]'), snippet.tags);
       // This is a workaround for the lack of async.each client side.
       // Think about bringing that into the browser.
       function populateField(i) {
@@ -465,7 +466,6 @@ function AposSnippets(options) {
             snippet = data;
 
             $el.find('[name=title]').val(snippet.title);
-            apos.enableTags($el.find('[data-name="tags"]'), snippet.tags);
             $el.find('[name=slug]').val(snippet.slug);
 
             // Boolean fields must get an explicit '1' or '0' for
