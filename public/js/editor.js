@@ -319,6 +319,7 @@ function AposSnippets(options) {
         $pill.find('[data-choice]').removeClass('apos-active');
         $choice.addClass('apos-active');
         $el.trigger($pill.data('name'), [ $choice.attr('data-choice') ]);
+        return false;
       });
 
       // Be sure to reset to page 1 when changing the filters in any way

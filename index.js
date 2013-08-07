@@ -688,7 +688,7 @@ snippets.Snippets = function(options, callback) {
 
       // The autocomplete route returns an array of objects with
       // label and value properties, suitable for use with
-      // $.autocompleteList. The label is the title, the value
+      // $.selective. The label is the title, the value
       // is the id of the snippet.
       //
       // Send either a `term` parameter, used for autocomplete search,
