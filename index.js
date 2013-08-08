@@ -510,7 +510,7 @@ snippets.Snippets = function(options, callback) {
 
         function get(callback) {
           slug = req.body.slug;
-          return self.get(req, { slug: slug }, { editable: true }, function(err, results) {
+          return self.get(req, { slug: slug }, { editable: true, trash: 'any' }, function(err, results) {
             if (err) {
               return callback(err);
             }
