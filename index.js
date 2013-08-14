@@ -704,7 +704,8 @@ snippets.Snippets = function(options, callback) {
         var criteria = {};
         var options = {
           fields: self.getAutocompleteFields(),
-          limit: 50
+          limit: req.query.limit || 50,
+          skip: req.query.skip
         };
         var data = (req.method === 'POST') ? req.body : req.query;
         if (data.term !== undefined) {
@@ -716,6 +717,11 @@ snippets.Snippets = function(options, callback) {
           // treat the absence of either parameter as an
           // empty `ids` array
           return res.send(JSON.stringify([]));
+        }
+        if (data.values.length && (req.query.limit === undefined)) {
+          // We are loading specific items to repopulate a control,
+          // so get all of them
+          delete options.limit;
         }
         // If requested, allow autocomplete to find unpublished
         // things (published === 'any'). Note that this is still
@@ -732,8 +738,8 @@ snippets.Snippets = function(options, callback) {
           }
           var snippets = results.snippets;
           // Put the snippets in id order
-          if (req.query.ids) {
-            snippets = self._apos.orderById(req.query.ids, snippets);
+          if (req.query.values) {
+            snippets = self._apos.orderById(req.query.values, snippets);
           }
           return res.send(
             JSON.stringify(_.map(snippets, function(snippet) {
