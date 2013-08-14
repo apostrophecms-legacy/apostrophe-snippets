@@ -718,7 +718,7 @@ snippets.Snippets = function(options, callback) {
           // empty `ids` array
           return res.send(JSON.stringify([]));
         }
-        if (data.values.length && (req.query.limit === undefined)) {
+        if (data.values && data.values.length && (req.query.limit === undefined)) {
           // We are loading specific items to repopulate a control,
           // so get all of them
           delete options.limit;
