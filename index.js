@@ -237,19 +237,8 @@ snippets.Snippets = function(options, callback) {
       options.alterFields(self.convertFields);
     }
 
-    // Very handy for imports of all kinds: convert plaintext to an area with
-    // one rich text item if it is not blank, otherwise an empty area. null and
-    // undefined are tolerated and converted to empty areas.
-    self.textToArea = function(text) {
-      var area = { items: [] };
-      if ((typeof(text) === 'string') && text.length) {
-        area.items.push({
-          type: 'richText',
-          content: self._apos.escapeHtml(text)
-        });
-      }
-      return area;
-    };
+    // For bc
+    self.textToArea = self._apos.textToArea;
 
     // Converters from various formats for various types. Define them all
     // for the csv importer, then copy that as a starting point for
