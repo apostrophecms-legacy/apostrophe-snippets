@@ -1225,11 +1225,11 @@ snippets.Snippets = function(options, callback) {
   // Called by self.index to decide what the index template name is.
   // "index" is the default. If the request is an AJAX request, we assume
   // infinite scroll and render "indexAjax".
-  self.setIndexTemplateName = function(req) {
+  self.setIndexTemplate = function(req) {
     if (req.xhr && (!req.query.apos_refresh)) {
-      req.template = 'indexAjax';
+      req.template = self.renderer('indexAjax');
     }
-    req.template = 'index';
+    req.template = self.renderer('index');
   };
 
   // The standard implementation of an 'index' page for many snippets, for your
@@ -1242,7 +1242,7 @@ snippets.Snippets = function(options, callback) {
       req.notfound = true;
       return callback(null);
     }
-    self.setIndexTemplateName(req);
+    self.setIndexTemplate(req);
     // Generic noun so we can more easily inherit templates
     req.extras.items = snippets;
     return self.beforeIndex(req, snippets, callback);
