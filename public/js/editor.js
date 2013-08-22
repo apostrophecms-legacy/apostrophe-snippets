@@ -201,6 +201,9 @@ function AposSnippets(options) {
       },
       integer: function(data, name, $field, $el, field) {
         data[name] = $field.val();
+      },
+      float: function(data, name, $field, $el, field) {
+        data[name] = $field.val();
       }
     };
 
@@ -221,6 +224,10 @@ function AposSnippets(options) {
         return callback();
       },
       integer: function(data, name, $field, $el, field, callback) {
+        $field.val(data[name]);
+        return callback();
+      },
+      float: function(data, name, $field, $el, field, callback) {
         $field.val(data[name]);
         return callback();
       },

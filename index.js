@@ -195,9 +195,9 @@ snippets.Snippets = function(options, callback) {
     //
     // You can read properties directly or leverage this mechanism to handle
     // the types that it supports painlessly. strings, booleans,
-    // integers, selects and areas are supported. You can set a 'def' (default)
-    // property, which is passed  to sanitizeBoolean, sanitizeString, etc. and
-    // also additional type-dependent properties like min and max
+    // integers, floats, selects and areas are supported. You can set a 'def'
+    // (default) property, which is passed  to sanitizeBoolean, sanitizeString,
+    // etc. and also additional type-dependent properties like min and max
     // (for integers) and choices (for selects).
 
     self.convertFields = [
@@ -262,6 +262,9 @@ snippets.Snippets = function(options, callback) {
       },
       integer: function(data, name, snippet, field) {
         snippet[name] = self._apos.sanitizeInteger(data[name], field.def, field.min, field.max);
+      },
+      float: function(data, name, snippet, field) {
+        snippet[name] = self._apos.sanitizeFloat(data[name], field.def, field.min, field.max);
       }
     };
     // As far as the server is concerned a singleton is just an area
@@ -1219,6 +1222,16 @@ snippets.Snippets = function(options, callback) {
     return self.beforeShow(req, snippet, callback);
   };
 
+  // Called by self.index to decide what the index template name is.
+  // "index" is the default. If the request is an AJAX request, we assume
+  // infinite scroll and render "indexAjax".
+  self.setIndexTemplateName = function(req) {
+    if (req.xhr && (!req.query.apos_refresh)) {
+      req.template = 'indexAjax';
+    }
+    req.template = 'index';
+  };
+
   // The standard implementation of an 'index' page for many snippets, for your
   // overriding convenience
   self.index = function(req, snippets, callback) {
@@ -1229,7 +1242,7 @@ snippets.Snippets = function(options, callback) {
       req.notfound = true;
       return callback(null);
     }
-    req.template = self.renderer((req.xhr && (!req.query.apos_refresh)) ? 'indexAjax' : 'index');
+    self.setIndexTemplateName(req);
     // Generic noun so we can more easily inherit templates
     req.extras.items = snippets;
     return self.beforeIndex(req, snippets, callback);
