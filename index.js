@@ -195,9 +195,9 @@ snippets.Snippets = function(options, callback) {
     //
     // You can read properties directly or leverage this mechanism to handle
     // the types that it supports painlessly. strings, booleans,
-    // integers, selects and areas are supported. You can set a 'def' (default)
-    // property, which is passed  to sanitizeBoolean, sanitizeString, etc. and
-    // also additional type-dependent properties like min and max
+    // integers, floats, selects and areas are supported. You can set a 'def'
+    // (default) property, which is passed  to sanitizeBoolean, sanitizeString,
+    // etc. and also additional type-dependent properties like min and max
     // (for integers) and choices (for selects).
 
     self.convertFields = [
@@ -237,19 +237,8 @@ snippets.Snippets = function(options, callback) {
       options.alterFields(self.convertFields);
     }
 
-    // Very handy for imports of all kinds: convert plaintext to an area with
-    // one rich text item if it is not blank, otherwise an empty area. null and
-    // undefined are tolerated and converted to empty areas.
-    self.textToArea = function(text) {
-      var area = { items: [] };
-      if ((typeof(text) === 'string') && text.length) {
-        area.items.push({
-          type: 'richText',
-          content: self._apos.escapeHtml(text)
-        });
-      }
-      return area;
-    };
+    // For bc
+    self.textToArea = self._apos.textToArea;
 
     // Converters from various formats for various types. Define them all
     // for the csv importer, then copy that as a starting point for
@@ -273,6 +262,9 @@ snippets.Snippets = function(options, callback) {
       },
       integer: function(data, name, snippet, field) {
         snippet[name] = self._apos.sanitizeInteger(data[name], field.def, field.min, field.max);
+      },
+      float: function(data, name, snippet, field) {
+        snippet[name] = self._apos.sanitizeFloat(data[name], field.def, field.min, field.max);
       }
     };
     // As far as the server is concerned a singleton is just an area
@@ -1018,73 +1010,64 @@ snippets.Snippets = function(options, callback) {
     });
   };
 
-  // Add additional metadata like available tags to `results`. You should take advantage
-  // of the mongodb criteria in `criteria` to display only the choices that will
+  // Add additional metadata like available tags to `results`. We take advantage
+  // of the specified criteria and options to display only the choices that will
   // return results. For instance, for tags, we fetch only tags that appear on
   // at least one snippet that meets the other criteria that are currently active.
   // This lets us avoid displaying filters that point to empty pages.
   //
-  // You should retrieve options for a given filter only if `fetch.yourfiltername` is set
-  // (as seen below for `fetch.tags`). If `fetch.only` is set you must respect that
-  // limitation on the allowed values. If `fetch.always` is set you must always include
-  // that particular value in your results even if it matches no snippets.
-  //
-  // If `criteria` is already filtered by the property you are interested in, you should
-  // remove that property from `criteria` before querying. However you MUST restore
-  // that property to criteria` before calling the superclass version of this method.
-  // If you're nervous, copy `criteria` with extend(true, myCriteria, criteria).
-  //
-  // See the `fetchTags` function within this method for a well-executed example.
+  // Apostrophe retrieves the choices for a given filter only if
+  // `fetch.yourfiltername` is set. If `fetch.yourfiltername.only` is set
+  // we respect that limitation on the allowed values. If `fetch.always` is
+  // set we always include that particular value in the results even if there
+  // are no matches.
 
   self.fetchMetadataForFilters = function(req, fetch, criteria, options, results, callback) {
     // Written to accommodate fetching other filters' options easily
-    async.series([fetchTags], function(err) {
+    async.eachSeries(_.keys(fetch), fetchProperty, function(err) {
       if (err) {
         return callback(err);
       }
       return callback(null);
     });
 
-    function fetchTags(callback) {
-      if (!fetch.tags) {
-        return callback(null);
-      }
-      var getTagsOptions = {};
-      extend(true, getTagsOptions, options);
-      getTagsOptions.getDistinctTags = true;
+    function fetchProperty(property, callback) {
+      var getPropertyOptions = {};
+      extend(true, getPropertyOptions, options);
+      getPropertyOptions.getDistinct = property;
       // If we are filtering by one tag at the user's discretion,
       // get a list of all other tags as alternative filter choices.
       // But don't get tags that are not on the permitted list for
       // this page.
-      if (req.query.tag) {
-        delete getTagsOptions.tags;
-        if (req.page.typeSettings.tags && req.page.typeSettings.tags.length) {
-          getTagsOptions.tags = req.page.typeSettings.tags;
+      if (req.query[property]) {
+        delete getPropertyOptions[property];
+        if (req.page.typeSettings[property] && req.page.typeSettings[property].length) {
+          getPropertyOptions[property] = req.page.typeSettings[property];
         }
       }
-      self._apos.get(req, criteria, getTagsOptions, function(err, tags) {
+      self._apos.get(req, criteria, getPropertyOptions, function(err, values) {
         if (err) {
           console.log(err);
           return callback(err);
         }
-        results.tags = tags;
-        if (fetch.tags.only) {
-          results.tags = _.filter(results.tags, function(tag) {
-            return _.contains(fetch.tags.only, tag);
+        results[property] = values;
+        if (fetch[property].only) {
+          results[property] = _.filter(results[property], function(tag) {
+            return _.contains(fetch[property].only, tag);
           });
         }
-        if (fetch.tags.never) {
-          results.tags = _.filter(results.tags, function(tag) {
-            return !_.contains(fetch.tags.only, tag);
+        if (fetch[property].never) {
+          results[property] = _.filter(results[property], function(tag) {
+            return !_.contains(fetch[property].only, tag);
           });
         }
-        if (fetch.tags.always) {
-          if (!_.contains(results.tags, fetch.tags.always)) {
-            results.tags.push(fetch.tags.always);
+        if (fetch[property].always) {
+          if (!_.contains(results[property], fetch[property].always)) {
+            results[property].push(fetch[property].always);
           }
         }
         // alpha sort
-        results.tags.sort();
+        results[property].sort();
         return callback(null);
       });
     }
@@ -1236,7 +1219,17 @@ snippets.Snippets = function(options, callback) {
     req.template = self.renderer('show');
     // Generic noun so we can more easily inherit templates
     req.extras.item = snippet;
-    return callback(null);
+    return self.beforeShow(req, snippet, callback);
+  };
+
+  // Called by self.index to decide what the index template name is.
+  // "index" is the default. If the request is an AJAX request, we assume
+  // infinite scroll and render "indexAjax".
+  self.setIndexTemplate = function(req) {
+    if (req.xhr && (!req.query.apos_refresh)) {
+      req.template = self.renderer('indexAjax');
+    }
+    req.template = self.renderer('index');
   };
 
   // The standard implementation of an 'index' page for many snippets, for your
@@ -1249,9 +1242,25 @@ snippets.Snippets = function(options, callback) {
       req.notfound = true;
       return callback(null);
     }
-    req.template = self.renderer((req.xhr && (!req.query.apos_refresh)) ? 'indexAjax' : 'index');
+    self.setIndexTemplate(req);
     // Generic noun so we can more easily inherit templates
     req.extras.items = snippets;
+    return self.beforeIndex(req, snippets, callback);
+  };
+
+  // For easier subclassing, these callbacks are invoked at the last
+  // minute before the template is rendered. You may use them to extend
+  // the data available in req.extras, etc. To completely override
+  // the "show" behavior, override self.show or self.dispatch.
+  self.beforeShow = function(req, snippet, callback) {
+    return callback(null);
+  };
+
+  // For easier subclassing, these callbacks are invoked at the last
+  // minute before the template is rendered. You may use them to extend
+  // the data available in req.extras, etc. To completely override
+  // the "index" behavior, override self.index or self.dispatch.
+  self.beforeIndex = function(req, snippets, callback) {
     return callback(null);
   };
 
