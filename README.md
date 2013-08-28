@@ -392,6 +392,8 @@ Here is a super-simple example of a project-level subclass of the people module 
       }
     };
 
+When using the `area` and `singleton` types, you may include an `options` property which will be passed to that area or singleton exactly as if you were passing it to `aposArea` or `aposSingleton`.
+
 There is also an `alterFields` option available. This must be a function which receives the fields array as its argument and modifies it. Use this when you need to change fields already configured for you.
 
 *TODO: document schemas in much more detail.*
