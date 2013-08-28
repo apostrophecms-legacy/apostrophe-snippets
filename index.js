@@ -1228,8 +1228,9 @@ snippets.Snippets = function(options, callback) {
   self.setIndexTemplate = function(req) {
     if (req.xhr && (!req.query.apos_refresh)) {
       req.template = self.renderer('indexAjax');
+    } else {
+      req.template = self.renderer('index');
     }
-    req.template = self.renderer('index');
   };
 
   // The standard implementation of an 'index' page for many snippets, for your
