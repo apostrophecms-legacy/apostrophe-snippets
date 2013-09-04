@@ -32,7 +32,6 @@ snippets.Snippets = function(options, callback) {
   self._searchable = options.searchable || true;
   self._options = options;
   self._perPage = options.perPage || 10;
-  self._browserOptions = options || {};
 
   // self.modules allows us to find the directory path and web asset path to
   // each module in the inheritance tree when subclassing. Necessary to push all
@@ -88,6 +87,10 @@ snippets.Snippets = function(options, callback) {
   extend(true, self._rendererGlobals, {
     type: _.pick(self, [ 'name', 'label', 'icon', '_instance', '_css', '_typeCss', '_menuName', '_action' ])
   });
+
+  self.setBridge = function(modules) {
+    self._bridge = modules;
+  };
 
   // Render a partial, looking for overrides in our preferred places
   self.render = function(name, data) {
@@ -265,7 +268,10 @@ snippets.Snippets = function(options, callback) {
       },
       float: function(data, name, snippet, field) {
         snippet[name] = self._apos.sanitizeFloat(data[name], field.def, field.min, field.max);
-      }
+      },
+      url: function(data, name, snippet, field) {
+        snippet[name] = self._apos.sanitizeUrl(data[name], field.def);
+      },
     };
     // As far as the server is concerned a singleton is just an area
     self.converters.csv.singleton = self.converters.csv.area;
@@ -1462,11 +1468,13 @@ snippets.Snippets = function(options, callback) {
   _.defaults(options, { widget: true });
 
   var browser = options.browser || {};
+  self._browser = browser;
   var pages = browser.pages || 'aposPages';
-  var construct = browser.construct || getBrowserConstructor();
+  var construct = getBrowserConstructor();
   self._pages.addType(self);
   var args = {
     name: self.name,
+    label: self.label,
     instance: self._instance,
     icon: self._icon,
     css: self._css,
@@ -1477,6 +1485,10 @@ snippets.Snippets = function(options, callback) {
   };
   extend(true, args, browser.options || {});
 
+  // Synthesize a constructor for this type on the browser side if there
+  // isn't one. This allows trivial subclassing of snippets for cases where
+  // no custom browser side code is actually needed
+  self._apos.pushGlobalCallWhen('user', 'AposSnippets.subclassIfNeeded(?, ?, ?)', getBrowserConstructor(), getBaseBrowserConstructor(), args);
   self._apos.pushGlobalCallWhen('user', '@.replaceType(?, new @(?))', pages, self.name, construct, args);
 
   if (options.widget) {
@@ -1493,7 +1505,14 @@ snippets.Snippets = function(options, callback) {
   }
 
   function getBrowserConstructor() {
-    return 'Apos' + self.name.charAt(0).toUpperCase() + self.name.substr(1);
+    return self._browser.construct || 'Apos' + self.name.charAt(0).toUpperCase() + self.name.substr(1);
+  }
+
+  // Figure out the name of the base class constructor on the browser side. If
+  // it's not available set a dummy name; this will work out OK because this
+  // typically means subclassing was done explicitly on the browser side.
+  function getBaseBrowserConstructor() {
+    return self._browser.baseConstruct || 'AposPresumablyExplicit';
   }
 
   if (callback) {
@@ -1504,8 +1523,13 @@ snippets.Snippets = function(options, callback) {
   }
 };
 
+// The first type object registered with the right type name
+// is the manager, responsible for the backend of the editor
+
 snippets.getManager = function(snippet) {
-  return typesByInstanceType[snippet.type];
+  return _.find(typesByInstanceType[snippet.type] || [], function(type) {
+    return type.manager;
+  });
 };
 
 snippets.widget = widget;

@@ -204,6 +204,9 @@ function AposSnippets(options) {
       },
       float: function(data, name, $field, $el, field) {
         data[name] = $field.val();
+      },
+      url: function(data, name, $field, $el, field) {
+        data[name] = $field.val();
       }
     };
 
@@ -216,6 +219,10 @@ function AposSnippets(options) {
         return self.enableSingleton($el, name, data.areas ? data.areas[name] : null, field.widgetType, field.options || {}, callback);
       },
       string: function(data, name, $field, $el, field, callback) {
+        $field.val(data[name]);
+        return callback();
+      },
+      url: function(data, name, $field, $el, field, callback) {
         $field.val(data[name]);
         return callback();
       },
@@ -685,5 +692,28 @@ AposSnippets.addWidgetType = function(options) {
       apos.widgetEditor.call(self, options);
     }
   };
+};
+
+// When we explicitly subclass snippets, there must also be a subclass on the browser
+// side. However sometimes this subclass really has no unique work to do, so we can
+// synthesize it automatically. Do so if no constructor for it is found. Also wire up
+// the widget constructor here if it has not been done explicitly.
+//
+// A call to this method is pushed to the browser by apostrophe-snippets/index.js
+
+AposSnippets.subclassIfNeeded = function(constructorName, baseConstructorName, options) {
+  if (!window[constructorName]) {
+    window[constructorName] = function(options) {
+      var self = this;
+      window[baseConstructorName].call(self, options);
+    };
+  }
+
+  if (!window[constructorName].addWidgetType) {
+    window[constructorName].addWidgetType = function(optionsArg) {
+      _.defaults(optionsArg, options.widget || {});
+      window[baseConstructorName].addWidgetType(options);
+    };
+  }
 };
 
