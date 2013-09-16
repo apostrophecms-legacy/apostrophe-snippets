@@ -454,7 +454,6 @@ snippets.Snippets = function(options, callback) {
         }
 
         function massage(callback) {
-          snippet.areas = {};
           self.convertAllFields('form', req.body, snippet);
           snippet.title = title;
           snippet.slug = slug;
