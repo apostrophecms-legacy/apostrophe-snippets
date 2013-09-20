@@ -31,6 +31,12 @@ Note that the snippet module's initialization function requires a callback. Sinc
 
 ### Overriding Snippet Templates
 
+#### Don't Work So Hard! Use apostrophe-site
+
+*See the [apostrophe-site](http://github.com/punkave/apostrophe-site) module for a very easy way to override the templates of snippets, blogs, event calendars or any other module derived from snippets.* The rest of this section concerns how to do it without `apostrophe-site` and basically reveals the nuts and bolts of how it really works.
+
+#### Doing It Without apostrophe-site
+
 If you'd like to just create custom templates for an existing snippet module, you can create a project-specific override of that module. The current Apostrophe "best-practice" for this involves creating a top-level directory named "lib" (i.e. /my-project/lib/), and then creating custom versions of the template there (i.e. /my-project/lib/snippets).
 
 The bare requirements for each of these template overrides is an index.js file (/my-project/lib/snippets/index.js) and a client-side file called "editor.js" which lives in a  directory named "public/js" (/my-project/lib/snippets/public/js/editor.js). We'll take a brief look at the bare bones of these files below.

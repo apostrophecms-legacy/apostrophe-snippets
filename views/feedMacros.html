@@ -1,0 +1,22 @@
+{% macro feedThumbnail(item) %}
+  {% if options.thumbnail %}
+    {% if (aposAreaFindFile({ area: item.areas.thumbnail, group: 'images' })) %}
+      {# Most but not all feed readers will ignore the float, but it's nice to try. #}
+      <img style="display: block; float: left; padding: 10px" src="{{ aposFilePath(aposAreaFindFile({ area: item.areas.thumbnail, group: 'images' }), { size: 'one-sixth' }) }}" />
+    {% elif options.alternateThumbnail and (aposAreaFindFile({ area: item.areas.body, group: 'images' })) %}
+      {# Most but not all feed readers will ignore the float, but it's nice to try. #}
+      <img style="display: block; float: left; padding: 10px" src="{{ aposFilePath(aposAreaFindFile({ area: item.areas.body, group: 'images' }), { size: 'one-sixth' }) }}" />
+    {% endif %}
+  {% endif %}
+{% endmacro %}
+
+{% macro feedBody(item) %}
+  {% if options.summary %}
+    {{ aposAreaPlaintext({ area: item.areas.body, truncate: options.characters }) }}
+  {% else %}
+    {# This helper is good for bypassing all the outer wrapper markup of an area which is #}
+    {# unsuitable for RSS feeds #}
+    {# Ignore all widgets, simple HTML text only #}
+    {{ aposAreaContent(item.areas.body.items, { allowed: [ 'richText' ] }) }}
+  {% endif %}
+{% endmacro %}
