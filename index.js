@@ -1015,6 +1015,32 @@ snippets.Snippets = function(options, callback) {
     });
   };
 
+  /**
+   * Store or update a snippet. The slug argument is optional but
+   * must be given if you are changing the slug of an existing
+   * snippet, in which case it must be the old slug.
+   */
+  self.putOne = function(req, slug, snippet, callback) {
+    if (!snippet) {
+      snippet = slug;
+      slug = snippet.slug;
+    }
+    return self.beforePutOne(req, slug, snippet, function(err) {
+      if (err) {
+        return callback(err);
+      }
+      return self._apos.putPage(req, slug, snippet, callback);
+    });
+  };
+
+  /**
+   * Override me to have a last chance to alter the snippet or
+   * check permissions
+   */
+  self.beforePutOne = function(req, slug, snippet, callback) {
+    return callback(null);
+  };
+
   // Add additional metadata like available tags to `results`. We take advantage
   // of the specified criteria and options to display only the choices that will
   // return results. For instance, for tags, we fetch only tags that appear on
