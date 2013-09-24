@@ -441,7 +441,7 @@ snippets.Snippets = function(options, callback) {
     };
 
     self.importSaveItem = function(req, snippet, callback) {
-      self._apos.putPage(req, snippet.slug, snippet, callback);
+      return self.putOne(req, snippet.slug, snippet, callback);
     };
 
     self.addStandardRoutes = function() {
@@ -485,7 +485,7 @@ snippets.Snippets = function(options, callback) {
         }
 
         function insert(callback) {
-          return self._apos.putPage(req, slug, snippet, callback);
+          return self.putOne(req, slug, snippet, callback);
         }
 
         function afterInsert(callback) {
@@ -563,7 +563,7 @@ snippets.Snippets = function(options, callback) {
         function update(callback) {
           async.series([
             function(callback) {
-              self._apos.putPage(req, originalSlug, snippet, callback);
+              return self.putOne(req, originalSlug, snippet, callback);
             },
             function(callback) {
               self.afterUpdate(req, req.body, snippet, callback);

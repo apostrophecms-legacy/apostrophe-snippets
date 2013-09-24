@@ -340,7 +340,9 @@ All you need to know right now is that you must add this page loader function to
 
 ### Adding New Properties To Your Snippets
 
-*As of 7/11/13, there is a much easier way to do this.* Snippets now support a simple JSON format for creating a schema of fields. Both the browser side and the server side understand this, so all you have to do is add them to the dialogs as described below and set up the schema. You can still do it the hard way, however, if you need custom behavior.
+#### Using Schemas
+
+*There is a very easy way to do this.* Snippets now support a simple JSON format for creating a schema of fields. Both the browser side and the server side understand this, so all you have to do is add them to the dialogs as described below and set up the schema. You can still do it the hard way, however, if you need custom behavior.
 
 Here is a super-simple example of a project-level subclass of the people module (itself a subclass of snippets) that adds new fields painlessly. In addition to `string` and `boolean` shown here, you can use the types `area`, `singleton`, `choice` and `integer`:
 
@@ -403,7 +405,17 @@ When using the `area` and `singleton` types, you may include an `options` proper
 
 There is also an `alterFields` option available. This must be a function which receives the fields array as its argument and modifies it. Use this when you need to change fields already configured for you.
 
-*TODO: document schemas in much more detail.*
+Here is a list of types currently supported by the `addFields` option:
+
+`string`, `boolean`, `integer`, `float`, `url`, `area`
+
+Except for `area`, all of these types accept a `def` option which provides a default value if the field's value is not specified.
+
+The `integer` and `float` types also accept `min` and `max` options and automatically clamp values to stay in that range.
+
+#### Without Schemas
+
+Here's an example of adding a property without using the schema mechanism.
 
 Blog posts have a property that regular snippets don't: a publication date. A blog post should not appear before its publication date. To implement that, we need to address several things:
 
@@ -411,7 +423,7 @@ Blog posts have a property that regular snippets don't: a publication date. A bl
 
 2. Sending that property to the server, via browser-side JavaScript as shown below.
 
-3. Saving the property on the server, by extending the `beforeInsert` and `beforeUpdate` methods of the snippets module on the server side.
+3. Saving the property on the server, by extending the `beforeSave` method on the server side, or `beforeInsert` and `beforeUpdate` if you need to treat new and updated snippets differently.
 
 4. Making that property part of our criteria for fetching snippets, by extending the `get` method of the snippets module.
 
@@ -485,28 +497,18 @@ Now the server will push a call to create a `MyBlog' object instead.
 
 But we still haven't seen how extra properties of a snippet are handled. So let's look at that code from `editor.js` in the blog module.
 
-We'll create a `findExtraFields` function to take care of locating the fields in the form via jQuery and storing them in a `data` object provided by the caller. Note this function takes a callback so you can do time-consuming tasks if necessary:
+var superBeforeSave = self.beforeSave;
 
-    function findExtraFields($el, data, callback) {
-      data.publicationDate = $el.find('[name="publication-date"]').val();
-      callback();
-    }
+self.beforeSave = function($el, data, callback) {
+  data.publicationDate = $el.find('[name="publication-date"]').val();
+  return superBeforeSave($el, data, callback);
+}
 
  `$el` is a jQuery reference to the modal dialog in which the blog post is being edited or created.
 
 *IMPORTANT: we ALWAYS use `$el.find` to locate the field we want within the context of the dialog. We NEVER use `$('[name="our-field"]')`. Otherwise your code WILL eventually conflict with unrelated code. Scope is a good thing.*
 
-But who calls this function? We'll do it, in our `beforeInsert` and `beforeUpdate` methods. These methods start out empty in the snippets module, for our overriding convenience. Just keep in mind that if you subclass a module such as the blog module you'll need to make sure you call the original version as well as adding your custom data (see the `superDispatch` example above).
-
-    self.beforeInsert = function($el, data, callback) {
-      findExtraFields($el, data, callback);
-    };
-
-    self.beforeUpdate = function($el, data, callback) {
-      findExtraFields($el, data, callback);
-    };
-
-The snippets module will call these for us automatically before saving or updating a blog post.
+Again, if you need to treat new and updated snippets differently, you can write separate `beforeInsert` and `beforeUpdate` methods.
 
 We also need to initialize these fields when the dialog is first displayed. We do that by extending the `afterPopulatingEditor` method. Note the use of the `super` technique to invoke the original version. We'll let the original version invoke the callback when it's done:
 
@@ -547,6 +549,17 @@ There are other methods you can override or extend. `addingToManager` is called 
   };
 ```
 
+### Manipulating snippet objects in the database
+
+The following methods are convenient for manipulating snippet objects:
+
+`self.get(req, criteria, options, callback)`, as described earlier, retrieves snippets.
+`self.putOne(req, oldSlug, snippet, callback)` inserts or updates a single snippet. If you are not potentially changing the slug you can skip the `oldSlug` argument.
+
+These methods respect the permissions of the current user and won't allow the user to do things they are not allowed to do. They should be used in preference to directly manipulating the `self._apos.pages` collection in most cases.
+
+The `self.putOne` method also invokes a `self.beforePutOne` method, which always receives the parameters `req, oldSlug, snippet, callback`. This is a convenient point at which to update denormalized copies of properties. This method is different from `beforeSave` in that it should be used for all operations in which you want to update a snippet, not just when a user is editing one via the "Manage Snippets" dialog.
+
 ### Pushing our JavaScript and CSS assets to the browser
 
 Great, but how do our `editor.js` and `content.js` files make it to the browser? And what about the various templates that are instantiated on the browser side to display modals like "New Blog Post" and "Manage Blog Posts?"
@@ -572,37 +585,31 @@ Now that we've introduced extra properties, and seen to it that they will be inc
 
 The server-side code in `apostrophe-blog/index.js` is very similar to the code we saw in the browser.
 
-We create an `appendExtraFields` function, handy for both new and updated blog posts:
+We can store our new properties via the `self.beforeSave` method:
 
-    function appendExtraFields(data, snippet, callback) {
+    var superBeforeSave = self.beforeSave;
+
+    self.beforeSave = function(data, snippet, callback) {
       snippet.publicationDate = self._apos.sanitizeDate(data.publicationDate, snippet.publicationDate);
-      return callback(null);
+      return superBeforeSave(data, snippet, callback);
     }
+
+If you need to treat new and updated snippets differently, you can override `beforeInsert` and `beforeUpdate`.
+
+Notice that we call the original version of the `beforeSave` method from our superclass. Although `apostrophe-snippets` itself keeps this method empty as a convenience for overrides, if you are subclassing anything else, like the blog or events modules, it is critical to call the superclass version. So it's best to stay in the habit.
 
 Note the use of the `apos.sanitizeDate` method. The `apostrophe` module offers a number of handy methods for sanitizing input. The `sanitize` npm module is also helpful in this area. Always remember that you cannot trust a web browser to submit valid, safe, correct input.
 
 *Apostrophe's philosophy is to sanitize input rather than validating it.* If the user enters something incorrect, substitute something reasonable and safe; don't force them to stop and stare at a validation error. Or if you must do that, do it in browser-side JavaScript to save time. Is the slug a duplicate of another snippet's slug? Modify it. (We already do this for you.) Is the title blank? Provide one. (We do this too.)
-
-And if the user's input actually appears malicious... send a `404` status code back and go on with your day. Why send a hacker a detailed and polite error message? You're only helping them.
-
-Of course, `appendExtraFields` is a function we just made up; we need to call it from overrides of methods that the snippets module actually knows about:
-
-    self.beforeInsert = function(req, data, snippet, callback) {
-      appendExtraFields(data, snippet, callback);
-    };
-
-    self.beforeUpdate = function(req, data, snippet, callback) {
-      appendExtraFields(data, snippet, callback);
-    };
 
 "What about areas?" In our earlier example we introduced an Apostrophe content area named `parking` as part of a snippet. Here's how to sanitize and store that on the server side:
 
     // Transportation is an area, ask snippet/index.js to process it for us automatically
     self.convertFields.push({ type: 'area', name: 'transportation' });
 
-*Important:* you don't need to do this as part of your `appendExtraFields` call. You register it just once in your constructor, after calling the snippet module constructor that provides the service.
+*Important:* you don't need to do this as part of your `self.beforeSave` override. You register it just once in your constructor, after calling the snippet module constructor that provides the service.
 
-Support for automatically converting fields is nice, and yes, we should support it for more field types in the future.
+Always keep in mind that most fields don't need to be integrated into a `beforeSave` method and can just be implemented using the `addFields` schema feature.
 
 ### Extending the `get` method to support custom criteria
 
