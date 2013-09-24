@@ -4,11 +4,12 @@
 
 In addition, snippets can be inserted into any content area via the snippet widget. This is the most common direct use of the snippets module: inserting, for instance, driving directions in many places on the site, while maintaining the ability to edit that content in just one place.
 
-So there are three main ways a snippet might appear to the end user:
+So there are four main ways a snippet might appear to the end user:
 
 * Via a *snippet widget*, which can be used to insert one or more snippets into any content area. The snippet widget appears as an icon in the content editor's toolbar. The snippet widget can also be used as a singleton (via `aposSingleton`). This is the most common direct use for the snippets module.
 * On an *index page*, providing a way to browse many snippets, potentially filtered by tag. Snippet index pages are part of Apostrophe's page tree; you can change the type of any page to a "snippets" page via the "page settings" menu. You might use them to display a collection of related documents which don't fit into your tree of pages. You can lock down the snippets that will be displayed on a particular snippet index page by entering specific tags via "Page Settings" on the "Pages" menu. Although available directly, this feature is most often used in subclasses of snippets, such as the blog module.
 * On a *show page*, featuring that snippet by itself at its own URL. As far as the `apostrophe-pages` module and Apostrophe's page tree are concerned, a "show page" is actually just an extension of an index page. The snippets module spots the slug of the index page in the URL, then takes the remainder of the URL and looks for a snippet with that slug. "Subclasses" of snippets, like the blog module, may easily alter the way the remainder of the URL is used to accommodate displaying a publication date in the URL.
+* Via an RSS feed. Adding `?feed=rss` to the URL of a snippet index page automatically generates an RSS feed.
 
 ## Using Snippets Directly
 
@@ -30,6 +31,12 @@ To enable snippets in a project, you'll need the following code (taken from `app
 Note that the snippet module's initialization function requires a callback. Since most modules relating to Apostrophe require callbacks we recommend using `async.series` to easily call them all in sequence. See the sandbox project for a simple example.
 
 ### Overriding Snippet Templates
+
+#### Don't Work So Hard! Use apostrophe-site
+
+*See the [apostrophe-site](http://github.com/punkave/apostrophe-site) module for a very easy way to override the templates of snippets, blogs, event calendars or any other module derived from snippets.* The rest of this section concerns how to do it without `apostrophe-site` and basically reveals the nuts and bolts of how it really works. Most of this information is still relevant in more advanced projects even if you do use `apostrophe-site`.
+
+#### Doing It Without apostrophe-site
 
 If you'd like to just create custom templates for an existing snippet module, you can create a project-specific override of that module. The current Apostrophe "best-practice" for this involves creating a top-level directory named "lib" (i.e. /my-project/lib/), and then creating custom versions of the template there (i.e. /my-project/lib/snippets).
 
@@ -731,6 +738,39 @@ We also need a bare-bones `lib/modules/pressReleases/public/js/editor.js` file o
     }
 
 That's it! Now we can copy the regular blog module `index.html` and `show.html` files to our module's `views` folder and modify them as much as we like. If the user picks "Press Releases" rather than "Blog," they'll see our customized treatment of the index and show pages. Since we are using the same instance type as the regular "Blog" page type, we don't have to provide a new admin menu or a separate snippet for reuse around the site.
+
+### RSS Feed Options
+
+The RSS feed feature can be configured via the `feed` option when configuring the module.
+
+To shut off the feed entirely for snippets or any subclass of snippets, set `feed` to `false`.
+
+The following additional options are supported. Note that the title of the feed is normally set quite well already based on the title of your site (if you are using `apostrophe-site`) and the title of the index page.
+
+feed: {
+  // Separates the site title and the page title to autogenerate a feed title
+  titleSeparator: ' - ',
+
+  // Hard code the title of the feed
+  title: 'This is the title of the feed, no matter what',
+
+  // Change the prefix but still append the page title after that
+  titlePrefix: 'Prepend this to the title of the page to title the feed: ',
+
+  // By default we show the thumbnail, if the snippet has one
+  thumbnail: true,
+
+  // By default we show the first image in the body, if the snippet has no thumbnail
+  alternateThumbnail: true,
+
+  // By default we show the rich text of a snippet in its entirety, although only one
+  // image if any. If you set this true you'll get plaintext only
+  summary: true,
+
+  // By default we show the entire plaintext when summary is true. Use this option
+  // to limit the character count
+  characters: 1000
+}
 
 ## Conclusion
 

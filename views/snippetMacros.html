@@ -11,6 +11,23 @@
   {% endif %}
 {% endmacro %}
 
+{% macro renderSnippet(item, pageUrl) %}
+  <div class="apos-snippet">
+    {% if not snippet.hideTitle %}
+      <h4>
+        {% if snippet.url %}
+          <a href="{{ snippet.url }}">
+        {% endif %}
+        {{ snippet.title | e }}
+        {% if snippet.url %}
+          </a>
+        {% endif %}
+      </h4>
+    {% endif %}
+    {{ aposArea({ area: snippet.areas.body }) }}
+  </div>
+{% endmacro %}
+
 {% macro snippetText(name, label) %}
   {{ formText(name, label) }}
 {% endmacro %}

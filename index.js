@@ -6,6 +6,9 @@ var widget = require(__dirname + '/widget.js');
 var async = require('async');
 var csv = require('csv');
 var moment = require('moment');
+var RSS = require('rss');
+var url = require('url');
+var absolution = require('absolution');
 
 module.exports = snippets;
 
@@ -32,6 +35,31 @@ snippets.Snippets = function(options, callback) {
   self._searchable = options.searchable || true;
   self._options = options;
   self._perPage = options.perPage || 10;
+
+  // Set defaults for feeds, but respect it if self._options.feed has been
+  // explicitly set false
+  if (self._options.feed === undefined) {
+    self._options.feed = {};
+  }
+  if (self._options.feed) {
+    var defaultPrefix;
+    // Let apostrophe-site clue us in to the name of the site so our feed title
+    // is not as bare as "Blog" or "Calendar"
+    if (self._options.site && self._options.site.title) {
+      // endash
+      defaultPrefix = self._options.site.title + (self._options.feed.titleSeparator || ' – ');
+    } else {
+      defaultPrefix = '';
+    }
+    _.defaults(self._options.feed, {
+      // Show the thumbnail singleton if available
+      thumbnail: true,
+      // If the thumbnail is not available and the body contains an image,
+      // show that instead
+      alternateThumbnail: true,
+      titlePrefix: defaultPrefix
+    });
+  }
 
   // self.modules allows us to find the directory path and web asset path to
   // each module in the inheritance tree when subclassing. Necessary to push all
@@ -109,6 +137,68 @@ snippets.Snippets = function(options, callback) {
       _.defaults(data, self._rendererGlobals);
       return self._apos.partial(name, data, _.map(self._modules, function(module) { return module.dir + '/views'; }));
     };
+  };
+
+  // Render an RSS feed, using the same data that we'd otherwise pass
+  // to the index template
+  self.renderFeed = function(data, req) {
+    // Lots of information we don't normally have in a page renderer.
+    var feedOptions = {
+      title: self._options.feed.title || ((self._options.feed.titlePrefix || '') + data.page.title),
+      description: self._options.feed.description,
+      generator: self._options.feed.generator || 'Apostrophe 2',
+      feed_url: req.absoluteUrl,
+      // Strip the ?rss=1 back off, in a way that works if there are other query parameters too
+      site_url: self._apos.build(req.absoluteUrl, { rss: null }),
+      image_url: self._options.feed.imageUrl
+    };
+    _.defaults(feedOptions, {
+      description: feedOptions.title
+    });
+    var feed = new RSS(feedOptions);
+    _.each(data.items, function(item) {
+      feed.item(self.renderFeedItem(item, req));
+    });
+    return feed.xml('  ');
+  };
+
+  // Returns an object ready to be passed to the .item method of the rss module
+  self.renderFeedItem = function(item, req) {
+    var feedItem = {
+      title: item.title,
+      description: self.renderFeedItemDescription(item, req),
+      // Make it absolute
+      url: url.resolve(req.absoluteUrl, item.url),
+      guid: item._id,
+      author: item.author || item._author || undefined,
+      // A bit of laziness that covers derivatives of our blog, our events,
+      // and everything else
+      date: item.publishedAt || item.start || item.createdAt
+    };
+    return feedItem;
+  };
+
+  /**
+   * Given an item and a req object, should return HTML suitable for use in an RSS
+   * feed to represent the body of the item. Note that any URLs must be absolute.
+   * Hint: req.absoluteUrl is useful to resolve relative URLs.
+   * @param  {Object} item The snippet in question
+   * @param  {Object} req  Express request object
+   * @return {String}      HTML representation of the body of the item
+   */
+  self.renderFeedItemDescription = function(item, req) {
+    // Render a partial for this individual feed item. This lets us use
+    // aposArea and aposSingleton normally etc.
+    var result = self.renderer('feedItem')({
+      page: req.page,
+      item: item,
+      url: req.absoluteUrl,
+      options: self._options.feed
+    });
+    // We have to resolve all the relative URLs that might be kicking around
+    // in the output to generate valid HTML for use in RSS
+    result = absolution(result, req.absoluteUrl);
+    return result;
   };
 
   self.pushAsset = function(type, name, optionsArg) {
@@ -1214,13 +1304,23 @@ snippets.Snippets = function(options, callback) {
 
   // Sets up req.extras.pager and adds skip and limit to the criteria.
   // YOU MUST ALSO CALL setPagerTotal after the total number of items available
-  // is known (results.total in the get callback).
+  // is known (results.total in the get callback). Also sets an appropriate
+  // limit if an RSS feed is to be generated.
 
   self.addPager = function(req, options) {
     var pageNumber = self._apos.sanitizeInteger(req.query.page, 1, 1);
     req.extras.pager = {
       page: pageNumber
     };
+    if (req.query.feed) {
+      // RSS feeds are not paginated and generally shouldn't contain more than
+      // 50 entries because many feedreaders will reject overly large feeds,
+      // but provide an option to override this. Leave req.extras.pager in place
+      // to avoid unduly upsetting code that primarily deals with pages
+      options.skip = 0;
+      options.limit = self._options.feed.limit || 50;
+      return;
+    }
     options.skip = self._perPage * (pageNumber - 1);
     options.limit = self._perPage;
   };
@@ -1255,12 +1355,19 @@ snippets.Snippets = function(options, callback) {
 
   // Called by self.index to decide what the index template name is.
   // "index" is the default. If the request is an AJAX request, we assume
-  // infinite scroll and render "indexAjax".
+  // infinite scroll and render "indexAjax". If req.query.feed is present, we render an RSS feed
   self.setIndexTemplate = function(req) {
-    if (req.xhr && (!req.query.apos_refresh)) {
-      req.template = self.renderer('indexAjax');
+    if (req.query.feed && self._options.feed) {
+      // No layout wrapped around our RSS please
+      req.decorate = false;
+      req.contentType = 'application/rss+xml';
+      req.template = self.renderFeed;
     } else {
-      req.template = self.renderer('index');
+      if ((req.xhr || req.query.xhr) && (!req.query.apos_refresh)) {
+        req.template = self.renderer('indexAjax');
+      } else {
+        req.template = self.renderer('index');
+      }
     }
   };
 
