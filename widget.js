@@ -73,6 +73,29 @@ widget.Widget = function(options) {
       return self.snippets.render('widget', data);
     },
 
+    // Snippet widgets contribute to the plaintext of a page
+    getPlaintext: function(item, lines) {
+      var s = '';
+      _.each(item._snippets, function(snippet) {
+        s += self.apos.getSearchTextsForPage(snippet) + "\n";
+      });
+      return s;
+    },
+
+    // Snippet text contributes to search text of page only if the link is
+    // firm - made via id - and not dynamic - made via tag
+    addSearchTexts: function(item, texts) {
+      if (item.by === 'id') {
+        _.each(item._snippets, function(snippet) {
+          var pageTexts = self.apos.getSearchTextsForPage(snippet);
+          // We have to do this because we are updating texts by reference
+          _.each(pageTexts, function (text) {
+            texts.push(text);
+          });
+        });
+      }
+    },
+
     // Asynchronously load the content of the snippets we're reusing.
     // The properties you add should start with an _ to denote that
     // they shouldn't become data attributes or get stored back to MongoDB

@@ -32,7 +32,7 @@ snippets.Snippets = function(options, callback) {
   self._apos = options.apos;
   self._pages = options.pages;
   self._app = options.app;
-  self._searchable = options.searchable || true;
+  self._searchable = (options.searchable !== undefined) ? options.searchable : true;
   self._options = options;
   self._perPage = options.perPage || 10;
 
