@@ -580,17 +580,9 @@ function AposSnippets(options) {
   // END MANAGER FUNCTIONALITY
 }
 
-// GUIDE TO USE
-//
-// Call AposSnippets.addWidgetType() from your site.js to add this widget type, allowing
-// snippets to be inserted into areas on the site.
-//
-// Call AposSnippets.addWidgetType({ ... }) with different name, label, action and
-// defaultLimit options to provide a snippet widget for a different instance type
-// that otherwise behaves like the normal snippet widget.
-//
-// If these options are not enough, you can override methods of apos.widgetTypes[yourName]
-// as needed after this call.
+// TODO: this is terrifically dumb. Figure out how to make this a regular method of the
+// manager object you just constructed. Also figure out how to participate in
+// apos.addWidgetType() normally.
 
 AposSnippets.addWidgetType = function(options) {
   options = options || {};
@@ -614,6 +606,11 @@ AposSnippets.addWidgetType = function(options) {
 
       self.action = self._class.action;
       self.defaultLimit = options.limit || self._class.defaultLimit;
+
+      self.type = options.type || self._class.name;
+      self.css = apos.cssName(self.type);
+      options.template = '.apos-' + self.css + '-widget-editor';
+
       if (!options.messages) {
         options.messages = {};
       }
@@ -662,6 +659,9 @@ AposSnippets.addWidgetType = function(options) {
         });
       };
 
+      // Parent class constructor shared by all widget editors
+      AposWidgetEditor.call(self, options);
+
       self.debrief = function(callback) {
         self.data.by = self.$by.radio();
         self.data.tags = self.$tags.selective('get');
@@ -681,15 +681,8 @@ AposSnippets.addWidgetType = function(options) {
         }
       };
 
-      self.type = options.type || self._class.name;
-      self.css = apos.cssName(self.type);
-      options.template = '.apos-' + self.css + '-widget-editor';
-
       self.prePreview = self.debrief;
       self.preSave = self.debrief;
-
-      // Parent class constructor shared by all widget editors
-      apos.widgetEditor.call(self, options);
     }
   };
 };
