@@ -103,11 +103,8 @@
   {{ formSelective(name, label, options) }}
 {% endmacro %}
 
-{# Standard filters suitable for all snippet derivatives #}
-
-{% macro snippetFilters() %}
-  {{
-    snippetPillStandalone('trash',
+{% macro snippetTrashFilter() %}
+  {{ snippetPillStandalone('trash',
       [
         {
           value: '0',
@@ -120,6 +117,9 @@
       ]
     )
   }}
+{% endmacro %}
+
+{% macro snippetPublishedFilter() %}
   {{
     snippetPillStandalone('published',
       [
@@ -138,7 +138,43 @@
       ]
     )
   }}
+{% endmacro %}
+
+{% macro snippetSearchFilter() %}
   {# In user testing we found that leaving out the submit button isn't great. #}
   {# So if you remove it, make sure some other clickable thing is visible. -Tom #}
   Search: <input type="text" name="search" /> <input type="submit" data-search-submit class="apos-search-submit" value="Go" /> <a href="#" class="apos-remove-search" data-remove-search>x</a>
 {% endmacro %}
+
+{# Standard filters suitable for all snippet derivatives. Does not include date filter. #}
+{# You can call the filters separately to change the order or skip or add things. #}
+
+{% macro snippetFilters() %}
+  {{ snippetTrashFilter() }}
+  {{ snippetPublishedFilter() }}
+  {{ snippetSearchFilter() }}
+{% endmacro %}
+
+{# Events and related subclasses of snippets use this one. #}
+
+{% macro snippetDateFilter() %}
+  {{
+    snippetPillStandalone('date',
+      [
+        {
+          value: 'past',
+          label: 'Past'
+        },
+        {
+          value: 'future',
+          label: 'Future'
+        },
+        {
+          value: 'all',
+          label: 'All'
+        }
+      ]
+    )
+  }}
+{% endmacro %}
+

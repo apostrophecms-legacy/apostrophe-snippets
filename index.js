@@ -197,7 +197,7 @@ snippets.Snippets = function(options, callback) {
     });
     // We have to resolve all the relative URLs that might be kicking around
     // in the output to generate valid HTML for use in RSS
-    result = absolution(result, req.absoluteUrl);
+    result = absolution(result, req.absoluteUrl).trim();
     return result;
   };
 

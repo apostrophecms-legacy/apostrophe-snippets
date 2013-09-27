@@ -292,15 +292,14 @@ function AposSnippets(options) {
       }
     };
 
-    self.filters = {};
-
-    self.addFilterDefaults = function() {
-      self.filters.trash = '0';
-      self.filters.published = 'any';
-      self.filters.q = '';
+    self.filterDefaults = {
+      trash: '0',
+      published: 'any',
+      q: ''
     };
 
-    self.addFilterDefaults();
+    self.filters = {};
+    $.extend(true, self.filters, self.filterDefaults);
 
     // Manage all snippets
     $('body').on('click', '[data-manage-' + self._css + ']', function() {
@@ -308,7 +307,8 @@ function AposSnippets(options) {
       var page = 1;
       var total;
 
-      self.addFilterDefaults();
+      // Reset filters
+      $.extend(true, self.filters, self.filterDefaults);
 
       $el = apos.modalFromTemplate('.apos-manage-' + self._css, {
         init: function(callback) {
@@ -321,33 +321,22 @@ function AposSnippets(options) {
 
       // Set current active choices for pill buttons
 
-      _.each(['trash', 'published'], function(filter) {
-        // TODO building selectors like this is gross we need a cleaner method
-        $el.find('[data-pill][data-name="' + filter + '"] [data-choice="' + self.filters[filter] + '"]').addClass('apos-active');
+      $el.find('[data-pill] [data-choice]').removeClass('apos-active');
+      _.each(self.filters, function(value, filter) {
+        $el.find('[data-pill][data-name="' + filter + '"] [data-choice="' + value + '"]').addClass('apos-active');
+        $el.find('[data-pill][data-name="' + filter + '"] [data-choice="' + value + '"]').addClass('woggle');
       });
 
-      // Pill buttons trigger events
+      // Filter clicks
       $el.on('click', '[data-pill] [data-choice]', function() {
         var $choice = $(this);
         var $pill = $choice.closest('[data-pill]');
         $pill.find('[data-choice]').removeClass('apos-active');
         $choice.addClass('apos-active');
-        $el.trigger($pill.data('name'), [ $choice.attr('data-choice') ]);
+        self.filters[$pill.data('name')] = $choice.attr('data-choice');
+        page = 1;
+        triggerRefresh();
         return false;
-      });
-
-      // Be sure to reset to page 1 when changing the filters in any way
-
-      $el.on('trash', function(e, choice) {
-        self.filters.trash = choice;
-        page = 1;
-        triggerRefresh();
-      });
-
-      $el.on('published', function(e, choice) {
-        self.filters.published = choice;
-        page = 1;
-        triggerRefresh();
       });
 
       function search() {
@@ -398,15 +387,6 @@ function AposSnippets(options) {
       $el.on(apos.eventName('aposChange', self.name), function(e, callback) {
         var criteria = { editable: 1, skip: (page - 1) * self._managePerPage, limit: self._managePerPage };
         $.extend(true, criteria, self.filters);
-
-        // Make sure the filter UI reflects the filter state
-        if (self.filters.trash) {
-          $el.find('[data-trash]').addClass('apos-snippet-filter-active');
-          $el.find('[data-live]').removeClass('apos-snippet-filter-active');
-        } else {
-          $el.find('[data-live]').addClass('apos-snippet-filter-active');
-          $el.find('[data-trash]').removeClass('apos-snippet-filter-active');
-        }
 
         $.getJSON(self._action + '/get', criteria, function(data) {
           snippets = data.snippets;
