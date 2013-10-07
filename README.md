@@ -9,7 +9,7 @@ So there are four main ways a snippet might appear to the end user:
 * Via a *snippet widget*, which can be used to insert one or more snippets into any content area. The snippet widget appears as an icon in the content editor's toolbar. The snippet widget can also be used as a singleton (via `aposSingleton`). This is the most common direct use for the snippets module.
 * On an *index page*, providing a way to browse many snippets, potentially filtered by tag. Snippet index pages are part of Apostrophe's page tree; you can change the type of any page to a "snippets" page via the "page settings" menu. You might use them to display a collection of related documents which don't fit into your tree of pages. You can lock down the snippets that will be displayed on a particular snippet index page by entering specific tags via "Page Settings" on the "Pages" menu. Although available directly, this feature is most often used in subclasses of snippets, such as the blog module.
 * On a *show page*, featuring that snippet by itself at its own URL. As far as the `apostrophe-pages` module and Apostrophe's page tree are concerned, a "show page" is actually just an extension of an index page. The snippets module spots the slug of the index page in the URL, then takes the remainder of the URL and looks for a snippet with that slug. "Subclasses" of snippets, like the blog module, may easily alter the way the remainder of the URL is used to accommodate displaying a publication date in the URL.
-* Via an RSS feed. Adding `?feed=rss` to the URL of a snippet index page automatically generates an RSS feed.
+* Via an RSS feed. Adding `?feed=rss` to the URL of a snippet index page automatically generates an RSS feed. Methods of the snippets module can be easily overridden and extended to support more feed types.
 
 ## Using Snippets Directly
 
@@ -778,6 +778,14 @@ feed: {
   // to limit the character count
   characters: 1000
 }
+
+### Supporting More Feed Types, Customizing the Feed
+
+The following methods of the snippets module are involved. They are easy to subclass and extend to support more types of feeds:
+
+`feedContentType`, `renderFeed`, `renderFeedItem`, `renderFeedItemDescription`
+
+All of these receive the `req` object, so you can inspect `req.query.feed` to figure out what type of feed was asked for. THe standard templates that ship with the snippets module provide links to generate RSS feeds (`feed=rss`).
 
 ## Conclusion
 

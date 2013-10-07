@@ -139,8 +139,16 @@ snippets.Snippets = function(options, callback) {
     };
   };
 
-  // Render an RSS feed, using the same data that we'd otherwise pass
-  // to the index template
+  // Given the value of the "feed" query parameter, return the appropriate
+  // content type. Right now feed is always rss and the return value is always
+  // application/rss+xml, but you can override to handle more types of feeds
+  self.feedContentType = function(feed) {
+    return 'application/rss+xml';
+  };
+
+  // Render a feed as a string, using the same data that we'd otherwise pass
+  // to the index template, notably data.items. req.query.feed specifies the
+  // type of feed, currently we assume RSS
   self.renderFeed = function(data, req) {
     // Lots of information we don't normally have in a page renderer.
     var feedOptions = {
@@ -148,8 +156,8 @@ snippets.Snippets = function(options, callback) {
       description: self._options.feed.description,
       generator: self._options.feed.generator || 'Apostrophe 2',
       feed_url: req.absoluteUrl,
-      // Strip the ?rss=1 back off, in a way that works if there are other query parameters too
-      site_url: self._apos.build(req.absoluteUrl, { rss: null }),
+      // Strip the ?feed=rss back off, in a way that works if there are other query parameters too
+      site_url: self._apos.build(req.absoluteUrl, { feed: null }),
       image_url: self._options.feed.imageUrl
     };
     _.defaults(feedOptions, {
@@ -181,7 +189,8 @@ snippets.Snippets = function(options, callback) {
   /**
    * Given an item and a req object, should return HTML suitable for use in an RSS
    * feed to represent the body of the item. Note that any URLs must be absolute.
-   * Hint: req.absoluteUrl is useful to resolve relative URLs.
+   * Hint: req.absoluteUrl is useful to resolve relative URLs. Also the
+   * absolution module.
    * @param  {Object} item The snippet in question
    * @param  {Object} req  Express request object
    * @return {String}      HTML representation of the body of the item
@@ -1360,7 +1369,7 @@ snippets.Snippets = function(options, callback) {
     if (req.query.feed && self._options.feed) {
       // No layout wrapped around our RSS please
       req.decorate = false;
-      req.contentType = 'application/rss+xml';
+      req.contentType = self.feedContentType(req.query.feed);
       req.template = self.renderFeed;
     } else {
       if ((req.xhr || req.query.xhr) && (!req.query.apos_refresh)) {
