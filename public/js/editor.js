@@ -631,7 +631,8 @@ AposSnippets.addWidgetType = function(options) {
           self.$ids.selective({
             data: data,
             source: self.action + '/autocomplete',
-            sortable: true
+            sortable: true,
+            limit: options.options.limit
           });
           if (self.pendingCallback) {
             return self.pendingCallback();
