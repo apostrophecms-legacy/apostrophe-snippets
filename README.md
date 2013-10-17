@@ -158,7 +158,7 @@ snippets = require('./lib/modules/snippets/index.js')({
 
 Now that we've got the overrides setup, we can create a "views" directory in the module overide folder and customize the templates for our project (i.e. /lib/snippets/views/templateFile.html). You can copy any or all files from the "views" directory of the original module, but note that to add any extra fields or extend the functionality of the module, you'll need to subclass that particular snippet (or simply create your own content type). Read on below about subclassing a snippets module.
 
-### Inserting the Snippets Admin Menu ### <a id="inserting-admin-menu"></a>
+### Inserting the Snippets Admin Menu <a id="inserting-admin-menu"></a>
 
 The above code sets up snippets both as a page type (for creating snippet index pages) and as a widget, and also provides a "snippets" admin dropdown menu which can be included in your outer layout via the following nunjucks code:
 
@@ -168,7 +168,7 @@ The above code sets up snippets both as a page type (for creating snippet index 
 
 See `outerLayout.html` in the sandbox project for the best way of handling the admin menus.
 
-### Disabling Snippets As A Page Type ### <a id="disabling-snippets"></a>
+### Disabling Snippets As A Page Type <a id="disabling-snippets"></a>
 
 If you don't want snippets to be available as a page type and are only interested in them as widgets, you can choose to leave them out when you call the `setMenu` method of the `apostrophe-pages` module at the end of your Apostrophe initialization code:
 
@@ -185,7 +185,7 @@ pages.setMenu([
 
 If you do not call `pages.setMenu`, you'll get all of the page types that were registered in your application, in the order they were registered. In most cases you'll want to use `pages.setMenu` to change the order, change the labels and leave out a few page types.
 
-## Creating Your Own Content Types: Subclassing Snippets ## <a id="sublassing"></a>
+## Creating Your Own Content Types: Subclassing Snippets <a id="sublassing"></a>
 
 It's possible to create your own content types based on snippets. This has a lot of advantages. All of the tools to manage snippets have already been built for you and are easily extended without code duplication to accommodate new content. The snippets module also implements an Apostrophe page loader function for you, ready to display "index pages" and "show pages" out of the box. And of course a widget for reusing snippets anywhere on the site is built in.
 
@@ -195,7 +195,7 @@ Subclasses of snippets can extend their behavior on both the server side and the
 
 The simplest example of a subclass of snippets is currently the `apostrophe-blog` module. Let's take a look at how it works.
 
-### Your module and its server-side code ### <a id="server-side"></a>
+### Your module and its server-side code <a id="server-side"></a>
 
 The `apostrophe-blog` module is a separate npm module, with its own `index.js` file as an entry point on the server side (the file that is loaded by `require('apostrophe-blog')`). npm modules are a great way to distribute subclasses of snippets as open source. But if you need a private subclass in your project, we recommend creating a `lib/modules/mymodule` folder, requiring `index.js` from there explicitly, and otherwise writing your code exactly as you would in a public npm module.
 
@@ -245,7 +245,7 @@ options.modules = (options.modules || []).concat([ { dir: __dirname, name: 'blog
 
 `_.defaults` is simple enough, but what is all this `options.modules` business? `options.modules` is a list containing information about all of the parent classes of our subclass, so that the snippets module can deliver all of the necessary CSS and JavaScript assets to the browser. Each entry in the array has a `dir` property and a `name` property. The `name` property should match the `name` option. The `name` option will be overridden if someone subclasses our blog, but every subclass just adds more elements to the `modules` array so that information about all of the parent classes is available.
 
-### Instance Types: Carving Out Our Own Content Type ### <a id="instance-types"></a>
+### Instance Types: Carving Out Our Own Content Type <a id="instance-types"></a>
 
 The `instance` option is the most important decision we'll make.
 
@@ -259,7 +259,7 @@ To achieve that, we set the `instance` option, changing the default setting (`sn
 
 When we create a subclass of snippets with its own instance type, we become responsible for providing an admin menu for that type. We'll do that in our own version of the `menu.html` template, overriding the default version in the snippets module, as explained below.
 
-### Custom Templates For Our Subclass ### <a id="custom-templates"></a>
+### Custom Templates For Our Subclass <a id="custom-templates"></a>
 
 We'll want to override some or all of the nunjucks templates provided with the snippets module. To do that, we'll add a `views` folder to our own module (whether it lives in npm or in a lib/modules folder).
 
@@ -282,13 +282,13 @@ The `manage` template displays a list view of all snippets, with filters and (so
 
 *It is important to note that adding a new field in these templates does not mean it will automatically be sent by the browser or saved by the server.* We'll address that a little further on below under "adding new properties to your snippets."
 
-### Snippets = pages outside the main page tree ### <a id="snippets-are-pages"></a>
+### Snippets = pages outside the main page tree <a id="snippets-are-pages"></a>
 
 This is a good time to explain how snippets are actually stored. Snippets are really nothing more than objects in the `aposPages` MongoDB collection, with the `type` property set to `snippet` and a slug that *does not* begin with a `/`, so that they don't appear directly as part of the page tree. Since they exist outside of the page tree, they don't have `rank` or `path` properties. In other respects, though, they are much like regular pages, which means they have a `title` property and an `areas` property containing rich content areas as subproperties. In addition, they can have properties that are unique to snippets.
 
 Since snippets are pages, we can leverage all the capabilities already baked into Apostrophe to manage pages. In particular, the `getPage` and `putPage` methods are used to retrieve and store pages. Those methods check permissions, take care of version control, implement search indexing and perform other tasks common to snippets and regular pages.
 
-### Invoking the Base Class Constructor ### <a id="base-class-constructor"></a>
+### Invoking the Base Class Constructor <a id="base-class-constructor"></a>
 
 Now that we've set up our options, it's time to invoke the snippet module's constructor so that we can inherit everything it does for us. Then, after doing additional work, we should invoke the callback if any.
 
@@ -310,7 +310,7 @@ if (callback) {
 
 In English, that means that we get all the methods of the snippets module in our own module, for free. And now we can start overriding and extending them.
 
-### Customizing the dispatcher: handling URLs differently ### <a id="custom-dispatcher"></a>
+### Customizing the dispatcher: handling URLs differently <a id="custom-dispatcher"></a>
 
 By default, a snippet index page shows an index of snippets when it is accessed directly. And it shows individual snippets if the rest of the URL, after the slug of the snippet index page, matches the slug of the snippet. It looks like this:
 
@@ -318,7 +318,7 @@ http://mysite.com/policies/parties
 
 Where "/policies" is the slug of a blog index page that the user has added to the page tree, and "parties" is the slug of an individual snippet. (Policies are a rather common use case for directly using snippet index pages on a site.)
 
-### How the `dispatch` method works ### <a id="dispatch-method"></a>
+### How the `dispatch` method works <a id="dispatch-method"></a>
 
 The snippet module has a `dispatch` method that figures this out. All that method really does is:
 
@@ -336,7 +336,7 @@ req.template = self.renderer('show');
 
 You can also set `req.notfound = true;` if appropriate, for instance if the URL looks like a show page but there is no actual snippet that maches the URL.
 
-### Extending the `dispatch` method without overriding it completely ### <a id="extending-dispatch"></a>
+### Extending the `dispatch` method without overriding it completely <a id="extending-dispatch"></a>
 
 You can override the `dispatch` method completely if you wish, and sometimes you'll need to because your needs are sufficiently different. But much of the time there is an easier way.
 
@@ -393,7 +393,7 @@ Here we stash the original method in the variable `superDispatch`, then use the 
 
 This is an important technique because in many cases we do need the default behavior of the original method and we don't want to completely override it. When you completely override something you become responsible for keeping track of any changes in the original method. It's better to override as little as possible.
 
-### The Page Loader Function ### <a id="page-loader"></a>
+### The Page Loader Function <a id="page-loader"></a>
 
 The dispatcher is called from a page loader function built in to the snippets module. Page loader functions implement the listener pattern and are given a chance to intervene when pages in the page tree are retrieved by the `apostrophe-pages` module. See the `apostrophe-pages` module for more information about page loader functions in general.
 
@@ -409,7 +409,7 @@ load: [
 ]
 ```
 
-### Adding New Properties To Your Snippets ### <a id="adding-properties"></a>
+### Adding New Properties To Your Snippets <a id="adding-properties"></a>
 
 #### Using Schemas
 
@@ -473,7 +473,7 @@ Joins are also supported (see below).
 
 There is also an `alterFields` option available. This must be a function which receives the fields array as its argument and modifies it. Use this when you need to change fields already configured for you by the module you are extending. It is possible to remove the `body` and `thumbnail` areas in this way.
 
-### Joins in Schemas ### <a id="joins"></a>
+### Joins in Schemas <a id="joins"></a>
 
 You may use the `join` type to automatically pull in related objects from this or another module. Typical examples include fetching events at a map location, or people in a group. This is very cool.
 
@@ -485,7 +485,7 @@ Long answer: sometimes. Mostly in so-called "webscale" projects, which have noth
 
 Of course you have to be smart about how you use joins, and we've included options that help with that.
 
-##### One-To-One Joins ##### <a id="one-to-one"></a>
+##### One-To-One Joins <a id="one-to-one"></a>
 
 In your configuration for the events module, you might write this:
 
@@ -520,7 +520,7 @@ The id of the map location "lives" in the `location_id` property of each event, 
 
 *Always give your joins a name starting with an underscore.* This warns Apostrophe not to store this information in the database permanently where it will just take up space, then get re-joined every time anyway.
 
-##### Reverse Joins ##### <a id="reverse"></a>
+##### Reverse Joins <a id="reverse"></a>
 
 This is awesome. But what about the map module? Can we see all the events in a map location?
 
@@ -551,7 +551,7 @@ Now, in the `show` template for the map module, we can write:
 
 Note that the user always edits the relationship on the "owning" side, not the "reverse" side. The event has a `location_id` property pointing to the map, so users pick a map location when editing an event, not the other way around.
 
-##### Nested Joins: You Gotta Be Explicit ##### <a id="nested"></a>
+##### Nested Joins: You Gotta Be Explicit <a id="nested"></a>
 
 *"Won't this cause an infinite loop?"* When an event fetches a location and the location then fetches the event, you might expect an infinite loop to occur. However Apostrophe does not carry out any further joins on the fetched objects unless explicitly asked to.
 
@@ -589,7 +589,7 @@ withJoins: [ '_promoters._assistants', '_promoters._bouncers' ]
 
 Remember, each of these joins must be present in the configuration for the appropriate module.
 
-#### Many-To-Many Joins ##### <a id="many-to-many"></a>
+#### Many-To-Many Joins <a id="many-to-many"></a>
 
 Events can only be in one location, but stories can be in more than one book, and books also contain more than one story. How do we handle that?
 
@@ -653,7 +653,7 @@ Now any call to fetch books that retrieves only one object will carry out the jo
 
 Hint: in index views of many objects, consider using AJAX to load related objects when the user indicates interest if you don't want to navigate to a new URL in the browser.
 
-#### Reverse Many-To-Many Joins #### <a id="reverse-many-to-many"></a>
+#### Reverse Many-To-Many Joins <a id="reverse-many-to-many"></a>
 
 We can also access the books from the story if we set the join up in the stories module as well:
 
@@ -673,7 +673,7 @@ We can also access the books from the story if we set the join up in the stories
 
 Now we can access the `._books` property for any story. But users still must select stories when editing books, not the other way around.
 
-#### When Relationships Get Complicated #### <a id="complicated-relationships"></a>
+#### When Relationships Get Complicated <a id="complicated-relationships"></a>
 
 What if each story comes with an author's note that is specific to each book? That's not a property of the book, or the story. It's a property of *the relationship between the book and the story*.
 
@@ -735,7 +735,7 @@ Two important changes here: *the actual story is `story.item`*, not just `story`
 
 Doing it this way saves a lot of memory because we can still share book objects between stories and vice versa.
 
-#### Accessing Relationship Properties in a Reverse Join #### <a id="relationship-properties-in-reverse-join"></a>
+#### Accessing Relationship Properties in a Reverse Join <a id="relationship-properties-in-reverse-join"></a>
 
 You can do this in a reverse join too:
 
@@ -795,7 +795,7 @@ Apostrophe instead lets us write this:
 
 *Much better.*
 
-### Adding Custom Properties Without Schemas ### <a id="custom-properties-no-schema"></a>
+### Adding Custom Properties Without Schemas <a id="custom-properties-no-schema"></a>
 
 Here's an example of adding a property without using the schema mechanism. This is useful if you need to support something not covered by schemas.
 
@@ -809,7 +809,7 @@ Blog posts have a property that regular snippets don't: a publication date. A bl
 
 4. Making that property part of our criteria for fetching snippets, by extending the `get` method of the snippets module.
 
-### Adding Properties to the New and Edit Dialogs ### <a id="new-and-edit-dialog-properties"></a>
+### Adding Properties to the New and Edit Dialogs <a id="new-and-edit-dialog-properties"></a>
 
 This is the easiest part. First copy `new.html` and `edit.html` from the `view` folder of the snippets module to your own module's `view` folder. Then add the new fields in `new.html`, like this:
 
@@ -936,7 +936,7 @@ data.parking = self.getAreaJSON($el, 'parking');
 
 As the name implies, this method converts the area to a JSON string ready to send to the server.
 
-### Other methods to consider overriding on the browser side ### <a id="browser-other-methods"></a>
+### Other methods to consider overriding on the browser side <a id="browser-other-methods"></a>
 
 There are other methods you can override or extend. `addingToManager` is called before a snippet is added to the "manage blog posts" list view. The blog module overrides this method to add the publication date and tags of the snippet to fields that have been customized in each row of the `manage.html` template. (Note this method does not take a callback, as a reminder to keep it light and fast; loading something asynchronously for every row in the list view is just too slow.)
 
@@ -949,7 +949,7 @@ There are other methods you can override or extend. `addingToManager` is called 
   };
 ```
 
-### Manipulating snippet objects in the database ### <a id="manipulating-snippets"></a>
+### Manipulating snippet objects in the database <a id="manipulating-snippets"></a>
 
 The following methods are convenient for manipulating snippet objects:
 
@@ -960,7 +960,7 @@ These methods respect the permissions of the current user and won't allow the us
 
 The `self.putOne` method also invokes a `self.beforePutOne` method, which always receives the parameters `req, oldSlug, snippet, callback`. This is a convenient point at which to update denormalized copies of properties. This method is different from `beforeSave` in that it should be used for all operations in which you want to update a snippet, not just when a user is editing one via the "Manage Snippets" dialog.
 
-### Pushing our JavaScript and CSS assets to the browser ### <a id="pushing-assets"></a>
+### Pushing our JavaScript and CSS assets to the browser <a id="pushing-assets"></a>
 
 Great, but how do our `editor.js` and `content.js` files make it to the browser? And what about the various templates that are instantiated on the browser side to display modals like "New Blog Post" and "Manage Blog Posts?"
 
@@ -981,7 +981,7 @@ As explained in the documentation of the main `apostrophe` module, the `pushAsse
 
 So you don't need to worry about delivering any of the above files (`editor.js`, `editor.less`, `content.js`, `content.less`, `new.html`, `edit.html`, `manage.html`, and `import.html`). But if you wish to push additional browser-side assets as part of every page request, now you know how.
 
-### Saving Extra Properties on the Server ### <a id="saving-extra-properties"></a>
+### Saving Extra Properties on the Server <a id="saving-extra-properties"></a>
 
 Now that we've introduced extra properties, and seen to it that they will be included when a new blog post is sent to the server, we need to enhance our server-side code a little to receive them.
 
@@ -1017,7 +1017,7 @@ self.convertFields.push({ type: 'area', name: 'transportation' });
 
 Always keep in mind that most fields don't need to be integrated into a `beforeSave` method and can just be implemented using the `addFields` schema feature.
 
-### Extending the `get` method to support custom criteria ### <a id="extending-get"></a>
+### Extending the `get` method to support custom criteria <a id="extending-get"></a>
 
 So far, so good. But what if we want to limit the blog posts that appear on the index page to those whose publication date has already passed? While we're at it, can't we put the blog posts in the traditional descending order by publication date?
 
@@ -1059,7 +1059,7 @@ Finally, if no sorting criteria have already been specified, we specify a sort i
 
 Finally we invoke the original version of the `get` method.
 
-### When the `manage` dialog and the public should see different things ### <a id="adding-manage-criteria"></a>
+### When the `manage` dialog and the public should see different things <a id="adding-manage-criteria"></a>
 
 An editor managing blog posts through the "Manage Blog Posts" dialog needs to see slightly different things than a member of the public. For instance, they should see posts whose publication date has not yet arrived.
 
@@ -1075,7 +1075,7 @@ self.addApiCriteria = function(query, criteria) {
 
 Here we extend `addApiCriteria` to explicitly include posts whose publication date has not yet arrived. Since this method is invoked for us before `get` is called to populate the "Manage Blog Posts" dialog, we'll see the additional posts that haven't been shared with the world yet.
 
-### When Two Page Types Have the Same Instance Type ### <a id="two-pages"></a>
+### When Two Page Types Have the Same Instance Type <a id="two-pages"></a>
 
 "Great, now I know how to subclass snippets in a big way. But all I want to do is present blog posts a little differently if my user picks the 'press releases' page type. What's the absolute minimum I have to do?"
 
@@ -1164,7 +1164,7 @@ function PressReleases(options) {
 
 That's it! Now we can copy the regular blog module `index.html` and `show.html` files to our module's `views` folder and modify them as much as we like. If the user picks "Press Releases" rather than "Blog," they'll see our customized treatment of the index and show pages. Since we are using the same instance type as the regular "Blog" page type, we don't have to provide a new admin menu or a separate snippet for reuse around the site.
 
-### RSS Feed Options ### <a id="rss-feed"></a>
+### RSS Feed Options <a id="rss-feed"></a>
 
 The RSS feed feature can be configured via the `feed` option when configuring the module.
 
@@ -1199,7 +1199,7 @@ feed: {
 }
 ```
 
-### Supporting More Feed Types, Customizing the Feed ### <a id="rss-feed-customizing"></a>
+### Supporting More Feed Types, Customizing the Feed <a id="rss-feed-customizing"></a>
 
 The following methods of the snippets module are involved. They are easy to subclass and extend to support more types of feeds:
 
