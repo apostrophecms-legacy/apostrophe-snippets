@@ -419,10 +419,7 @@ snippets.Snippets = function(options, callback) {
               if (attr.type === 'string') {
                 validatedRelationship[attr.name] = self._apos.sanitizeString(e[attr.name]);
               } else if (attr.type === 'boolean') {
-                console.log('boolean: ' + attr.name);
-                console.log(e[attr.name]);
                 validatedRelationship[attr.name] = self._apos.sanitizeBoolean(e[attr.name]);
-                console.log(validatedRelationship[attr.name]);
               } else if (attr.type === 'select') {
 
                 validatedRelationship[attr.name] = self._apos.sanitizeSelect(e[attr.name], attr.choices);
