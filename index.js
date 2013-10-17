@@ -53,25 +53,8 @@ snippets.Snippets = function(options, callback) {
     });
   }
 
-  // self.modules allows us to find the directory path and web asset path to
-  // each module in the inheritance tree when subclassing. Necessary to push all
-  // relevant assets to the browser and to implement template overrides.
-  //
-  // The final subclass appears at the start of the list, which is right for a
-  // chain of template overrides
-  self._modules = (options.modules || []).concat([ { dir: __dirname, name: 'snippets' } ]);
-
-  // Compute the web directory name for use in asset paths
-  _.each(self._modules, function(module) {
-    module.web = '/apos-' + self._apos.cssName(module.name);
-  });
-
-  // The same list in reverse order, for use in pushing assets (all versions of the
-  // asset file are pushed to the browser, starting with the snippets class, because
-  // CSS and JS are cumulative and CSS is very order dependent)
-  //
-  // Use slice(0) to make sure we get a copy and don't alter the original
-  self._reverseModules = self._modules.slice(0).reverse();
+  // Mix in the ability to serve assets and templates
+  self._apos.mixinModuleAssets(self, 'snippets', __dirname, options);
 
   // These are "public" so the object can be passed directly to pages.addType
   self.name = options.name || 'snippets';
@@ -110,25 +93,6 @@ snippets.Snippets = function(options, callback) {
 
   self.setBridge = function(modules) {
     self._bridge = modules;
-  };
-
-  // Render a partial, looking for overrides in our preferred places
-  self.render = function(name, data) {
-    return self.renderer(name)(data);
-  };
-
-  // Return a function that will render a particular partial looking for overrides in our
-  // preferred places. Also merge in any properties of self._rendererGlobals, which can
-  // be set via the rendererGlobals option when the module is configured
-
-  self.renderer = function(name) {
-    return function(data) {
-      if (!data) {
-        data = {};
-      }
-      _.defaults(data, self._rendererGlobals);
-      return self._apos.partial(name, data, _.map(self._modules, function(module) { return module.dir + '/views'; }));
-    };
   };
 
   // Given the value of the "feed" query parameter, return the appropriate
@@ -200,26 +164,6 @@ snippets.Snippets = function(options, callback) {
     // in the output to generate valid HTML for use in RSS
     result = absolution(result, req.absoluteUrl).trim();
     return result;
-  };
-
-  self.pushAsset = function(type, name, optionsArg) {
-    var options = {};
-    if (optionsArg) {
-      extend(true, options, optionsArg);
-    }
-    if (type === 'template') {
-      // Render templates in our own nunjucks context
-      self._apos.pushAsset('template', self.renderer(name), options);
-    } else {
-      // We're interested in ALL versions of main.js or main.css, starting
-      // with the base one (snippets module version)
-
-      _.each(self._reverseModules, function(module) {
-        options.fs = module.dir;
-        options.web = module.web;
-        return self._apos.pushAsset(type, name, options);
-      });
-    }
   };
 
   // If there is no manager yet for our instance type, then we will be the manager, and
@@ -1009,19 +953,8 @@ snippets.Snippets = function(options, callback) {
 
   // END OF MANAGER FUNCTIONALITY
 
-  // Serve our assets. This is the final route so it doesn't
-  // beat out the rest. (TODO: consider moving all asset routes so that this
-  // is not an issue anymore.)
-  //
-  // You don't override js and stylesheet assets, rather you serve more of them
-  // from your own module and enhance what's already in browserland.
-  //
-  // TODO: this will be redundant, although harmlessly so, if there are
-  // several snippet-derived modules active in the project
-
-  _.each(self._modules, function(module) {
-    self._app.get(module.web + '/*', self._apos.static(module.dir + '/public'));
-  });
+  // Add static routes that serve assets for this module and all of its ancestors
+  self.serveAssets();
 
   // Returns snippets the current user is permitted to read.
   //
