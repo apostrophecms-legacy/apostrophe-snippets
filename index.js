@@ -12,14 +12,6 @@ var absolution = require('absolution');
 
 module.exports = snippets;
 
-// A mapping of all page type objects by instance type, for use in locating
-// page types that are compatible with various instance types. For instance,
-// if three variations on a blog are registered, all with the instance
-// option set to blogPost, then typesByInstanceType.blogPost will be an array
-// of those three type objects
-
-var typesByInstanceType = {};
-
 function snippets(options, callback) {
   return new snippets.Snippets(options, callback);
 }
@@ -230,19 +222,9 @@ snippets.Snippets = function(options, callback) {
     }
   };
 
-  // Only one page type with a given instance type will be the manager for
-  // that instance type. The manager is the page type that also provides
-  // a dropdown menu for actually creating and managing snippets. Other
-  // page types with the same snippet type are just alternate ways of
-  // presenting snippets in the context of a page, like an alternate
-  // treatment for blogs for instance.
-  self.manager = false;
-
-  if (!typesByInstanceType[self._instance]) {
-    typesByInstanceType[self._instance] = [];
-    self.manager = true;
-  }
-  typesByInstanceType[self._instance].push(self);
+  // If there is no manager yet for our instance type, then we will be the manager, and
+  // should set up backend routes accordingly
+  self.manager = !self._pages.getManager(self._instance);
 
   // MANAGER FUNCTIONALITY: creating and managing snippets
 
@@ -370,7 +352,7 @@ snippets.Snippets = function(options, callback) {
       },
       url: function(data, name, snippet, field) {
         snippet[name] = self._apos.sanitizeUrl(data[name], field.def);
-      },
+      }
     };
     // As far as the server is concerned a singleton is just an area
     self.converters.csv.singleton = self.converters.csv.area;
@@ -390,6 +372,72 @@ snippets.Snippets = function(options, callback) {
         snippet.areas = {};
       }
       snippet.areas[name] = { items: content };
+    };
+
+    self.converters.form.joinByOne = function(data, name, snippet, field) {
+      snippet[field.idField] = self._apos.sanitizeId(data[name]);
+    };
+
+    self.converters.form.joinByOneReverse = function(data, name, snippet, field) {
+      // Not edited on this side of the relation
+    };
+
+    self.converters.form.joinByArray = function(data, name, snippet, field) {
+      var input = data[name] || [];
+      if (!Array.isArray(input)) {
+        input = [];
+      }
+      snippet[field.idsField] = [];
+      if (field.extras) {
+        snippet[field.extrasField] = {};
+      }
+
+      // Clear old values before we sanitize new, so we don't get orphans
+      if (field.relationshipsField) {
+        snippet[field.relationshipsField] = {};
+      }
+      // Each element may be an id or an object with a 'value' property
+      // containing the id as well as optional extra properties
+      _.each(input, function(e) {
+        var id;
+        if (typeof(e) === 'object') {
+          id = e.value;
+        } else {
+          id = e;
+        }
+        id = self._apos.sanitizeId(id);
+        if (id !== undefined) {
+          snippet[field.idsField].push(id);
+          if (field.relationship) {
+            if (typeof(e) !== 'object') {
+              // Behave reasonably if we got just ids instead of objects
+              e = {};
+            }
+            // Validate the relationship (aw)
+            var validatedRelationship = {};
+            _.each(field.relationship, function(attr) {
+              if (attr.type === 'string') {
+                validatedRelationship[attr.name] = self._apos.sanitizeString(e[attr.name]);
+              } else if (attr.type === 'boolean') {
+                console.log('boolean: ' + attr.name);
+                console.log(e[attr.name]);
+                validatedRelationship[attr.name] = self._apos.sanitizeBoolean(e[attr.name]);
+                console.log(validatedRelationship[attr.name]);
+              } else if (attr.type === 'select') {
+
+                validatedRelationship[attr.name] = self._apos.sanitizeSelect(e[attr.name], attr.choices);
+              } else {
+                console.log(snippet.name + ': unknown type for attr attribute of relationship ' + name + ', ignoring');
+              }
+            });
+            snippet[field.relationshipsField][id] = validatedRelationship;
+          }
+        }
+      });
+    };
+
+    self.converters.form.joinByArrayReverse = function(data, name, snippet, field) {
+      // Not edited on this side of the relation
     };
 
     self.convertAllFields = function(from, data, snippet) {
@@ -944,9 +992,8 @@ snippets.Snippets = function(options, callback) {
 
     // Make sure that aposScripts and aposStylesheets summon our
     // browser-side UI assets for managing snippets
-
-    self.pushAsset('template', 'new', { when: 'user' });
-    self.pushAsset('template', 'edit', { when: 'user' });
+    self.pushAsset('template', 'new', { when: 'user', data: { fields: self.convertFields } });
+    self.pushAsset('template', 'edit', { when: 'user', data: { fields: self.convertFields } });
     self.pushAsset('template', 'manage', { when: 'user' });
     self.pushAsset('template', 'import', { when: 'user' });
   }
@@ -1060,7 +1107,24 @@ snippets.Snippets = function(options, callback) {
       ]
     };
 
-    return async.series([ query, metadata, permalinker ], function(err) {
+    // Used to implement 'join', below
+
+    var joinrs = {
+      joinByOne: function(field, options, callback) {
+        return self._apos.joinByOne(req, results.snippets, field.idField, field.name, options, callback);
+      },
+      joinByOneReverse: function(field, options, callback) {
+        return self._apos.joinByOneReverse(req, results.snippets, field.idField, field.name, options, callback);
+      },
+      joinByArray: function(field, options, callback) {
+        return self._apos.joinByArray(req, results.snippets, field.idsField, field.relationshipsField, field.name, options, callback);
+      },
+      joinByArrayReverse: function(field, options, callback) {
+        return self._apos.joinByArrayReverse(req, results.snippets, field.idsField, field.relationshipsField, field.name, options, callback);
+      }
+    };
+
+    return async.series([ query, join, metadata, permalinker ], function(err) {
       return callback(err, results);
     });
 
@@ -1074,6 +1138,81 @@ snippets.Snippets = function(options, callback) {
         delete results.pages;
         return callback(null);
       });
+    }
+
+    function join(callback) {
+      var withJoins = options.withJoins;
+      if (withJoins === false) {
+        // Joins explicitly deactivated for this call
+        return callback(null);
+      }
+      if (!results.snippets.length) {
+        // Don't waste effort
+        return callback(null);
+      }
+      // Only interested in joins
+      var joins = _.filter(self.convertFields, function(field) {
+        return !!joinrs[field.type];
+      });
+      if (results.snippets.length > 1) {
+        // Only interested in joins that are not restricted by ifOnlyOne.
+        // This mechanism saves time and memory in cases where you don't need
+        // the results of the join in index views
+        joins = _.filter(joins, function(join) {
+          return !join.ifOnlyOne;
+        });
+      }
+      // The withJoins option allows restriction of joins. Set to false
+      // it blocks all joins. Set to an array, it allows the joins named within.
+      // If some of those names use dot notation, a chain of nested joins to be
+      // permitted can be specified.
+      //
+      // By default, all configured joins will take place, but withJoins: false
+      // will be passed when fetching the objects on the other end of the join,
+      // so that infinite recursion never takes place.
+
+      var withJoinsNext = {};
+      // Explicit withJoins option passed to us
+      if (Array.isArray(withJoins)) {
+        joins = _.filter(joins, function(join) {
+          var winner;
+          _.each(withJoins, function(withJoinName) {
+            if (withJoinName === join.name) {
+              winner = true;
+            }
+            if (withJoinName.substr(0, join.name.length + 1) === (join.name + '.')) {
+              if (!withJoinsNext[join.name]) {
+                withJoinsNext[join.name] = [];
+              }
+              withJoinsNext[join.name].push(withJoinName.substr(join.name.length + 1));
+              winner = true;
+            }
+          });
+          return winner;
+        });
+      } else {
+        // No explicit withJoins option for us, so we do all the joins
+        // we're configured to do, and pass on the withJoins options we
+        // have configured for those
+        _.each(joins, function(join) {
+          if (join.withJoins) {
+            withJoinsNext[join.name] = join.withJoins;
+          }
+        });
+      }
+      return async.eachSeries(joins, function(join, callback) {
+        if (!join.name.match(/^_/)) {
+          console.error('WARNING: joins should always be given names beginning with an underscore (_). Otherwise you will waste space in your database storing the results');
+        }
+        var options = {
+          get: self._pages.getManager(join.withType).get,
+          getOptions: {
+            withJoins: withJoinsNext[join.name] || false,
+            permalink: true
+          }
+        };
+        return joinrs[join.type](join, options, callback);
+      }, callback);
     }
 
     function metadata(callback) {
@@ -1486,7 +1625,7 @@ snippets.Snippets = function(options, callback) {
     if (req.aposBestPageCache && req.aposBestPageCache[snippet.type]) {
       return go();
     }
-    var typeNames = _.map(typesByInstanceType[snippet.type] || [], function(type) { return type.name; });
+    var typeNames = self._pages.getIndexTypeNames(snippet);
     // Make sure we don't get the areas which would result in
     // super expensive callLoadersForPage calls
     return self._apos.get(req, { type: { $in: typeNames }, slug: /^\// }, { fields: { areas: 0 } }, function(err, results) {
@@ -1571,6 +1710,7 @@ snippets.Snippets = function(options, callback) {
 
     async.eachSeries(snippets, function(snippet, callback) {
       self.findBestPage(req, snippet, function(err, page) {
+        console.log(err);
         if (err) {
           return callback(err);
         }
@@ -1662,15 +1802,6 @@ snippets.Snippets = function(options, callback) {
     // the callback resides
     process.nextTick(function() { return callback(null); });
   }
-};
-
-// The first type object registered with the right type name
-// is the manager, responsible for the backend of the editor
-
-snippets.getManager = function(snippet) {
-  return _.find(typesByInstanceType[snippet.type] || [], function(type) {
-    return type.manager;
-  });
 };
 
 snippets.widget = widget;

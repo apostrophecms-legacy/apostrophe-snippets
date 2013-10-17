@@ -180,6 +180,11 @@ function AposSnippets(options) {
       return apos.stringifyArea($el.find('[data-' + name + '-edit-view] [data-editable]'));
     };
 
+    // Methods to convert from a form field of each schema type
+    // to a property of the snippet ready to save. The server does
+    // all the validation of course, since you can't trust a browser
+    // anyway, so this is mostly simple except where the representation
+    // in the form differs greatly from the representation the server wants
     self.converters = {
       // Convert the tough cases
       area: function(data, name, $field, $el, field) {
@@ -188,8 +193,29 @@ function AposSnippets(options) {
       singleton: function(data, name, $field, $el, field) {
         data[name] = self.getSingletonJSON($el, name);
       },
+      joinByOne: function(data, name, $field, $el, field) {
+        // Fix $field since we can't use the regular name attribute here
+        $field = $el.find('[data-name="' + name + '"]');
+        // The server will do the work of moving it to the idField as needed
+        data[name] = $field.selective('get')[0];
+      },
+      joinByOneReverse: function(data, name, $field, $el, field) {
+        // Not edited on this side of the relation
+      },
+      joinByArray: function(data, name, $field, $el, field) {
+        // Fix $field since we can't use the regular name attribute here
+        $field = $el.find('[data-name="' + name + '"]');
+        // The server will do the work of processing it all into
+        // the relationshipsField and idsField separately for us if needed
+        data[name] = $field.selective('get');
+      },
+      joinByArrayReverse: function(data, name, $field, $el, field) {
+        // Not edited on this side of the relation
+      },
+
       // The rest are very simple because the server does
-      // the serious sanitization work (you can't trust a browser)
+      // the serious sanitization work and the representation in the DOM
+      // is a simple form element
       string: function(data, name, $field, $el, field) {
         data[name] = $field.val();
       },
@@ -210,8 +236,8 @@ function AposSnippets(options) {
       }
     };
 
+    // Methods to display all of the field types supported by the schema
     self.displayers = {
-      // Display all the things
       area: function(data, name, $field, $el, field, callback) {
         return self.enableArea($el, name, data.areas ? data.areas[name] : null, field.options || {}, callback);
       },
@@ -240,6 +266,59 @@ function AposSnippets(options) {
       },
       boolean: function(data, name, $field, $el, field, callback) {
         $field.val(data[name] ? '1' : '0');
+        return callback();
+      },
+      joinByOne: function(data, name, $field, $el, field, callback) {
+        // Since we can't use a regular name attribute for a div
+        $field = $el.find('[data-name="' + name + '"]');
+        if (!$field.length) {
+          apos.log('Error: your new.html template for the ' + self.name + ' module does not have a snippetSelective call for the ' + name + ' join yet');
+        }
+        var selectiveData = [];
+        var id = data[field.idField];
+        if (id) {
+          // Let jQuery selective call back for the details
+          selectiveData.push(id);
+        }
+        $field.selective({ limit: 1, data: selectiveData, source: aposPages.getManager(field.withType)._action + '/autocomplete' });
+        return callback();
+      },
+      joinByOneReverse: function(data, name, $field, $el, field, callback) {
+        // Not edited on the reverse side
+        return callback();
+      },
+      joinByArray: function(data, name, $field, $el, field, callback) {
+        // Since we can't use a regular name attribute for a div
+        $field = $el.find('[data-name="' + name + '"]');
+        if (!$field.length) {
+          apos.log('Error: your new.html template for the ' + self.name + ' module does not have a snippetSelective call for the ' + name + ' join yet');
+        }
+        var selectiveData = [];
+        _.each(data[field.name] || [], function(friend) {
+          var datum = {};
+          if (field.relationshipsField) {
+            $.extend(true, datum, friend.relationship);
+            // Fix booleans to match the select element's options
+            _.each(field.relationship, function(relField) {
+              if (relField.type === 'boolean') {
+                datum[relField.name] = datum[relField.name] ? '1' : '0';
+              }
+            });
+            // Present these as jQuery Selective expects us to
+            datum.label = friend.item.title;
+            datum.value = friend.item._id;
+          } else {
+            datum.label = friend.title;
+            datum.value = friend._id;
+          }
+          selectiveData.push(datum);
+        });
+        apos.log(selectiveData);
+        $field.selective({ preventDuplicates: true, sortable: field.sortable, extras: !!field.relationship, data: selectiveData, source: aposPages.getManager(field.withType)._action + '/autocomplete' });
+        return callback();
+      },
+      joinByArrayReverse: function(data, name, $field, $el, field, callback) {
+        // Not edited on the reverse side
         return callback();
       }
     };

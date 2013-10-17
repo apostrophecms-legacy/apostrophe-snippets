@@ -344,26 +344,11 @@ All you need to know right now is that you must add this page loader function to
 
 *There is a very easy way to do this.* Snippets now support a simple JSON format for creating a schema of fields. Both the browser side and the server side understand this, so all you have to do is add them to the dialogs as described below and set up the schema. You can still do it the hard way, however, if you need custom behavior.
 
-Here is a super-simple example of a project-level subclass of the people module (itself a subclass of snippets) that adds new fields painlessly. In addition to `string` and `boolean` shown here, you can use the types `area`, `singleton`, `choice` and `integer`:
+Here is a super-simple example of a project-level subclass of the people module (itself a subclass of snippets) that adds new fields painlessly. Here I assume you are using `apostrophe-site` to configure your site:
 
-    var _ = require('underscore');
-    var people = require('apostrophe-people');
-
-    module.exports = myPeople;
-
-    function myPeople(options, callback) {
-      return new myPeople.MyPeople(options, callback);
-    }
-
-    myPeople.MyPeople = function(options, callback) {
-      var self = this;
-
-      options.modules = (options.modules || []).concat([ { dir: __dirname, name: 'myPeople' } ]);
-
-      // Extend people with custom fields. This is all you have to do as long as
-      // you don't have special UI or sanitization needs for your fields.
-
-      options.addFields = [
+    ... Configuring other modules ...
+    'apostrophe-people': {
+      addFields: [
         {
           name: 'workPhone',
           type: 'string'
@@ -392,30 +377,314 @@ Here is a super-simple example of a project-level subclass of the people module 
           name: 'location',
           type: 'string'
         }
-      ];
+      ]
+    }, ... more modules ...
 
-      people.People.call(this, options, null);
+#### What Field Types Are Available?
 
-      if (callback) {
-        process.nextTick(function() { return callback(null); });
-      }
-    };
+Currently:
 
-When using the `area` and `singleton` types, you may include an `options` property which will be passed to that area or singleton exactly as if you were passing it to `aposArea` or `aposSingleton`.
-
-There is also an `alterFields` option available. This must be a function which receives the fields array as its argument and modifies it. Use this when you need to change fields already configured for you.
-
-Here is a list of types currently supported by the `addFields` option:
-
-`string`, `boolean`, `integer`, `float`, `url`, `area`
+`string`, `boolean`, `integer`, `float`, `url`, `area`, `singleton`
 
 Except for `area`, all of these types accept a `def` option which provides a default value if the field's value is not specified.
 
 The `integer` and `float` types also accept `min` and `max` options and automatically clamp values to stay in that range.
 
-#### Without Schemas
+When using the `area` and `singleton` types, you may include an `options` property which will be passed to that area or singleton exactly as if you were passing it to `aposArea` or `aposSingleton`.
 
-Here's an example of adding a property without using the schema mechanism.
+When using the `singleton` type, you must always specify `widgetType` to indicate what type of widget should appear.
+
+Joins are also supported (see below).
+
+#### Altering Existing Fields
+
+There is also an `alterFields` option available. This must be a function which receives the fields array as its argument and modifies it. Use this when you need to change fields already configured for you by the module you are extending. It is possible to remove the `body` and `thumbnail` areas in this way.
+
+#### Joins in Schemas
+
+You may use the `join` type to automatically pull in related objects from this or another module. Typical examples include fetching events at a map location, or people in a group. This is very cool.
+
+*"Aren't joins bad? I read that joins were bad in some NoSQL article."*
+
+Short answer: no.
+
+Long answer: sometimes. Mostly in so-called "webscale" projects, which have nothing to do with 99% of websites. If you are building the next Facebook you probably know that, and you'll denormalize your data instead and deal with all the fascinating bugs that come with maintaining two copies of everything.
+
+Of course you have to be smart about how you use joins, and we've included options that help with that.
+
+##### One-To-One Joins
+
+In your configuration for the events module, you might write this:
+
+    'apostrophe-events': {
+      addFields: [
+        {
+          name: '_location',
+          type: 'joinByOne',
+          withType: 'mapLocation',
+          idField: 'location_id'
+        }
+      ]
+    }
+
+And in your override of `new.html` you'll need to provide a select element to pick the location:
+
+    {{ snippetSelect('location_id', 'Location') }}
+
+Now the user can pick a map location for an event. And anywhere the event is used on the site, you'll be able to access the map location as the `_location` property. Here's an example of using it in a Nunjucks template:
+
+    {% if item._location %}
+      <a href="{{ item._location.url | e }}">Location: {{ item._location.title | e }}</a>
+    {% endif %}
+
+The id of the map location "lives" in the `location_id` property of each event, but you won't have to deal with that directly.
+
+*Always give your joins a name starting with an underscore.* This warns Apostrophe not to store this information in the database permanently where it will just take up space, then get re-joined every time anyway.
+
+##### Reverse Joins
+
+This is awesome. But what about the map module? Can we see all the events in a map location?
+
+Yup:
+
+    'apostrophe-map': {
+      addFields: [
+        {
+          name: '_events',
+          type: 'joinByOneReverse',
+          withType: 'event',
+          idField: 'location_id'
+        }
+      ]
+    }
+
+Now, in the `show` template for the map module, we can write:
+
+{% for event in item._events %}
+  <h4><a href="{{ event.url | e }}">{{ event.title | e }}</a></h4>
+{% endfor %}
+
+"Holy crap!" Yeah, it's pretty cool.
+
+Note that the user always edits the relationship on the "owning" side, not the "reverse" side. The event has a `location_id` property pointing to the map, so users pick a map location when editing an event, not the other way around.
+
+##### Nested Joins: You Gotta Be Explicit
+
+*"Won't this cause an infinite loop?"* When an event fetches a location and the location then fetches the event, you might expect an infinite loop to occur. However Apostrophe does not carry out any further joins on the fetched objects unless explicitly asked to.
+
+*"What if my events are joined with promoters and I need to see their names on the location page?"* If you really want to join two levels deep, you can "opt in" to those joins:
+
+    'apostrophe-map': {
+      addFields: [
+        {
+          name: '_events',
+          ...
+          withJoins: [ '_promoters' ]
+        }
+      ]
+    }
+
+This assumes that `_promoters` is a join you have already defined for events.
+
+*"What if my joins are nested deeper than that and I need to reach down several levels?"*
+
+You can use "dot notation," just like in MongoDB:
+
+    withJoins: [ '_promoters._assistants' ]
+
+This will allow events to be joined with their promoters, and promoters to be joiend with their assistants, and there the chain will stop.
+
+You can specify more than one join to allow, and they may share a prefix:
+
+    withJoins: [ '_promoters._assistants', '_promoters._bouncers' ]
+
+Remember, each of these joins must be present in the configuration for the appropriate module.
+
+#### Many-To-Many Joins
+
+Events can only be in one location, but stories can be in more than one book, and books also contain more than one story. How do we handle that?
+
+Consider this configuration for a `books` module:
+
+    'books': {
+      ... other configuration, probably subclassing snippets ...
+      addFields: [
+        {
+          name: '_stories',
+          type: 'joinByArray',
+          withType: 'story',
+          idsField: 'story_ids',
+          sortable: true
+        }
+      ],
+    }
+
+And, in `new.html` for our books module:
+
+    {{ snippetSelective('story_ids', 'Stories', {
+      placeholder: 'Type Title Here'
+    }) }}
+
+`snippetSelective` lets users select multiple stories, with autocomplete of the titles.
+
+Now we can access all the stories from the show template for books (or the index template, or pretty much anywhere):
+
+<h3>Stories</h3>
+{% for story in item._stories %}
+  <h4><a href="{{ story.url | e }}">{{ story.title | e }}</a></h4>
+{% endfor %}
+
+*Since we specified `sortable:true`*, the user can also drag the list of stories into a preferred order. The stories will always appear in that order in the `._stories` property when examinining a book object.
+
+*"Many-to-many... sounds like a LOT of objects. Won't it be slow and use a lot of memory?"*
+
+It's not as bad as you think. Apostrophe typically fetches only one page's worth of items at a time in the index view, with pagination links to view more. Add the objects those are joined to and it's still not bad, given the performance of v8.
+
+But sometimes there really are too many related objects and performance suffers. So you may want to restrict the join to occur only if you have retrieved only *one* book, as on a "show" page for that book. Use the `ifOnlyOne` option:
+
+    'stories': {
+      addFields: [
+        {
+          name: '_books',
+          withType: 'book',
+          ifOnlyOne: true
+        }
+      ]
+    }
+
+Now any call to fetch books that retrieves only one object will carry out the join with stories. Any call that returns more than one object won't. You don't have to specifically call `books.getOne` rather than `books.get`.
+
+Hint: in index views of many objects, consider using AJAX to load related objects when the user indicates interest if you don't want to navigate to a new URL in the browser.
+
+#### Reverse Many-To-Many Joins
+
+We can also access the books from the story if we set the join up in the stories module as well:
+
+    'stories': {
+      ... other needed configuration, probably subclassing snippets ...
+      addFields: [
+        {
+          name: '_books',
+          type: 'joinByArrayReverse',
+          withType: 'book',
+          idsField: 'story_ids'
+        }
+      ]
+    }
+
+Now we can access the `._books` property for any story. But users still must select stories when editing books, not the other way around.
+
+#### When Relationships Get Complicated
+
+What if each story comes with an author's note that is specific to each book? That's not a property of the book, or the story. It's a property of *the relationship between the book and the story*.
+
+If the author's note for every each appearance of each story has to be super-fancy, with rich text and images, then you should make a new module that subclasses snippets in its own right and just join both books and stories to that new module.
+
+But if the relationship just has a few simple attributes, there is an easier way:
+
+   'books': {
+      ... other needed configuration, probably subclassing snippets ...
+      addFields: [
+        {
+          name: '_stories',
+          type: 'joinByArray',
+          withType: 'story',
+          idsField: 'story_ids',
+          relationshipField: 'story_relationships',
+          relationship: [
+            {
+              name: 'authorsNote',
+              type: 'string'
+            }
+          ],
+          sortable: true
+        }
+      ]
+    }
+
+And, in `new.html`:
+
+{{ snippetSelective('stories', 'Stories', {
+    placeholder: 'Type Title Here',
+    relationship: {
+      'authorsNote': {
+        label: "Author's Note",
+      }
+    }
+  }) }}
+
+Currently "relationship" properties can only be of type `string` (for text), `select` or `boolean` (for checkboxes). Otherwise they behave like regular schema properties.
+
+*Warning: the relationship field names `label` and `value` must not be used.* These names are reserved for internal implementation details.
+
+Form elements to edit relationship fields appear next to each entry in the list when adding stories to a book. So immediately after adding a story, you can edit its author's note.
+
+Once we introduce the `relationship` option, our templates have to change a little bit. The `show` page for a book now looks like:
+
+{% for story in item._stories %}
+  <h4>Story: {{ story.item.title | e }}</h4>
+  <h5>Author's Note: {{ story.relationship.authorsNote | e }}</h5>
+{% endfor %}
+
+Two important changes here: *the actual story is `story.item`*, not just `story`, and `relationship fields can be accessed via `story.relationship`*. This change kicks in when you use the `relationship` option.
+
+Doing it this way saves a lot of memory because we can still share book objects between stories and vice versa.
+
+#### Accessing Relationship Properties in a Reverse Join
+
+You can do this in a reverse join too:
+
+   'stories': {
+      ... other needed configuration, probably subclassing snippets ...
+      addFields: [
+        {
+          name: '_books',
+          type: 'joinByArrayReverse',
+          withType: 'book',
+          idsField: 'story_ids',
+          relationshipField: 'story_relationships',
+          relationship: [
+            {
+              name: 'authorsNote',
+              type: 'string'
+            }
+          ]
+        }
+      ]
+    }
+
+Now you can write:
+
+{% for book in item._books %}
+  <h4>Book: {{ book.item.title | e }}</h4>
+  <h5>Author's Note: {{ book.relationship.authorsNote | e }}</h5>
+{% endfor %}
+
+As always, the relationship fields are edited only on the "owning" side (that is, when editing a book).
+
+*"What is the `relationshipField` option for? I don't see `story_relationships` in the templates anywhere."*
+
+Apostrophe stores the actual data for the relationship fields in `story_relationships`. But since it's not intuitive to write this in a template:
+
+{# THIS IS THE HARD WAY #}
+{% for story in book._stories %}
+  {{ story.item.title | e }}
+  {{ book.story_relationships[story._id].authorsNote | e }}
+{% endif %}
+
+Apostrophe instead lets us write this:
+
+{# THIS IS THE EASY WAY #}
+{% for story in book._stories %}
+  {{ story.item.title | e }}
+  {{ story.relationship.authorsNote | e }}
+{% endif %}
+
+Much better.
+
+### Adding Custom Properties Without Schemas
+
+Here's an example of adding a property without using the schema mechanism. This is useful if you need to support something not covered by schemas.
 
 Blog posts have a property that regular snippets don't: a publication date. A blog post should not appear before its publication date. To implement that, we need to address several things:
 
