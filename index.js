@@ -1707,7 +1707,6 @@ snippets.Snippets = function(options, callback) {
 
     async.eachSeries(snippets, function(snippet, callback) {
       self.findBestPage(req, snippet, function(err, page) {
-        console.log(err);
         if (err) {
           return callback(err);
         }

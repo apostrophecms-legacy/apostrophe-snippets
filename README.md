@@ -422,14 +422,14 @@ In your configuration for the events module, you might write this:
           name: '_location',
           type: 'joinByOne',
           withType: 'mapLocation',
-          idField: 'location_id'
+          idField: 'locationId'
         }
       ]
     }
 
 And in your override of `new.html` you'll need to provide a select element to pick the location:
 
-    {{ snippetSelect('location_id', 'Location') }}
+    {{ snippetSelect('locationId', 'Location') }}
 
 Now the user can pick a map location for an event. And anywhere the event is used on the site, you'll be able to access the map location as the `_location` property. Here's an example of using it in a Nunjucks template:
 
@@ -453,7 +453,7 @@ Yup:
           name: '_events',
           type: 'joinByOneReverse',
           withType: 'event',
-          idField: 'location_id'
+          idField: 'locationId'
         }
       ]
     }
@@ -513,7 +513,7 @@ Consider this configuration for a `books` module:
           name: '_stories',
           type: 'joinByArray',
           withType: 'story',
-          idsField: 'story_ids',
+          idsField: 'storyIds',
           sortable: true
         }
       ],
@@ -521,7 +521,7 @@ Consider this configuration for a `books` module:
 
 And, in `new.html` for our books module:
 
-    {{ snippetSelective('story_ids', 'Stories', {
+    {{ snippetSelective('storyIds', 'Stories', {
       placeholder: 'Type Title Here'
     }) }}
 
@@ -567,7 +567,7 @@ We can also access the books from the story if we set the join up in the stories
           name: '_books',
           type: 'joinByArrayReverse',
           withType: 'book',
-          idsField: 'story_ids'
+          idsField: 'storyIds'
         }
       ]
     }
@@ -589,8 +589,8 @@ But if the relationship just has a few simple attributes, there is an easier way
           name: '_stories',
           type: 'joinByArray',
           withType: 'story',
-          idsField: 'story_ids',
-          relationshipField: 'story_relationships',
+          idsField: 'storyIds',
+          relationshipField: 'storyRelationships',
           relationship: [
             {
               name: 'authorsNote',
@@ -604,7 +604,7 @@ But if the relationship just has a few simple attributes, there is an easier way
 
 And, in `new.html`:
 
-{{ snippetSelective('stories', 'Stories', {
+{{ snippetSelective('_stories', 'Stories', {
     placeholder: 'Type Title Here',
     relationship: {
       'authorsNote': {
@@ -641,8 +641,8 @@ You can do this in a reverse join too:
           name: '_books',
           type: 'joinByArrayReverse',
           withType: 'book',
-          idsField: 'story_ids',
-          relationshipField: 'story_relationships',
+          idsField: 'storyIds',
+          relationshipField: 'storyRelationships',
           relationship: [
             {
               name: 'authorsNote',
