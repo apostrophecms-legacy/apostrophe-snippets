@@ -423,7 +423,7 @@ snippets.Snippets = function(options, callback) {
             self.beforeSave(req, data, snippet, callback);
           },
           function(callback) {
-            self.importSaveItem(req, snippet, callback);
+            self.importSaveItem(req, data, snippet, callback);
           },
           function(callback) {
             self.afterInsert(req, data, snippet, callback);
@@ -438,7 +438,11 @@ snippets.Snippets = function(options, callback) {
       }
     };
 
-    self.importSaveItem = function(req, snippet, callback) {
+    // Save an item that was just created by the importer. The default
+    // implementation just calls self.putOne for the snippet, as the
+    // data has already been copied to it; however your subclasses may
+    // wish to use properties of data that the base class is unaware of.
+    self.importSaveItem = function(req, data, snippet, callback) {
       return self.putOne(req, snippet.slug, snippet, callback);
     };
 
