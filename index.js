@@ -642,44 +642,38 @@ snippets.Snippets = function(options, callback) {
         var file = req.files.file;
         var rows = 0;
         var headings = [];
-        var s = csv().from.stream(fs.createReadStream(file.path));
         var active = 0;
         var date = new Date();
         req.aposImported = moment().format();
-        s.on('record', function(row, index) {
-          active++;
-          // s.pause() avoids an explosion of rows being processed simultaneously
-          // by async mongo calls, etc. However note this does not
-          // stop more events from coming in because the parser will
-          // keep going with its current block of raw data. So we still
-          // have to track the number of still-active async handleRow calls ):
-          // Also there is no guarantee imports are in order, however that shouldn't
-          // matter since we always rely on some index such as title or publication date
-          s.pause();
-          if (!index) {
-            handleHeadings(row, afterRow);
-          } else {
-            handleRow(row, function(err) {
-              if (!err) {
-                rows++;
-                return afterRow();
-              } else {
-                console.log(err);
-                s.end();
-                active--;
-              }
-            });
-          }
-          function afterRow() {
-            s.resume();
-            active--;
-          }
-        })
-        .on('error', function(count) {
-          respondWhenDone('error');
-        })
-        .on('end', function(count) {
-          respondWhenDone('ok');
+        // "AUGH! Why are you using toArray()? It wastes memory!"
+        // Because: https://github.com/wdavidw/node-csv/issues/93
+        // Also we don't want race conditions when, for instance, people try to add
+        // themselves to a group and save the group twice.
+        // TODO: write a CSV module that is less ambitious about speed and more
+        // interested in a callback driven, serial interface
+        return csv().from.stream(fs.createReadStream(file.path)).to.array(function(data) {
+          var index = 0;
+          return async.eachSeries(data, function(row, callback) {
+            var headings = !index;
+            index++;
+            if (headings) {
+              return handleHeadings(row, callback);
+            } else {
+              return handleRow(row, function(err) {
+                if (!err) {
+                  rows++;
+                  return callback(null);
+                } else {
+                  return callback(err);
+                }
+              });
+            }
+          }, function(err) {
+            if (err) {
+              return respondWhenDone('error');
+            }
+            return respondWhenDone('ok');
+          });
         });
 
         function handleHeadings(row, callback) {
@@ -701,13 +695,10 @@ snippets.Snippets = function(options, callback) {
           for (i = 0; (i < headings.length); i++) {
             data[headings[i]] = row[i];
           }
-          self.importCreateItem(req, data, callback);
+          return self.importCreateItem(req, data, callback);
         }
 
         function respondWhenDone(status) {
-          if (active) {
-            return setTimeout(function() { respondWhenDone(status); }, 100);
-          }
           res.send({ status: status, rows: rows });
         }
       });
