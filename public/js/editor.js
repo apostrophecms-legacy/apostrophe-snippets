@@ -45,7 +45,12 @@ function AposSnippets(options) {
     self.launchNew = function() {
       var $el = apos.modalFromTemplate('.apos-new-' + self._css, {
         save: function(callback) {
-          return self.insertOrUpdate($el, 'insert', {}, callback);
+          return self.validate($el, 'insert', function(err) {
+            if (err) {
+              return callback(err);
+            }
+            return self.insertOrUpdate($el, 'insert', {}, callback);
+          });
         },
         init: function(callback) {
           $el.find('[name=published]').val(1);
@@ -595,9 +600,27 @@ function AposSnippets(options) {
       });
 
       function save(callback) {
-        return self.insertOrUpdate($el, 'update', { slug: slug }, callback);
+        return self.validate($el, 'update', function(err) {
+          if (err) {
+            return callback(err);
+          }
+          return self.insertOrUpdate($el, 'update', { slug: slug }, callback);
+        });
       }
       return false;
+    };
+
+    // You may optionally override this method to validate the form. Inspect the fields
+    // of $el and, if you consider them unacceptable, invoke callback with anything other
+    // than null to block the saving of the form and continue editing. There is a strong
+    // bias toward sanitizing the user's input rather than blocking them in this way, but
+    // in some applications it is worthwhile.
+    //
+    // `action` will be either `insert` or `update`. If the distinction between a new
+    // item and an updated one is irrelevant to your validation you may ignore it.
+
+    self.validate = function($el, action, callback) {
+      return callback(null);
     };
 
     // Import snippets
