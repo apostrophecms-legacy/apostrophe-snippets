@@ -505,7 +505,7 @@ In your configuration for the events module, you might write this:
 And in your override of `new.html` you'll need to provide a select element to pick the location:
 
 ```twig
-{{ snippetSelect('locationId', 'Location') }}
+{{ snippetSelective('_location', 'Location') }}
 ```
 
 Now the user can pick a map location for an event. And anywhere the event is used on the site, you'll be able to access the map location as the `_location` property. Here's an example of using it in a Nunjucks template:
@@ -613,7 +613,7 @@ Consider this configuration for a `books` module:
 And, in `new.html` for our books module:
 
 ```twig
-{{ snippetSelective('storyIds', 'Stories', {
+{{ snippetSelective('_stories', 'Stories', {
   placeholder: 'Type Title Here'
 }) }}
 ```
