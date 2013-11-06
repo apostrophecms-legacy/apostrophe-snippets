@@ -147,8 +147,13 @@ function AposSnippets(options) {
           // inline, without a nested dialog box
 
           var $singleton = $editView.find('.apos-singleton:first');
-          $singleton.bind('aposEdited', function(e, data) {
-            refreshSingleton([data]);
+          $singleton.on('aposEdited', function(e, data) {
+            refreshSingleton([data], function() {
+              // A change event on the singleton's wrapper signifies
+              // that getSingletonItem and getSingletonJSON can now be
+              // called to see the new data
+              $el.find('[data-name="' + name + '"]').trigger('change');
+            });
           });
 
           if (callback) {
@@ -175,12 +180,21 @@ function AposSnippets(options) {
       });
     };
 
+    // Access the widget data for a particular singleton
+    self.getSingletonItem = function($el, name) {
+      var items = $el.find('[data-' + name + '-edit-view]').data('items');
+      items = items || [];
+      return items[0];
+    };
+
+    // Retrieve a JSON string to serialize the singleton
     self.getSingletonJSON = function($el, name) {
       var items = $el.find('[data-' + name + '-edit-view]').data('items');
       items = items || [];
       return JSON.stringify(items);
     };
 
+    // Retrieve a JSON string to serialize the area
     self.getAreaJSON = function($el, name) {
       return apos.stringifyArea($el.find('[data-' + name + '-edit-view] [data-editable]'));
     };
