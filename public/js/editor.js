@@ -177,7 +177,7 @@ function AposSnippets(options) {
     };
 
     self.getAreaJSON = function($el, name) {
-      return apos.stringifyArea($el.find('.apos-area:first'));
+      return apos.stringifyArea($el.find('[data-' + name + '-edit-view] .apos-area:first'));
     };
 
     // Methods to convert from a form field of each schema type
