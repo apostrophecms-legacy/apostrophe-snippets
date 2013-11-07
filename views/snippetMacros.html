@@ -28,8 +28,8 @@
   </div>
 {% endmacro %}
 
-{% macro snippetText(name, label) %}
-  {{ formText(name, label) }}
+{% macro snippetText(name, label, options = {}) %}
+  {{ formText(name, label, options) }}
 {% endmacro %}
 
 {% macro snippetEmail(name, label) %}
