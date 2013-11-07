@@ -1007,6 +1007,12 @@ snippets.Snippets = function(options, callback) {
   // Include 'blue' in the result even if it matches no snippets
   //
   // options.fetch.tags = { only: [ 'red', 'green', 'blue' ], always: 'blue' }
+  //
+  // Ignore `options.tags` in favor of the hard restrictions for the page
+  // or no restrictions at all in order to repopulate the filter properly
+  // when a selection is already present in req.query.tag
+  //
+  // options.fetch.tags { parameter: 'tag' }
 
   self.get = function(req, userCriteria, optionsArg, callback) {
     var options = {};
@@ -1215,6 +1221,12 @@ snippets.Snippets = function(options, callback) {
   // we respect that limitation on the allowed values. If `fetch.always` is
   // set we always include that particular value in the results even if there
   // are no matches.
+  //
+  // If `fetch.yourfiltername.parameter` is set and
+  // `req.query[fetch.yourfiltername.parameter]` is nonempty we replace
+  // options[property] with the hard restrictions for this property on the page,
+  // or with no restrictions at all. This populates the filter properly when
+  // a filtered set of results is already being displayed.
 
   self.fetchMetadataForFilters = function(req, fetch, criteria, options, results, callback) {
     // Written to accommodate fetching other filters' options easily
@@ -1233,7 +1245,7 @@ snippets.Snippets = function(options, callback) {
       // get a list of all other tags as alternative filter choices.
       // But don't get tags that are not on the permitted list for
       // this page.
-      if (req.query[property]) {
+      if (fetch[property].parameter && req.query[fetch[property].parameter]) {
         delete getPropertyOptions[property];
         if (req.page.typeSettings[property] && req.page.typeSettings[property].length) {
           getPropertyOptions[property] = req.page.typeSettings[property];
@@ -1478,13 +1490,11 @@ snippets.Snippets = function(options, callback) {
 
   self.addCriteria = function(req, criteria, options) {
     options.fetch = {
-      tags: {}
+      tags: { parameter: 'tag' }
     };
     if (req.page.typeSettings) {
       if (req.page.typeSettings.tags && req.page.typeSettings.tags.length) {
         options.tags = req.page.typeSettings.tags;
-        // This restriction also applies when fetching distinct tags
-        options.fetch.tags.only = req.page.typeSettings.tags;
       }
       if (req.page.typeSettings.notTags && req.page.typeSettings.notTags.length) {
         options.notTags = req.page.typeSettings.notTags;
@@ -1497,7 +1507,18 @@ snippets.Snippets = function(options, callback) {
       // alone
       var tag = self._apos.sanitizeString(req.query.tag);
       if (tag.length) {
-        options.tags = [ tag ];
+        // Page is not tag restricted, or user is filtering by a tag included on that
+        // list, so we can just use the filter tag as options.tag
+        if ((!options.tags) || (!options.tags.length) ||
+          (_.contains(options.tags, tag))) {
+          options.tags = [ tag ];
+        } else {
+          // Page is tag restricted and user wants to filter by a related tag not
+          // on that list - we must be more devious so that both sets of
+          // restrictions apply
+          criteria.tags = { $in: options.tags };
+          options.tags = [ tag ];
+        }
         // Always return the active tag as one of the filter choices even if
         // there are no results in this situation. Otherwise the user may not be
         // able to see the state of the filter (for instance if it is expressed
