@@ -272,7 +272,22 @@ function AposSnippets(options) {
         return callback();
       },
       select: function(data, name, $field, $el, field, callback) {
-        $field.val(data[name]);
+        var $options = $field.find('option');
+        // Synthesize options from the choices in the schema, unless
+        // the frontend developer has chosen to do it for us
+        if (!$options.length) {
+          _.each(field.choices, function(choice) {
+            var $option = $('<option></option>');
+            $option.text(choice.label);
+            $option.attr('value', choice.value);
+            $field.append($option);
+          });
+        }
+        if ((!data._id) && field.def) {
+          $field.val(field.def);
+        } else {
+          $field.val(data[name]);
+        }
         return callback();
       },
       integer: function(data, name, $field, $el, field, callback) {
@@ -503,6 +518,9 @@ function AposSnippets(options) {
             $title.attr('data-slug', snippet.slug);
             if (snippet.trash) {
               $title.attr('data-trash', 1);
+            }
+            if (snippet.tags !== null) {
+              $snippet.find('[data-tags]').text(snippet.tags);
             }
             self.addingToManager($el, $snippet, snippet);
             $snippets.append($snippet);

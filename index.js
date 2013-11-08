@@ -387,6 +387,25 @@ snippets.Snippets = function(options, callback) {
       });
     };
 
+    // Make each type of schema field searchable. You can shut this off
+    // for any field by setting its `search` option to false. Not all
+    // field types make sense for search. Areas and singletons are always
+    // searchable. The `weight` option makes a property more significant
+    // in search; in the current implementation weights greater than 10
+    // are treated more prominently. By default all schema fields are
+    // treated as more important than ordinary body text. You can change
+    // that by setting a lower weight.
+
+    self.indexers = {
+      string: function(value, field, texts) {
+        texts.push({ weight: field.weight || 15, text: value });
+      },
+      select: function(value, field, texts) {
+        texts.push({ weight: field.weight || 15, text: value });
+      }
+      // areas and singletons are always indexed
+    };
+
     self.importCreateItem = function(req, data, callback) {
       // "Why the try/catch?" Because the CSV reader has some sort of
       // try/catch of its own that is making it impossible to log any
@@ -860,14 +879,16 @@ snippets.Snippets = function(options, callback) {
     self.addDiffLines = function(snippet, lines) {
     };
 
-    // The default properties for snippets are already covered by the
-    // default properties for pages in general. Extend this to add more
-    // search texts representing metadata relating to
-    // this type of snippet. Always call the superclass version. Example:
-    // texts.push({ weight: 20, text: snippet.address })
+    // Improve the search index by adding custom searchable texts.
+    // Note that you do not need to override this method just to make
+    // schema properties of type "text", "select", "area" or "singleton"
+    // searchable, or to cover "title" and "tags."
     //
-    // The default search engine is very simplistic. Searches that match
-    // something weighted 11 or higher appear before everything else.
+    // Extend this to add more search texts representing metadata relating to
+    // this type of snippet. Example: texts.push({ weight: 20, text: snippet.address })
+    //
+    // The default search engine is very simple: searches that match
+    // something weighted greater than 10 appear before everything else.
 
     self.addSearchTexts = function(snippet, texts) {
     };
@@ -885,6 +906,16 @@ snippets.Snippets = function(options, callback) {
 
     self._apos.addListener('index', function(snippet, lines) {
       if (snippet.type === self._instance) {
+        _.each(self.convertFields, function(field) {
+          if (field.search === false) {
+            return;
+          }
+          if (!self.indexers[field.type]) {
+            return;
+          }
+          self.indexers[field.type](snippet[field.name], field, lines);
+        });
+        // Custom search indexing
         self.addSearchTexts(snippet, lines);
       }
     });

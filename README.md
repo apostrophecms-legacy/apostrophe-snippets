@@ -457,17 +457,37 @@ Here is a super-simple example of a project-level subclass of the people module 
 
 Currently:
 
-`string`, `boolean`, `integer`, `float`, `url`, `area`, `singleton`
+`string`, `boolean`, `integer`, `float`, `select`, `url`, `area`, `singleton`
 
 Except for `area`, all of these types accept a `def` option which provides a default value if the field's value is not specified.
 
 The `integer` and `float` types also accept `min` and `max` options and automatically clamp values to stay in that range.
+
+The `select` type accepts a `choices` option which should contain an array of objects with `value` and `label` properties.
 
 When using the `area` and `singleton` types, you may include an `options` property which will be passed to that area or singleton exactly as if you were passing it to `aposArea` or `aposSingleton`.
 
 When using the `singleton` type, you must always specify `widgetType` to indicate what type of widget should appear.
 
 Joins are also supported (see below).
+
+### Adding Properties to the New and Edit Dialogs
+
+You are still responsible for adding each field to your override of `new.html` so that it can be edited. However, you do not need to supply the choices for a property of type `select` The schema will fill those in for you.
+
+First copy `new.html` and `edit.html` from the `view` folder of the snippets module to your own module's `view` folder. Then add the new fields in `new.html`, like this:
+
+```twig
+{{ snippetText('publicationDate', 'Publication Date') }}
+```
+
+Note that the name of each property must match the name you gave it in the schema. weLikeMongoDb, soPleaseUseIntercap, not-hyphens_or_underscores.
+
+See `snippetMacros.html` for all of the available convenience macros for adding fields. See also `formMacros.html` for the details.
+
+Note that you do not need to supply any arguments that can be inferred from the schema, such as the `choices` list for a `select` property, or the type of a singleton. The real initialization work happens in browser-side JavaScript powered by the schema.
+
+*We don't have to explicitly add these properties to `edit.html`* as it automatically extends `new.html`.
 
 #### Altering Existing Fields
 
@@ -801,34 +821,13 @@ Here's an example of adding a property without using the schema mechanism. This 
 
 Blog posts have a property that regular snippets don't: a publication date. A blog post should not appear before its publication date. To implement that, we need to address several things:
 
-1. Editing that property, as part of the `new.html` and `edit.html` dialogs.
+1. Editing that property, as part of the `new.html` and `edit.html` dialogs. Do this just as you would for a property implemented via the schema as described above.
 
 2. Sending that property to the server, via browser-side JavaScript as shown below.
 
 3. Saving the property on the server, by extending the `beforeSave` method on the server side, or `beforeInsert` and `beforeUpdate` if you need to treat new and updated snippets differently.
 
 4. Making that property part of our criteria for fetching snippets, by extending the `get` method of the snippets module.
-
-### Adding Properties to the New and Edit Dialogs
-
-This is the easiest part. First copy `new.html` and `edit.html` from the `view` folder of the snippets module to your own module's `view` folder. Then add the new fields in `new.html`, like this:
-
-```twig
-{{ snippetText('publication-date', 'Publication Date') }}
-```
-
-See `snippetMacros.html` for all of the available convenience macros for adding fields.
-
-Although we don't need to for blogs, it's possible to add extra Apostrophe areas and singletons (standalone widgets of a fixed type) to any snippet. You can do that with the `snippetSingleton` and `snippetArea` macros, as seen here:
-
-```twig
-{{ snippetSingleton('thumbnail', 'Thumbnail') }}
-{{ snippetArea('body', 'Body') }}
-```
-
-The real work of initializing these takes place in browser-side JavaScript.
-
-Note that we don't have to explicitly add these properties to `edit.html` as it extends `new.html`.
 
 ### Sending Extra Properties to the Server: Subclassing on the Browser Side
 
