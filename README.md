@@ -493,6 +493,10 @@ Note that you do not need to supply any arguments that can be inferred from the 
 
 There is also an `alterFields` option available. This must be a function which receives the fields array as its argument and modifies it. Use this when you need to change fields already configured for you by the module you are extending. It is possible to remove the `body` and `thumbnail` areas in this way.
 
+#### Search and Schema Fields
+
+By default, all schema fields of type `string` or `select` are included in the search index. You can shut this off by setting the `search` option to `false` for a particular field. You can also reduce the search index weight of the field by setting `weight` to a lower value. The built-in search engine prioritizes results with a weight greater than `10` over "plain old rich text." By default the weight for schema fields is `15`.
+
 ### Joins in Schemas
 
 You may use the `join` type to automatically pull in related objects from this or another module. Typical examples include fetching events at a map location, or people in a group. This is very cool.
