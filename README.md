@@ -497,6 +497,8 @@ There is also an `alterFields` option available. This must be a function which r
 
 By default, all schema fields of type `string` or `select` are included in the search index. You can shut this off by setting the `search` option to `false` for a particular field. You can also reduce the search index weight of the field by setting `weight` to a lower value. The built-in search engine prioritizes results with a weight greater than `10` over "plain old rich text." By default the weight for schema fields is `15`.
 
+Actually displaying your field as part of the summary shown when a snippet qualifies as a search result is usually not desirable, so by default this is not done. However you can include it in the summary text by setting the `silent` option to `false`.
+
 ### Joins in Schemas
 
 You may use the `join` type to automatically pull in related objects from this or another module. Typical examples include fetching events at a map location, or people in a group. This is very cool.

@@ -394,14 +394,18 @@ snippets.Snippets = function(options, callback) {
     // in search; in the current implementation weights greater than 10
     // are treated more prominently. By default all schema fields are
     // treated as more important than ordinary body text. You can change
-    // that by setting a lower weight.
+    // that by setting a lower weight. The "silent" option, which is true
+    // by default, prevents the field from showing up in the summary of
+    // the item presented with search results.
 
     self.indexers = {
       string: function(value, field, texts) {
-        texts.push({ weight: field.weight || 15, text: value });
+        var silent = (field.silent === undefined) ? true : field.silent;
+        texts.push({ weight: field.weight || 15, text: value, silent: silent });
       },
       select: function(value, field, texts) {
-        texts.push({ weight: field.weight || 15, text: value });
+        var silent = (field.silent === undefined) ? true : field.silent;
+        texts.push({ weight: field.weight || 15, text: value, silent: silent });
       }
       // areas and singletons are always indexed
     };
