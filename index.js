@@ -963,8 +963,8 @@ snippets.Snippets = function(options, callback) {
 
     // Make sure that aposScripts and aposStylesheets summon our
     // browser-side UI assets for managing snippets
-    self.pushAsset('template', 'new', { when: 'user', data: { fields: self.convertFields } });
-    self.pushAsset('template', 'edit', { when: 'user', data: { fields: self.convertFields } });
+    self.pushAsset('template', 'new', { when: 'user', data: { fields: self.convertFields, alwaysEditing: self._apos.alwaysEditing } });
+    self.pushAsset('template', 'edit', { when: 'user', data: { fields: self.convertFields, alwaysEditing: self._apos.alwaysEditing } });
     self.pushAsset('template', 'manage', { when: 'user' });
     self.pushAsset('template', 'import', { when: 'user' });
   }

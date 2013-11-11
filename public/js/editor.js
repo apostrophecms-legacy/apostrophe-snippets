@@ -196,7 +196,16 @@ function AposSnippets(options) {
 
     // Retrieve a JSON string to serialize the area
     self.getAreaJSON = function($el, name) {
-      return apos.stringifyArea($el.find('[data-' + name + '-edit-view] [data-editable]'));
+      var $property = $el.find('[data-' + name + '-edit-view]');
+      // Supports both "alwaysEditing" editors like apostrophe-editor-2
+      // and classic editors that don't use an apos-area wrapper when
+      // editing virtual areas in a snippet
+      var $editor = $property.find('.apos-editor:first');
+      if ($editor.length) {
+        return apos.stringifyArea($editor);
+      } else {
+        return apos.stringifyArea($property.find('.apos-area:first'));
+      }
     };
 
     // Methods to convert from a form field of each schema type
