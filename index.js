@@ -1229,6 +1229,9 @@ snippets.Snippets = function(options, callback) {
       snippet = slug;
       slug = snippet.slug;
     }
+    if(!snippet.type) {
+      snippet.type = self._instance;
+    }
     return self.beforePutOne(req, slug, snippet, function(err) {
       if (err) {
         return callback(err);
