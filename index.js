@@ -18,7 +18,6 @@ function snippets(options, callback) {
 
 snippets.Snippets = function(options, callback) {
   var self = this;
-
   // "Protected" properties. We want modules like the blog to be able
   // to access these, thus no variables defined in the closure
   self._apos = options.apos;
@@ -58,8 +57,12 @@ snippets.Snippets = function(options, callback) {
 
   // These are "public" so the object can be passed directly to pages.addType
   self.name = options.name || 'snippets';
+  // Label for the page type
   self.label = options.label || 'Snippets';
-  // Used just for the widget right now, could be handy elsewhere
+  // Usually but not always the same as the label for the page type
+  // (example: "Directory" vs. "Groups")
+  self.pluralLabel = options.pluralLabel || self.label;
+  self.instanceLabel = options.instanceLabel || 'Snippet';
   self.icon = options.icon || 'snippets';
 
   // The type property of the page object used to store the snippet, also
@@ -233,6 +236,7 @@ snippets.Snippets = function(options, callback) {
         // This one will always import as an empty area for now when importing CSV.
         // TODO: allow URLs in CSV to be imported.
         name: 'thumbnail',
+        label: 'Thumbnail',
         type: 'singleton',
         widgetType: 'slideshow',
         options: {
@@ -242,7 +246,8 @@ snippets.Snippets = function(options, callback) {
       },
       {
         name: 'body',
-        type: 'area'
+        type: 'area',
+        label: 'Body',
         // options: {
         //   slideshow: {
         //     limit: 1
@@ -251,6 +256,7 @@ snippets.Snippets = function(options, callback) {
       },
       {
         name: 'hideTitle',
+        label: 'Hide Title',
         type: 'boolean',
         def: false
       }
@@ -956,18 +962,54 @@ snippets.Snippets = function(options, callback) {
       }
     });
 
+    // Make sure that aposScripts and aposStylesheets summon our
+    // browser-side UI assets for managing snippets
+
+    // Useful data when rendering menus, edit modals, manage modals, etc.
+    // Use of these variables makes it safe to use the snippet menu and modals
+    // for newly invented types too at least as a starting point, and they can be
+    // safely copied and pasted and edited as well
+
+    var data = {
+      fields: self.convertFields,
+      alwaysEditing: self._apos.alwaysEditing,
+      newClass: 'apos-new-' + self._css,
+      instanceLabel: self.instanceLabel,
+      editClass: 'apos-edit-' + self._css,
+      manageClass: 'apos-manage-' + self._css,
+      importClass: 'apos-import-' + self._css,
+      label: self.label,
+      pluralLabel: self.pluralLabel,
+      newButtonData: 'data-new-' + self._css,
+      editButtonData: 'data-edit-' + self._css,
+      manageButtonData: 'data-manage-' + self._css,
+      importButtonData: 'data-import-' + self._css,
+      menuIcon: 'icon-' + self.icon,
+      pageSettingsClass: 'apos-page-settings-' + self._apos.cssName(self.name)
+    };
+
     self._apos.addLocal(self._menuName, function(args) {
+      _.defaults(args, data);
       var result = self.render('menu', args);
       return result;
     });
 
-    // Make sure that aposScripts and aposStylesheets summon our
-    // browser-side UI assets for managing snippets
-    self.pushAsset('template', 'new', { when: 'user', data: { fields: self.convertFields, alwaysEditing: self._apos.alwaysEditing } });
-    self.pushAsset('template', 'edit', { when: 'user', data: { fields: self.convertFields, alwaysEditing: self._apos.alwaysEditing } });
-    self.pushAsset('template', 'manage', { when: 'user' });
-    self.pushAsset('template', 'import', { when: 'user' });
+    self.pushAsset('template', 'new', { when: 'user', data: data });
+    self.pushAsset('template', 'edit', { when: 'user', data: data });
+    self.pushAsset('template', 'manage', { when: 'user', data: data });
+    self.pushAsset('template', 'import', { when: 'user', data: data });
   }
+
+  // CUSTOM PAGE SETTINGS TEMPLATE
+  self.pushAsset('template', 'pageSettings', {
+    when: 'user',
+    data: {
+      label: self.label,
+      instanceLabel: self.instanceLabel,
+      pluralLabel: self.pluralLabel,
+      pageSettingsClass: 'apos-page-settings-' + self._apos.cssName(self.name)
+    }
+  });
 
   self.pushAsset('script', 'editor', { when: 'user' });
   self.pushAsset('script', 'content', { when: 'always' });
@@ -1701,9 +1743,6 @@ snippets.Snippets = function(options, callback) {
       });
     }, callback);
   };
-
-  // CUSTOM PAGE SETTINGS TEMPLATE
-  self.pushAsset('template', 'pageSettings', { when: 'user' });
 
   // Sanitize newly submitted page settings (never trust a browser)
   extend(true, self, {

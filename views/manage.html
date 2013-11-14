@@ -1,8 +1,8 @@
 {% include 'snippetMacros.html' %}
-<div class="apos-modal apos-template apos-manage-snippet">
-  <h3>{% block action %}Manage Snippets{% endblock %}</h3>
+<div class="apos-modal apos-template {{ manageClass }}">
+  <h3>{% block action %}Manage {{ pluralLabel | e }}{% endblock %}</h3>
   <div class="apos-modal-body">
-    <a href="#" class="apos-control apos-button apos-new-button apos-new-snippet-button" data-new-snippet>New Snippet</a>
+    <a href="#" class="apos-control apos-button apos-new-button apos-new-snippet-button" {{ newButtonData }}>New {{ instanceLabel | e }}</a>
     <div class="apos-modal-filters">
       {{ snippetFilters() }}
     </div>
@@ -13,7 +13,7 @@
       </tr>
       <tr class="apos-template" data-item>
         <td>
-          <span><a href="#" data-edit-snippet data-title>Sample Title</a></span>
+          <span><a href="#" {{ editButtonData }} data-title>Sample Title</a></span>
         </td>
         <td><span data-tags></span></td>
       </tr>

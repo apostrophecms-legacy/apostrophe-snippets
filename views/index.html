@@ -7,7 +7,6 @@
 {# Output the current content of the page, with buttons to edit it #}
 
 {% block subnav %}
-  {# Subpages? Why yes! #}
     <ol class="children">
     {% for relative in page.children %}
       <li><a href="{{ relative.url }}">{{ relative.title | e }}</a></li>

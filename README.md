@@ -4,18 +4,16 @@
 * [Using Snippets Directly](#using-snippets-directly)
   * [Overriding Snippet Templates](#overriding-snippet-templates)
   * [Inserting the Snippets Admin Menu](#inserting-the-snippets-admin-menu)
-  * [Disabling Snippets as a Page Type](#disabling-snippets-as-a-page-type)
+  * [Enabling Snippets As A Page Type](#enabling-snippets-as-a-page-type)
 * [Creating Your Own Content Types](#creating-your-own-content-types-subclassing-snippets)
-  * [Server-Side Code](#your-module-and-its-server-side-code)
-  * [Instance Types](#instance-types-carving-out-our-own-content-type)
-  * [Custom Templates](#custom-templates-for-our-subclass)
+  * [Configuring New Content Types](#your-custom-content-type-the-server-side)
+  * [Custom Templates](#custom-templates)
+  * [Adding New Properties To Your Snippets Using the Schema](#adding-new-properties-to-your-snippets-using-the-schema)
+  * [Advanced Techniques: Overriding Methods in Your Subclass](#advanced-techniques-overriding-methods-in-your-subclass)
   * [Snippets = Pages Outside the Page Tree](#snippets--pages-outside-the-main-page-tree)
-  * [Invoking the Base Class Constructor](#invoking-the-base-class-constructor)
   * [Customizing the Dispatcher](#customizing-the-dispatcher-handling-urls-differently)
   * [How the `dispatch` Method Works](#how-the-dispatch-method-works)
   * [Extending the `dispatch` method](#extending-the-dispatch-method-without-overriding-it-completely)
-  * [The Page Loader](#the-page-loader-function)
-  * [Adding New Properties to Snippets](#adding-new-properties-to-your-snippets)
 * [Joins in Schemas](#joins-in-schemas)
   * [one-to-one](#one-to-one-joins)
   * [reverse](#reverse-joins)
@@ -52,115 +50,28 @@ So there are four main ways a snippet might appear to the end user:
 
 Snippets are quite useful by themselves. Quite often, the snippet widget is enabled in a project to allow reuse of frequently-changing content displayed in a variety of places at the end user's discretion, rather than hardcoding a shared area or singleton into the page templates.
 
-To enable snippets in a project, you'll need the following code (taken from `app.js` of the sandbox project):
+To enable snippets in a project, just add the `apostrophe-snippets` module to your `app.js` configuration:
 
 ```javascript
-var snippets;
-...
-// After initializing Express, apostrophe and apostrophe-pages
-snippets = require('apostrophe-snippets')({
-  apos: apos,
-  pages: pages,
-  app: app,
-  searchable: false,
-  widget: true,
-}, callback);
+  modules: {
+    'apostrophe-snippets' {},
+    ... other modules ...
+  }
 ```
 
-Note that the snippet module's initialization function requires a callback. Since most modules relating to Apostrophe require callbacks we recommend using `async.series` to easily call them all in sequence. See the sandbox project for a simple example.
+(Here we assume you are using the [apostrophe-site](http://github.com/punkave/apostrophe-site) module to organize your project in `app.js`. You should be.)
 
 ### Overriding Snippet Templates
 
-#### Don't Work So Hard! Use apostrophe-site
+If you'd like to just create custom templates for the snippets module or one of its derivatives, you can create a project-specific override of that module. The current Apostrophe "best-practice" for this involves creating a top-level directory named "lib" (i.e. `/my-project/lib/`), and then creating custom versions of the template there (i.e. `/my-project/lib/modules/apostrophe-snippets`).
 
-*See the [apostrophe-site](http://github.com/punkave/apostrophe-site) module for a very easy way to override the templates of snippets, blogs, event calendars or any other module derived from snippets.* The rest of this section concerns how to do it without `apostrophe-site` and basically reveals the nuts and bolts of how it really works. Most of this information is still relevant in more advanced projects even if you do use `apostrophe-site`.
+Your "project level overrides" will automatically be picked up as long as the folder you add to `lib/modules` has the same name as the npm module (`apostrophe-snippets`).
 
-#### Doing It Without apostrophe-site
-
-If you'd like to just create custom templates for an existing snippet module, you can create a project-specific override of that module. The current Apostrophe "best-practice" for this involves creating a top-level directory named "lib" (i.e. /my-project/lib/), and then creating custom versions of the template there (i.e. /my-project/lib/snippets).
-
-The bare requirements for each of these template overrides is an index.js file (/my-project/lib/snippets/index.js) and a client-side file called "editor.js" which lives in a  directory named "public/js" (/my-project/lib/snippets/public/js/editor.js). We'll take a brief look at the bare bones of these files below.
-
-But first, we'll need to update our app.js. Using our snippets example from above, we'll change our initAposSnippets function in app.js to the following:
-
-```javascript
-var snippets;
-...
-// After initializing Express, apostrophe and apostrophe-pages
-snippets = require('./lib/snippets/index.js')({
-  apos: apos,
-  pages: pages,
-  app: app,
-  searchable: false,
-  widget: true,
-}, callback);
-```
-
-Note that we are now requiring our local overide of the module instead of the npm installed "apostrophe-snippets." We can do this because we'll be calling that module in our local override. Let's dig into these two files:
-
-To begin with, we'll need to create a server-side file called "index.js" directly inside our custom module folder (i.e. /my-project/lib/snippets/index.js ). The file should roughly contain the following:
-
-```javascript
-// Extend the snippets module just enough to get our own views folder
-var _ = require('underscore');
-var snippets = require('apostrophe-snippets');
-
-module.exports = mySnippets;
-
-function mySnippets(options, callback) {
-  return new mySnippets.MySnippets(options, callback);
-}
-
-mySnippets.MySnippets = function(options, callback) {
-  var self = this;
-
-  options.modules = (options.modules || []).concat([ { dir: __dirname, name: 'mySnippets' } ]);
-
-  // We're not doing much other than establishing a context for template overrides,
-  // so just let the base constructor invoke the callback for us
-  return snippets.Snippets.call(this, options, callback);
-};
-```
-
-It's important to note that we're creating a specifically different directory with a different name (here, it's "mySnippets"). Without this specific name, the app won't know which directory to look in for various functions.
-
-In addition to the server-side file, we'll need to build a file for the browser to access and build from. So we'll create a file named "editor.js" in a "js" directory inside of a "public" directory in this module override (i.e. /my-project/lib/snippets/public/js/editor.js). We'll throw the following base functionality into that editor.js file:
-
-```javascript
-// No changes to the browser-side behavior of snippets for now
-
-function MySnippets(options) {
-  var self = this;
-  AposSnippets.call(self, options);
-}
-
-MySnippets.addWidgetType = function(options) {
-  AposSnippets.addWidgetType(options);
-};
-```
-
-In this editor.js file, we're simply connecting the override module to the original module's functionality. We're not getting fancy here (you can read about extending the functionality below).
-
-Once again, we'll need to update the aposInitSnippets function in our app.js to make sure we're calling the right constructor on the browser-side:
-
-```javascript
-snippets = require('./lib/modules/snippets/index.js')({
-  apos: apos,
-  pages: pages,
-  app: app,
-  searchable: false,
-  widget: true,
-  browser: {
-    construct: 'MySnippets'
-  }
-}, callback);
-```
-
-Now that we've got the overrides setup, we can create a "views" directory in the module overide folder and customize the templates for our project (i.e. /lib/snippets/views/templateFile.html). You can copy any or all files from the "views" directory of the original module, but note that to add any extra fields or extend the functionality of the module, you'll need to subclass that particular snippet (or simply create your own content type). Read on below about subclassing a snippets module.
+Now we can create a "views" directory in our `lib/modules/apostrophe-snippets` folder and customize the templates for our project (i.e. `/lib/modules/apostrophe-snippets/views/index.html`). You can copy any or all files from the "views" directory of the original module, but note that to add any extra fields or extend the functionality of the module, you'll need to subclass that particular snippet (or simply create your own content type). Read on below about subclassing a snippets module.
 
 ### Inserting the Snippets Admin Menu
 
-The above code sets up snippets both as a page type (for creating snippet index pages) and as a widget, and also provides a "snippets" admin dropdown menu which can be included in your outer layout via the following nunjucks code:
+The above code sets up snippets both as a page type (for creating snippet index pages) and as a widget, and also provides a "snippets" admin dropdown menu which can be included in your `outerLayout.html` template via the following nunjucks code:
 
 ```twig
 {{ aposSnippetMenu({ edit: editSnippet }) }}
@@ -168,147 +79,537 @@ The above code sets up snippets both as a page type (for creating snippet index 
 
 See `outerLayout.html` in the sandbox project for the best way of handling the admin menus.
 
-### Disabling Snippets As A Page Type
+### Enabling Snippets As A Page Type
 
-If you don't want snippets to be available as a page type and are only interested in them as widgets, you can choose to leave them out when you call the `setMenu` method of the `apostrophe-pages` module at the end of your Apostrophe initialization code:
+To allow snippets to be publicly browsed via a page on your site, just make sure you include the page type `snippets` in your `pages` configuration in `app.js`:
 
 ```javascript
-pages.setMenu([
-  { name: 'default', label: 'Default (Two Column)' },
-  { name: 'home', label: 'Home Page' },
-  { name: 'blog', label: 'Blog' },
-  { name: 'events', label: 'Events' },
-  // Let's not offer snippet index pages on the site
-  // { name: 'snippets', label: 'Snippets' }
-]);
+  pages: {
+    types: [
+      { name: 'default', label: 'Default (Two Column)' },
+      { name: 'home', label: 'Home Page' },
+      { name: 'snippets', label: 'Snippets' },
+    ]
+  }, ... more configuration ...
 ```
 
-If you do not call `pages.setMenu`, you'll get all of the page types that were registered in your application, in the order they were registered. In most cases you'll want to use `pages.setMenu` to change the order, change the labels and leave out a few page types.
+Most of the time you won't want to do this, since snippets are usually inserted into the middle of other pages instead, appearing like a natural part of it. But you'll do this quite often with other content types that are subclassed from snippets, like the blog and events modules.
 
 ## Creating Your Own Content Types: Subclassing Snippets
 
-It's possible to create your own content types based on snippets. This has a lot of advantages. All of the tools to manage snippets have already been built for you and are easily extended without code duplication to accommodate new content. The snippets module also implements an Apostrophe page loader function for you, ready to display "index pages" and "show pages" out of the box. And of course a widget for reusing snippets anywhere on the site is built in.
+It's possible to create your own content types based on snippets. This has many advantages. All of the tools to manage snippets have already been built for you and are easily extended without code duplication to accommodate new content. The snippets module also implements an Apostrophe page loader function for you, ready to display "index pages" and "show pages" out of the box. And of course a widget for reusing snippets anywhere on the site is built in. All of this functionality is easily obtained for your new content type as well.
 
 Absolutely nothing is preventing you from implementing your own page loader functions and your own admin tools for managing content, and sometimes this may be desirable. But in most cases subclassing snippets is the right way to go.
 
-Subclasses of snippets can extend their behavior on both the server side and the browser side. Server-side code is often needed to change the way snippets are selected and filtered and to extend snippet objects with new properties. And browser-side code is needed to add more fields to the management interface, as well as extending the widget with browser-side JavaScript as we'll see below.
+Subclasses of snippets can extend their behavior on both the server side and the browser side. Most of the job can be done simply through configuration in `app.js`, but you may need to extend the code on the server side as well to add custom features. And extra browser-side code is also desirable at times. We'll see below how to do both.
 
-The simplest example of a subclass of snippets is currently the `apostrophe-blog` module. Let's take a look at how it works.
+The `apostrophe-blog`, `apostrophe-events` and `apostrophe-map` modules are all simple subclasses of `apostrophe-snippets` and they make good examples if you wish to learn how to package your work as an npm module for the benefit of the community.
 
-### Your module and its server-side code
+### Configuring New Content Types
 
-The `apostrophe-blog` module is a separate npm module, with its own `index.js` file as an entry point on the server side (the file that is loaded by `require('apostrophe-blog')`). npm modules are a great way to distribute subclasses of snippets as open source. But if you need a private subclass in your project, we recommend creating a `lib/modules/mymodule` folder, requiring `index.js` from there explicitly, and otherwise writing your code exactly as you would in a public npm module.
+You can create a new content type just by configuring it in `app.js` along with other modules. Let's invent a new content type called "stories:"
 
-We structure `index.js` this way:
+```javascript
+modules: {
+  ... other modules ...
+  'stories': {
+    extend: 'apostrophe-snippets',
+    name: 'stories',
+    label: 'Stories',
+    instance: 'story',
+    instanceLabel: 'Story',
+    addFields: [
+      {
+        name: 'year',
+        type: 'integer',
+        label: 'Year',
+        def: '2013'
+      },
+      {
+        name: 'publisher',
+        type: 'string',
+        label: 'Publisher',
+      }
+    ]
+  }
+}
+```
+
+The `extend` property tells Apostrophe what module you're subclassing. You can subclass `apostrophe-blog` or `apostrophe-events` instead if they are closer to what you need.
+
+The `instance` property is a singular word for one item - one story, in this case. `name` is a name for data type as a whole and is usually plural (like "snippets" or "events" or "blog"). `label` and `instanceLabel` are publicly visible versions of these and should be capitalized.
+
+`addFields` allows us to add new fields to our content type. We'll examine it in more detail below.
+
+**You must also create `lib/modules/stories` in your project.** Soon we'll add custom templates there, but it must exist even before you do that.
+
+**Edit `outerLayout.html`** and add a line to insert the menu for managing stories:
+
+```jinja2
+  {{ aposStoryMenu({ edit: permissions.admin }) }}
+```
+
+And... that's actually enough to get started! With just this much code, you can already create, edit and manage stories, including the custom fields `year` and `publisher`. All the plumbing is automatic. Nice, yes?
+
+### Custom Templates
+
+Your code automatically inherits its templates from the snippets module. But the bare-bones templates we supply for the `index` and `show` views of snippets are not very exciting. So, create your own! Just copy those templates to `lib/modules/stories/views/index.html` and `lib/modules/stories/views/show.html` and modify them as you see fit.
+
+We recommend creating your own, additional `storyMacros.html` file and including it in your templates. *Don't override snippetMacros.html in your module*. We frequently improve that file and you don't want to lose access to those improvements.
+
+### Adding New Properties To Your Snippets Using the Schema
+
+*There is a very easy way to do this.* Snippets now support a simple JSON format for creating a schema of fields. Both the browser side and the server side understand this, so all you have to do is add them to the dialogs as described below and set up the schema. You can still do it the hard way, however, if you need custom behavior.
+
+Here is a super-simple example of a project-level subclass of the people module (itself a subclass of snippets) that adds new fields painlessly. Here I assume you are using `apostrophe-site` to configure your site:
+
+```javascript
+... Configuring other modules ...
+'apostrophe-people': {
+  addFields: [
+    {
+      name: 'workPhone',
+      type: 'string',
+      label: 'Work Phone'
+    },
+    {
+      name: 'workFax',
+      type: 'string',
+      label: 'Work Fax'
+    },
+    {
+      name: 'department',
+      type: 'string',
+      label: 'Department'
+    },
+    {
+      name: 'isRetired',
+      type: 'boolean',
+      label: 'Is Retired'
+    },
+    {
+      name: 'isGraduate',
+      type: 'boolean',
+      label: 'Is Graduate'
+    },
+    {
+      name: 'classOf',
+      type: 'string',
+      label: 'Class Of'
+    },
+    {
+      name: 'location',
+      type: 'string',
+      label: 'Location'
+    }
+  ]
+}, ... more modules ...
+```
+
+#### What Field Types Are Available?
+
+Currently:
+
+`string`, `boolean`, `integer`, `float`, `select`, `url`, `area`, `singleton`
+
+Except for `area`, all of these types accept a `def` option which provides a default value if the field's value is not specified.
+
+The `integer` and `float` types also accept `min` and `max` options and automatically clamp values to stay in that range.
+
+The `select` type accepts a `choices` option which should contain an array of objects with `value` and `label` properties.
+
+When using the `area` and `singleton` types, you may include an `options` property which will be passed to that area or singleton exactly as if you were passing it to `aposArea` or `aposSingleton`.
+
+When using the `singleton` type, you must always specify `widgetType` to indicate what type of widget should appear.
+
+Joins are also supported (see below).
+
+### Adding Properties to the New and Edit Dialogs
+
+This is not your problem! The latest versions of the `new.html` and `edit.html` templates invoke `snippetAllFields`, a macro which outputs all of the fields in your schema, in order.
+
+However, if you want to, or you need to because you are implementing extra fields without using the schema, then you can copy the `new.html` template from the snippets module to your views folder and customize it to output the fields with the individual macros in `snippetMacros.html`, such as `snippetText`, `snippetSelect`, etc. Or you can use custom markup, as long as there is a wrapper element with a `data-name` attribute set to the name of the field, and the input elements have a `name` attribute set to the name of the field.
+
+You can also mix and match. This code outputs most of the fields in a long schema, then outputs one field directly, then outputs the rest of the fields. `hairColor` is the name of the last field before `shoeSize`, and `favoriteCheese` is the name of the first field after `shoeSize`:
+
+```jinja2
+{{ snippetAllFields(fields, { to: 'hairColor' }) }}
+{{ snippetText('shoeSize', 'Shoe Size') }}
+{{ snippetAllFields(fields, { from: 'favoriteCheese' }) }}
+```
+
+You usually won't need to touch `edit.html` because it gracefully extends whatever you do in `new.html`.
+
+Note that the name of each property must match the name you gave it in the schema. weLikeMongoDb, soPleaseUseIntercap, not-hyphens_or_underscores.
+
+See `snippetMacros.html` for all of the available convenience macros for adding fields. See also `formMacros.html` for the details of their implementation.
+
+Note that you do not need to supply any arguments that can be inferred from the schema, such as the `choices` list for a `select` property, or the widget type of a singleton. The real initialization work happens in browser-side JavaScript powered by the schema.
+
+#### Altering Existing Fields
+
+There is also an `alterFields` option available. This must be a function which receives the fields array as its argument and modifies it. Use this when you need to change fields already configured for you by the module you are extending. It is possible to remove the `body` and `thumbnail` areas in this way.
+
+#### Search and Schema Fields
+
+By default, all schema fields of type `string` or `select` are included in the search index. You can shut this off by setting the `search` option to `false` for a particular field. You can also reduce the search index weight of the field by setting `weight` to a lower value. The built-in search engine prioritizes results with a weight greater than `10` over "plain old rich text." By default the weight for schema fields is `15`.
+
+Actually displaying your field as part of the summary shown when a snippet qualifies as a search result is usually not desirable, so by default this is not done. However you can include it in the summary text by setting the `silent` option to `false`.
+
+### Joins in Schemas
+
+You may use the `join` type to automatically pull in related objects from this or another module. Typical examples include fetching events at a map location, or people in a group. This is very cool.
+
+*"Aren't joins bad? I read that joins were bad in some NoSQL article."*
+
+Short answer: no.
+
+Long answer: sometimes. Mostly in so-called "webscale" projects, which have nothing to do with 99% of websites. If you are building the next Facebook you probably know that, and you'll denormalize your data instead and deal with all the fascinating bugs that come with maintaining two copies of everything.
+
+Of course you have to be smart about how you use joins, and we've included options that help with that.
+
+##### One-To-One Joins
+
+In your configuration for the events module, you might write this:
+
+```javascript
+'apostrophe-events': {
+  addFields: [
+    {
+      name: '_location',
+      type: 'joinByOne',
+      withType: 'mapLocation',
+      idField: 'locationId',
+      label: 'Location'
+    }
+  ]
+}
+```
+
+As with other schema fields, **we do not have to add them to `new.html`**. `snippetAllFields` will cover it. You can use the `placeholder` option when configuring the field to adjust the text displayed in the autocomplete text field.
+
+However, *if you wish to output a join field directly yourself*, you should do it like this:
+
+```twig
+{{ snippetSelective('_location', 'Location') }}
+```
+
+Now the user can pick a map location for an event. And anywhere the event is used on the site, you'll be able to access the map location as the `_location` property. Here's an example of using it in a Nunjucks template:
+
+```twig
+{% if item._location %}
+  <a href="{{ item._location.url | e }}">Location: {{ item._location.title | e }}</a>
+{% endif %}
+```
+
+The id of the map location "lives" in the `location_id` property of each event, but you won't have to deal with that directly.
+
+*Always give your joins a name starting with an underscore.* This warns Apostrophe not to store this information in the database permanently where it will just take up space, then get re-joined every time anyway.
+
+##### Reverse Joins
+
+This is awesome. But what about the map module? Can we see all the events in a map location?
+
+Yup:
+
+```javascript
+'apostrophe-map': {
+  addFields: [
+    {
+      name: '_events',
+      type: 'joinByOneReverse',
+      withType: 'event',
+      idField: 'locationId',
+      label: 'Events'
+    }
+  ]
+}
+```
+
+Now, in the `show` template for the map module, we can write:
+
+```twig
+{% for event in item._events %}
+  <h4><a href="{{ event.url | e }}">{{ event.title | e }}</a></h4>
+{% endfor %}
+```
+
+"Holy crap!" Yeah, it's pretty cool.
+
+Note that the user always edits the relationship on the "owning" side, not the "reverse" side. The event has a `location_id` property pointing to the map, so users pick a map location when editing an event, not the other way around.
+
+##### Nested Joins: You Gotta Be Explicit
+
+*"Won't this cause an infinite loop?"* When an event fetches a location and the location then fetches the event, you might expect an infinite loop to occur. However Apostrophe does not carry out any further joins on the fetched objects unless explicitly asked to.
+
+*"What if my events are joined with promoters and I need to see their names on the location page?"* If you really want to join two levels deep, you can "opt in" to those joins:
+
+```javascript
+'apostrophe-map': {
+  addFields: [
+    {
+      name: '_events',
+      ...
+      withJoins: [ '_promoters' ]
+    }
+  ]
+}
+```
+
+This assumes that `_promoters` is a join you have already defined for events.
+
+*"What if my joins are nested deeper than that and I need to reach down several levels?"*
+
+You can use "dot notation," just like in MongoDB:
+
+```javascript
+withJoins: [ '_promoters._assistants' ]
+```
+
+This will allow events to be joined with their promoters, and promoters to be joiend with their assistants, and there the chain will stop.
+
+You can specify more than one join to allow, and they may share a prefix:
+
+```javascript
+withJoins: [ '_promoters._assistants', '_promoters._bouncers' ]
+```
+
+Remember, each of these joins must be present in the configuration for the appropriate module.
+
+#### Many-To-Many Joins
+
+Events can only be in one location, but stories can be in more than one book, and books also contain more than one story. How do we handle that?
+
+Consider this configuration for a `books` module:
+
+```javascript
+'books': {
+  ... other configuration, probably subclassing snippets ...
+  addFields: [
+    {
+      name: '_stories',
+      type: 'joinByArray',
+      withType: 'story',
+      idsField: 'storyIds',
+      sortable: true,
+      label: 'Stories'
+    }
+  ],
+}
+```
+
+Now we can access all the stories from the show template for books (or the index template, or pretty much anywhere):
+
+```twig
+<h3>Stories</h3>
+{% for story in item._stories %}
+  <h4><a href="{{ story.url | e }}">{{ story.title | e }}</a></h4>
+{% endfor %}
+```
+
+*Since we specified `sortable:true`*, the user can also drag the list of stories into a preferred order. The stories will always appear in that order in the `._stories` property when examinining a book object.
+
+*"Many-to-many... sounds like a LOT of objects. Won't it be slow and use a lot of memory?"*
+
+It's not as bad as you think. Apostrophe typically fetches only one page's worth of items at a time in the index view, with pagination links to view more. Add the objects those are joined to and it's still not bad, given the performance of v8.
+
+But sometimes there really are too many related objects and performance suffers. So you may want to restrict the join to occur only if you have retrieved only *one* book, as on a "show" page for that book. Use the `ifOnlyOne` option:
+
+```javascript
+'stories': {
+  addFields: [
+    {
+      name: '_books',
+      withType: 'book',
+      ifOnlyOne: true,
+      label: 'Books'
+    }
+  ]
+}
+```
+
+Now any call to fetch books that retrieves only one object will carry out the join with stories. Any call that returns more than one object won't. You don't have to specifically call `books.getOne` rather than `books.get`.
+
+Hint: in index views of many objects, consider using AJAX to load related objects when the user indicates interest if you don't want to navigate to a new URL in the browser.
+
+#### Reverse Many-To-Many Joins
+
+We can also access the books from the story if we set the join up in the stories module as well:
+
+```javascript
+'stories': {
+  ... other needed configuration, probably subclassing snippets ...
+  addFields: [
+    {
+      name: '_books',
+      type: 'joinByArrayReverse',
+      withType: 'book',
+      idsField: 'storyIds',
+      label: 'Books'
+    }
+  ]
+}
+```
+
+Now we can access the `._books` property for any story. But users still must select stories when editing books, not the other way around.
+
+#### When Relationships Get Complicated
+
+What if each story comes with an author's note that is specific to each book? That's not a property of the book, or the story. It's a property of *the relationship between the book and the story*.
+
+If the author's note for every each appearance of each story has to be super-fancy, with rich text and images, then you should make a new module that subclasses snippets in its own right and just join both books and stories to that new module.
+
+But if the relationship just has a few simple attributes, there is an easier way:
+
+```javascript
+'books': {
+  ... other needed configuration, probably subclassing snippets ...
+  addFields: [
+    {
+      name: '_stories',
+      label: 'Stories',
+      type: 'joinByArray',
+      withType: 'story',
+      idsField: 'storyIds',
+      relationshipField: 'storyRelationships',
+      relationship: [
+        {
+          name: 'authorsNote',
+          type: 'string'
+        }
+      ],
+      sortable: true
+    }
+  ]
+}
+```
+
+Currently "relationship" properties can only be of type `string` (for text), `select` or `boolean` (for checkboxes). Otherwise they behave like regular schema properties.
+
+*Warning: the relationship field names `label` and `value` must not be used.* These names are reserved for internal implementation details.
+
+Form elements to edit relationship fields appear next to each entry in the list when adding stories to a book. So immediately after adding a story, you can edit its author's note.
+
+Once we introduce the `relationship` option, our templates have to change a little bit. The `show` page for a book now looks like:
+
+```twig
+{% for story in item._stories %}
+  <h4>Story: {{ story.item.title | e }}</h4>
+  <h5>Author's Note: {{ story.relationship.authorsNote | e }}</h5>
+{% endfor %}
+```
+
+Two important changes here: *the actual story is `story.item`*, not just `story`, and `relationship fields can be accessed via `story.relationship`*. This change kicks in when you use the `relationship` option.
+
+Doing it this way saves a lot of memory because we can still share book objects between stories and vice versa.
+
+#### Accessing Relationship Properties in a Reverse Join
+
+You can do this in a reverse join too:
+
+```javascript
+'stories': {
+  ... other needed configuration, probably subclassing snippets ...
+  addFields: [
+    {
+      name: '_books',
+      type: 'joinByArrayReverse',
+      withType: 'book',
+      idsField: 'storyIds',
+      relationshipField: 'storyRelationships',
+      relationship: [
+        {
+          name: 'authorsNote',
+          type: 'string'
+        }
+      ]
+    }
+  ]
+}
+```
+
+Now you can write:
+
+```twig
+{% for book in item._books %}
+  <h4>Book: {{ book.item.title | e }}</h4>
+  <h5>Author's Note: {{ book.relationship.authorsNote | e }}</h5>
+{% endfor %}
+```
+
+As always, the relationship fields are edited only on the "owning" side (that is, when editing a book).
+
+*"What is the `relationshipField` option for? I don't see `story_relationships` in the templates anywhere."*
+
+Apostrophe stores the actual data for the relationship fields in `story_relationships`. But since it's not intuitive to write this in a template:
+
+```twig
+{# THIS IS THE HARD WAY #}
+{% for story in book._stories %}
+  {{ story.item.title | e }}
+  {{ book.story_relationships[story._id].authorsNote | e }}
+{% endif %}
+```
+
+Apostrophe instead lets us write this:
+
+```twig
+{# THIS IS THE EASY WAY #}
+{% for story in book._stories %}
+  {{ story.item.title | e }}
+  {{ story.relationship.authorsNote | e }}
+{% endif %}
+```
+
+*Much better.*
+
+### Advanced Techniques: Overriding Methods in Your Subclass
+
+It's surprising how much you can do with just `app.js` configuration and a few overridden templates. But sometimes you'll want to go beyond that. Maybe you need more than just `index` and `show` views of your content type. Or maybe you need to enhance the criteria by which items are fetched from MongoDB, adding more filters for instance.
+
+To do so, you'll need to add a `/lib/modules/stories/index.js` file, in which you implement a manager object for your content type. Fortunately this isn't hard, because we provide tools to make it easier to subclass the manager object of `apostrophe-snippets`.
+
+A bare-bones `index.js` looks like this:
 
 ```javascript
 var _ = require('underscore');
-var snippets = require('apostrophe-snippets');
 
-module.exports = blog;
+module.exports = stories;
 
-function blog(options, callback) {
-  return new blog.Blog(options, callback);
+function stories(options, callback) {
+  return new stories.Stories(options, callback);
 }
 
-blog.Blog = function(options, callback) {
-  ...
-}
+stories.Stories = function(options, callback) {
+  var self = this;
+
+  module.exports.Super.call(this, options, null);
+
+  if (callback) {
+    process.nextTick(function() { return callback(null); });
+  }
+};
 ```
 
-By setting `module.exports` to a function that invokes the constructor, we provide a convenient way to invoke it directly, as shown earlier. By attaching the constructor to that function as a property, we provide a way to access it from another module if we wish to subclass the blog.
+This is just enough code to:
 
-Now let's delve into the `blog.Blog` constructor function. The first step is to capture `this` into a variable called `self`, so that we can always access it even if `this` changes in the context of a callback:
+* Provide a "factory function" that creates our manager object
+* Provide a constructor for the manager object
+* Save `this` in a variable called `self` inside our closure, so we can always find the right `this` in callbacks
+* Invoke the constructor of the superclass via `module.exports.Super`
+* Invoke a callback to allow Apostrophe to continue starting up.
 
-```javascript
-var self = this;
-```
+*Before* the `module.exports.Super` call, you may modify the `options` object. Typically you'll just set your options in `app.js`, but you may find it convenient to modify them here.
 
-By nesting all of our other functions and methods inside this constructor we ensure that they can all see `self`.
+*If you are writing an npm module to share with the community*, you'll need to explicitly require your superclass module and invoke its constructor. `module.exports.Super` is a special convenience that only works at project level. Check out how the blog module does it.*
 
-Next we'll need to call the constructor for the snippets module so that we can inherit its behavior. (Other programming languages call this "invoking the base class constructor" or something similar.) But first we'll alter some of its options so that the snippets module manipulates and talks about blog posts instead of snippets. Note, however, that we use the `_.defaults` method to achieve this. This ensures that we don't interfere if the options have already been set, either at the project level (`app.js`) or by a subclass of the blog module (yes, you can subclass a subclass).
-
-```javascript
-_.defaults(options, {
-  instance: 'blogPost',
-  name: options.name || 'blog',
-  label: options.name || 'Blog',
-  // Don't specify an icon unless it is actually present in the icon font
-  // (TODO: make it easier for third parties to add icons)
-  icon: false,
-  // The default would be aposBlogPostMenu, this is more natural
-  menuName: 'aposBlogMenu'
-});
-
-options.modules = (options.modules || []).concat([ { dir: __dirname, name: 'blog' } ]);
-```
-
-`_.defaults` is simple enough, but what is all this `options.modules` business? `options.modules` is a list containing information about all of the parent classes of our subclass, so that the snippets module can deliver all of the necessary CSS and JavaScript assets to the browser. Each entry in the array has a `dir` property and a `name` property. The `name` property should match the `name` option. The `name` option will be overridden if someone subclasses our blog, but every subclass just adds more elements to the `modules` array so that information about all of the parent classes is available.
-
-### Instance Types: Carving Out Our Own Content Type
-
-The `instance` option is the most important decision we'll make.
-
-Is our goal simply to offer another choice of page type that presents snippets differently, drawing from the same pool of content?
-
-Or do we want a separate collection entirely, one that does not show up when managing regular snippets?
-
-For a blog, we want the latter: a separate collection of our own, just for blog articles, with its own admin menu.
-
-To achieve that, we set the `instance` option, changing the default setting (`snippet`) to our own setting (`blogPost`).
-
-When we create a subclass of snippets with its own instance type, we become responsible for providing an admin menu for that type. We'll do that in our own version of the `menu.html` template, overriding the default version in the snippets module, as explained below.
-
-### Custom Templates For Our Subclass
-
-We'll want to override some or all of the nunjucks templates provided with the snippets module. To do that, we'll add a `views` folder to our own module (whether it lives in npm or in a lib/modules folder).
-
-To enable that, we'll set the `dirs` option before calling the parent class constructor:
-
-```javascript
-// Find our templates before the snippet templates (a chain of overrides)
-options.dirs = (options.dirs || []).concat([ __dirname ]);
-```
-
-This code ensures that the snippet templating engine will look for templates in our own module's `views/` subdirectory before it checks the `views/` subdirectory of the `apostrophe-snippets` module. Notice that we take care to put our own directory after any directories supplied to us as options. This allows our own module to be subclassed, or just tweaked a little at the project level at the time it is initialized.
-
-Now we can have our own `views/index.html`, `views/show.html` and `views/widget.html` templates.
-
-Since the instance type is different, we will also want new `views/menu.html`, `views/new.html`, `views/edit.html` and `views/manage.html` templates. The `menu` template presents the admin dropdown menu with options such as "new article" and "manage articles." The `new` template presents the modal dialog for creating a new article. And the `edit` template presents the modal dialog for editing an existing article. The `edit` template extends the `new` template to avoid redundancy. And both make heavy use of `snippetMacros.html` which offers conveniences for rendering each type of field in a form.
-
-The `manage` template displays a list view of all snippets, with filters and (soon) pagination, allowing the user to edit or delete them as needed.
-
-*You must edit each of these templates to use the right CSS class names based on your instance type.* Follow the pattern in the existing templates for snippets.* For instance, `apos-manage-snippet` becomes `apos-manage-blog-post`.
-
-*It is important to note that adding a new field in these templates does not mean it will automatically be sent by the browser or saved by the server.* We'll address that a little further on below under "adding new properties to your snippets."
+*After* the `module.exports.Super` call, but *before* the callback, you can override methods. And we'll look at examples of that in a moment.
 
 ### Snippets = pages outside the main page tree
 
-This is a good time to explain how snippets are actually stored. Snippets are really nothing more than objects in the `aposPages` MongoDB collection, with the `type` property set to `snippet` and a slug that *does not* begin with a `/`, so that they don't appear directly as part of the page tree. Since they exist outside of the page tree, they don't have `rank` or `path` properties. In other respects, though, they are much like regular pages, which means they have a `title` property and an `areas` property containing rich content areas as subproperties. In addition, they can have properties that are unique to snippets.
+This is a good time to mention how snippets are actually stored. Snippets are really nothing more than objects in the `aposPages` MongoDB collection, with the `type` property set to `snippet` (the `instance` property of the content type) and a slug that *does not* begin with a `/`, so that they don't appear directly as part of the page tree. Since they exist outside of the page tree, they don't have `rank` or `path` properties. In other respects, though, they are much like regular pages, which means they have a `title` property and an `areas` property containing rich content areas as subproperties. In addition, they can have properties that are unique to snippets.
 
 Since snippets are pages, we can leverage all the capabilities already baked into Apostrophe to manage pages. In particular, the `getPage` and `putPage` methods are used to retrieve and store pages. Those methods check permissions, take care of version control, implement search indexing and perform other tasks common to snippets and regular pages.
-
-### Invoking the Base Class Constructor
-
-Now that we've set up our options, it's time to invoke the snippet module's constructor so that we can inherit everything it does for us. Then, after doing additional work, we should invoke the callback if any.
-
-```javascript
-// Call the base class constructor. Don't pass the callback, we want to invoke it
-// ourselves after constructing more stuff
-snippets.Snippets.call(this, options, null);
-
-... do more work here, as described in the following sections ...
-
-if (callback) {
-  process.nextTick(function() { return callback(null); });
-}
-```
-
-"What is this `.call` business about?"
-
-`snippets.Snippets` refers to the constructor function for the `apostrophe-snippets` module. JavaScript's `call` keyword is a special syntax that means "invoke this function as if it were a method of the first argument passed to `call`." By passing `this` as the first argument to `call`, we ensure that the snippet module's constructor's `this` is the same object as our own `this`.
-
-In English, that means that we get all the methods of the snippets module in our own module, for free. And now we can start overriding and extending them.
 
 ### Customizing the dispatcher: handling URLs differently
 
@@ -391,435 +692,7 @@ self.dispatch = function(req, callback) {
 
 Here we stash the original method in the variable `superDispatch`, then use the `call` keyword to invoke it as if it were still a method.
 
-This is an important technique because in many cases we do need the default behavior of the original method and we don't want to completely override it. When you completely override something you become responsible for keeping track of any changes in the original method. It's better to override as little as possible.
-
-### The Page Loader Function
-
-The dispatcher is called from a page loader function built in to the snippets module. Page loader functions implement the listener pattern and are given a chance to intervene when pages in the page tree are retrieved by the `apostrophe-pages` module. See the `apostrophe-pages` module for more information about page loader functions in general.
-
-All you need to know right now is that you must add this page loader function to the `load` option passed when configuring `apostrophe-pages` in `app.js`:
-
-```javascript
-load: [
-  // Load the global virtual page with things like the shared footer
-  'global',
-  // Custom loaders for snippets and their derivatives
-  snippets.loader,
-  blog.loader, ...
-]
-```
-
-### Adding New Properties To Your Snippets
-
-#### Using Schemas
-
-*There is a very easy way to do this.* Snippets now support a simple JSON format for creating a schema of fields. Both the browser side and the server side understand this, so all you have to do is add them to the dialogs as described below and set up the schema. You can still do it the hard way, however, if you need custom behavior.
-
-Here is a super-simple example of a project-level subclass of the people module (itself a subclass of snippets) that adds new fields painlessly. Here I assume you are using `apostrophe-site` to configure your site:
-
-```javascript
-... Configuring other modules ...
-'apostrophe-people': {
-  addFields: [
-    {
-      name: 'workPhone',
-      type: 'string'
-    },
-    {
-      name: 'workFax',
-      type: 'string'
-    },
-    {
-      name: 'department',
-      type: 'string'
-    },
-    {
-      name: 'isRetired',
-      type: 'boolean'
-    },
-    {
-      name: 'isGraduate',
-      type: 'boolean'
-    },
-    {
-      name: 'classOf',
-      type: 'string'
-    },
-    {
-      name: 'location',
-      type: 'string'
-    }
-  ]
-}, ... more modules ...
-```
-
-#### What Field Types Are Available?
-
-Currently:
-
-`string`, `boolean`, `integer`, `float`, `select`, `url`, `area`, `singleton`
-
-Except for `area`, all of these types accept a `def` option which provides a default value if the field's value is not specified.
-
-The `integer` and `float` types also accept `min` and `max` options and automatically clamp values to stay in that range.
-
-The `select` type accepts a `choices` option which should contain an array of objects with `value` and `label` properties.
-
-When using the `area` and `singleton` types, you may include an `options` property which will be passed to that area or singleton exactly as if you were passing it to `aposArea` or `aposSingleton`.
-
-When using the `singleton` type, you must always specify `widgetType` to indicate what type of widget should appear.
-
-Joins are also supported (see below).
-
-### Adding Properties to the New and Edit Dialogs
-
-You are still responsible for adding each field to your override of `new.html` so that it can be edited. However, you do not need to supply the choices for a property of type `select` The schema will fill those in for you.
-
-First copy `new.html` and `edit.html` from the `view` folder of the snippets module to your own module's `view` folder. Then add the new fields in `new.html`, like this:
-
-```twig
-{{ snippetText('publicationDate', 'Publication Date') }}
-```
-
-Note that the name of each property must match the name you gave it in the schema. weLikeMongoDb, soPleaseUseIntercap, not-hyphens_or_underscores.
-
-See `snippetMacros.html` for all of the available convenience macros for adding fields. See also `formMacros.html` for the details.
-
-Note that you do not need to supply any arguments that can be inferred from the schema, such as the `choices` list for a `select` property, or the type of a singleton. The real initialization work happens in browser-side JavaScript powered by the schema.
-
-*We don't have to explicitly add these properties to `edit.html`* as it automatically extends `new.html`.
-
-#### Altering Existing Fields
-
-There is also an `alterFields` option available. This must be a function which receives the fields array as its argument and modifies it. Use this when you need to change fields already configured for you by the module you are extending. It is possible to remove the `body` and `thumbnail` areas in this way.
-
-#### Search and Schema Fields
-
-By default, all schema fields of type `string` or `select` are included in the search index. You can shut this off by setting the `search` option to `false` for a particular field. You can also reduce the search index weight of the field by setting `weight` to a lower value. The built-in search engine prioritizes results with a weight greater than `10` over "plain old rich text." By default the weight for schema fields is `15`.
-
-Actually displaying your field as part of the summary shown when a snippet qualifies as a search result is usually not desirable, so by default this is not done. However you can include it in the summary text by setting the `silent` option to `false`.
-
-### Joins in Schemas
-
-You may use the `join` type to automatically pull in related objects from this or another module. Typical examples include fetching events at a map location, or people in a group. This is very cool.
-
-*"Aren't joins bad? I read that joins were bad in some NoSQL article."*
-
-Short answer: no.
-
-Long answer: sometimes. Mostly in so-called "webscale" projects, which have nothing to do with 99% of websites. If you are building the next Facebook you probably know that, and you'll denormalize your data instead and deal with all the fascinating bugs that come with maintaining two copies of everything.
-
-Of course you have to be smart about how you use joins, and we've included options that help with that.
-
-##### One-To-One Joins
-
-In your configuration for the events module, you might write this:
-
-```javascript
-'apostrophe-events': {
-  addFields: [
-    {
-      name: '_location',
-      type: 'joinByOne',
-      withType: 'mapLocation',
-      idField: 'locationId'
-    }
-  ]
-}
-```
-
-And in your override of `new.html` you'll need to provide a select element to pick the location:
-
-```twig
-{{ snippetSelective('_location', 'Location') }}
-```
-
-Now the user can pick a map location for an event. And anywhere the event is used on the site, you'll be able to access the map location as the `_location` property. Here's an example of using it in a Nunjucks template:
-
-```twig
-{% if item._location %}
-  <a href="{{ item._location.url | e }}">Location: {{ item._location.title | e }}</a>
-{% endif %}
-```
-
-The id of the map location "lives" in the `location_id` property of each event, but you won't have to deal with that directly.
-
-*Always give your joins a name starting with an underscore.* This warns Apostrophe not to store this information in the database permanently where it will just take up space, then get re-joined every time anyway.
-
-##### Reverse Joins
-
-This is awesome. But what about the map module? Can we see all the events in a map location?
-
-Yup:
-
-```javascript
-'apostrophe-map': {
-  addFields: [
-    {
-      name: '_events',
-      type: 'joinByOneReverse',
-      withType: 'event',
-      idField: 'locationId'
-    }
-  ]
-}
-```
-
-Now, in the `show` template for the map module, we can write:
-
-```twig
-{% for event in item._events %}
-  <h4><a href="{{ event.url | e }}">{{ event.title | e }}</a></h4>
-{% endfor %}
-```
-
-"Holy crap!" Yeah, it's pretty cool.
-
-Note that the user always edits the relationship on the "owning" side, not the "reverse" side. The event has a `location_id` property pointing to the map, so users pick a map location when editing an event, not the other way around.
-
-##### Nested Joins: You Gotta Be Explicit
-
-*"Won't this cause an infinite loop?"* When an event fetches a location and the location then fetches the event, you might expect an infinite loop to occur. However Apostrophe does not carry out any further joins on the fetched objects unless explicitly asked to.
-
-*"What if my events are joined with promoters and I need to see their names on the location page?"* If you really want to join two levels deep, you can "opt in" to those joins:
-
-```javascript
-'apostrophe-map': {
-  addFields: [
-    {
-      name: '_events',
-      ...
-      withJoins: [ '_promoters' ]
-    }
-  ]
-}
-```
-
-This assumes that `_promoters` is a join you have already defined for events.
-
-*"What if my joins are nested deeper than that and I need to reach down several levels?"*
-
-You can use "dot notation," just like in MongoDB:
-
-```javascript
-withJoins: [ '_promoters._assistants' ]
-```
-
-This will allow events to be joined with their promoters, and promoters to be joiend with their assistants, and there the chain will stop.
-
-You can specify more than one join to allow, and they may share a prefix:
-
-```javascript
-withJoins: [ '_promoters._assistants', '_promoters._bouncers' ]
-```
-
-Remember, each of these joins must be present in the configuration for the appropriate module.
-
-#### Many-To-Many Joins
-
-Events can only be in one location, but stories can be in more than one book, and books also contain more than one story. How do we handle that?
-
-Consider this configuration for a `books` module:
-
-```javascript
-'books': {
-  ... other configuration, probably subclassing snippets ...
-  addFields: [
-    {
-      name: '_stories',
-      type: 'joinByArray',
-      withType: 'story',
-      idsField: 'storyIds',
-      sortable: true
-    }
-  ],
-}
-```
-
-And, in `new.html` for our books module:
-
-```twig
-{{ snippetSelective('_stories', 'Stories', {
-  placeholder: 'Type Title Here'
-}) }}
-```
-
-`snippetSelective` lets users select multiple stories, with autocomplete of the titles.
-
-Now we can access all the stories from the show template for books (or the index template, or pretty much anywhere):
-
-```twig
-<h3>Stories</h3>
-{% for story in item._stories %}
-  <h4><a href="{{ story.url | e }}">{{ story.title | e }}</a></h4>
-{% endfor %}
-```
-
-*Since we specified `sortable:true`*, the user can also drag the list of stories into a preferred order. The stories will always appear in that order in the `._stories` property when examinining a book object.
-
-*"Many-to-many... sounds like a LOT of objects. Won't it be slow and use a lot of memory?"*
-
-It's not as bad as you think. Apostrophe typically fetches only one page's worth of items at a time in the index view, with pagination links to view more. Add the objects those are joined to and it's still not bad, given the performance of v8.
-
-But sometimes there really are too many related objects and performance suffers. So you may want to restrict the join to occur only if you have retrieved only *one* book, as on a "show" page for that book. Use the `ifOnlyOne` option:
-
-```javascript
-'stories': {
-  addFields: [
-    {
-      name: '_books',
-      withType: 'book',
-      ifOnlyOne: true
-    }
-  ]
-}
-```
-
-Now any call to fetch books that retrieves only one object will carry out the join with stories. Any call that returns more than one object won't. You don't have to specifically call `books.getOne` rather than `books.get`.
-
-Hint: in index views of many objects, consider using AJAX to load related objects when the user indicates interest if you don't want to navigate to a new URL in the browser.
-
-#### Reverse Many-To-Many Joins
-
-We can also access the books from the story if we set the join up in the stories module as well:
-
-```javascript
-'stories': {
-  ... other needed configuration, probably subclassing snippets ...
-  addFields: [
-    {
-      name: '_books',
-      type: 'joinByArrayReverse',
-      withType: 'book',
-      idsField: 'storyIds'
-    }
-  ]
-}
-```
-
-Now we can access the `._books` property for any story. But users still must select stories when editing books, not the other way around.
-
-#### When Relationships Get Complicated
-
-What if each story comes with an author's note that is specific to each book? That's not a property of the book, or the story. It's a property of *the relationship between the book and the story*.
-
-If the author's note for every each appearance of each story has to be super-fancy, with rich text and images, then you should make a new module that subclasses snippets in its own right and just join both books and stories to that new module.
-
-But if the relationship just has a few simple attributes, there is an easier way:
-
-```javascript
-'books': {
-  ... other needed configuration, probably subclassing snippets ...
-  addFields: [
-    {
-      name: '_stories',
-      type: 'joinByArray',
-      withType: 'story',
-      idsField: 'storyIds',
-      relationshipField: 'storyRelationships',
-      relationship: [
-        {
-          name: 'authorsNote',
-          type: 'string'
-        }
-      ],
-      sortable: true
-    }
-  ]
-}
-```
-
-And, in `new.html`:
-
-```twig
-{{ snippetSelective('_stories', 'Stories', {
-    placeholder: 'Type Title Here',
-    relationship: {
-      'authorsNote': {
-        label: "Author's Note",
-      }
-    }
-}) }}
-  ```
-
-Currently "relationship" properties can only be of type `string` (for text), `select` or `boolean` (for checkboxes). Otherwise they behave like regular schema properties.
-
-*Warning: the relationship field names `label` and `value` must not be used.* These names are reserved for internal implementation details.
-
-Form elements to edit relationship fields appear next to each entry in the list when adding stories to a book. So immediately after adding a story, you can edit its author's note.
-
-Once we introduce the `relationship` option, our templates have to change a little bit. The `show` page for a book now looks like:
-
-```twig
-{% for story in item._stories %}
-  <h4>Story: {{ story.item.title | e }}</h4>
-  <h5>Author's Note: {{ story.relationship.authorsNote | e }}</h5>
-{% endfor %}
-```
-
-Two important changes here: *the actual story is `story.item`*, not just `story`, and `relationship fields can be accessed via `story.relationship`*. This change kicks in when you use the `relationship` option.
-
-Doing it this way saves a lot of memory because we can still share book objects between stories and vice versa.
-
-#### Accessing Relationship Properties in a Reverse Join
-
-You can do this in a reverse join too:
-
-```javascript
-'stories': {
-  ... other needed configuration, probably subclassing snippets ...
-  addFields: [
-    {
-      name: '_books',
-      type: 'joinByArrayReverse',
-      withType: 'book',
-      idsField: 'storyIds',
-      relationshipField: 'storyRelationships',
-      relationship: [
-        {
-          name: 'authorsNote',
-          type: 'string'
-        }
-      ]
-    }
-  ]
-}
-```
-
-Now you can write:
-
-```twig
-{% for book in item._books %}
-  <h4>Book: {{ book.item.title | e }}</h4>
-  <h5>Author's Note: {{ book.relationship.authorsNote | e }}</h5>
-{% endfor %}
-```
-
-As always, the relationship fields are edited only on the "owning" side (that is, when editing a book).
-
-*"What is the `relationshipField` option for? I don't see `story_relationships` in the templates anywhere."*
-
-Apostrophe stores the actual data for the relationship fields in `story_relationships`. But since it's not intuitive to write this in a template:
-
-```twig
-{# THIS IS THE HARD WAY #}
-{% for story in book._stories %}
-  {{ story.item.title | e }}
-  {{ book.story_relationships[story._id].authorsNote | e }}
-{% endif %}
-```
-
-Apostrophe instead lets us write this:
-
-```twig
-{# THIS IS THE EASY WAY #}
-{% for story in book._stories %}
-  {{ story.item.title | e }}
-  {{ story.relationship.authorsNote | e }}
-{% endif %}
-```
-
-*Much better.*
+This is an important technique because in many cases we do need the default behavior of the original method and we don't want to completely override it. When you completely override something you become responsible for keeping track of any changes in the original method. **It's better to override as little as possible.**
 
 ### Adding Custom Properties Without Schemas
 
@@ -837,7 +710,7 @@ Blog posts have a property that regular snippets don't: a publication date. A bl
 
 ### Sending Extra Properties to the Server: Subclassing on the Browser Side
 
-*NOTE: you can skip this if you use the `addFields` option as described earlier.*
+*NOTE: you can skip this if you are using schemas. You really want to use schemas if they support your field type.*
 
 Next we'll need to send our extra properties to the server when a snippet is saved. Until this point all of the code we've looked at has been on the server side. But of course snippets also have browser-side JavaScript code to implement the "new," "edit" and "manage" dialogs. You can find that code in `apostrophe-snippets/public/js/editor.js`.
 
@@ -958,7 +831,8 @@ There are other methods you can override or extend. `addingToManager` is called 
 
 The following methods are convenient for manipulating snippet objects:
 
-`self.get(req, criteria, options, callback)`, as described earlier, retrieves snippets.
+`self.get(req, criteria, options, callback)`, as described earlier, retrieves snippets. `self.getOne` takes the same arguments but invokes its callback with just one result, or null, as the second argument.
+
 `self.putOne(req, oldSlug, snippet, callback)` inserts or updates a single snippet. If you are not potentially changing the slug you can skip the `oldSlug` argument.
 
 These methods respect the permissions of the current user and won't allow the user to do things they are not allowed to do. They should be used in preference to directly manipulating the `self._apos.pages` collection in most cases.
@@ -973,9 +847,7 @@ The answer is that the snippet module pushes them there for us:
 
 ```javascript
 self.pushAsset('script', 'editor');
-self.pushAsset('stylesheet', 'editor');
 self.pushAsset('script', 'content');
-self.pushAsset('stylesheet', 'content');
 self.pushAsset('template', 'new');
 self.pushAsset('template', 'edit');
 self.pushAsset('template', 'manage');
@@ -986,7 +858,11 @@ As explained in the documentation of the main `apostrophe` module, the `pushAsse
 
 So you don't need to worry about delivering any of the above files (`editor.js`, `editor.less`, `content.js`, `content.less`, `new.html`, `edit.html`, `manage.html`, and `import.html`). But if you wish to push additional browser-side assets as part of every page request, now you know how.
 
+You can also push stylesheets by passing the `stylesheet` type as the first argument. Your stylesheets should be in `.less` files in the `public/css` subdirectory of your module. Be sure to take advantage of LESS; it's pretty brilliant. But plain old CSS is valid LESS too.
+
 ### Saving Extra Properties on the Server
+
+*Remember, this is the hard way, just use `addFields` if you can.*
 
 Now that we've introduced extra properties, and seen to it that they will be included when a new blog post is sent to the server, we need to enhance our server-side code a little to receive them.
 
@@ -1084,90 +960,35 @@ Here we extend `addApiCriteria` to explicitly include posts whose publication da
 
 "Great, now I know how to subclass snippets in a big way. But all I want to do is present blog posts a little differently if my user picks the 'press releases' page type. What's the absolute minimum I have to do?"
 
-Fair question. You still need to subclass snippets (or, in this case, subclass the blog which is a subclass of snippets; it works the same way). But you don't have to do everything. Here's how we subclass the blog module in one of our projects to introduce a separate page type for "press releases." All we wanted was an index page that displays regualr blog posts a little bit differently:
+Fair question. You can do it like this, in `app.js` where you configure modules:
 
 ```javascript
-// First initialize the blog. You must do this first. These functions are called in sequence via async.series
-
-function initAposBlog(callback) {
-  blog = require('apostrophe-blog')({
-    apos: apos,
-    pages: pages,
-    app: app,
-    widget: true,
-    dirs: [ __dirname+'/overrides/apostrophe-blog' ]
-  }, callback);
-}
-
-// Now initialize press releases
-
-function initAposPressReleases(callback) {
-  pressReleases = require('./lib/modules/pressReleases/index.js')({
-    apos: apos,
-    pages: pages,
-    app: app,
-    widget: true,
-    dirs: [ __dirname+'/lib/modules/pressReleases/views' ],
-    browser: {
-      construct: 'PressReleases'
-    },
-    // No special widget for press releases
-    widget: false
-  }, callback);
-}
-```
-
-Here's `lib/modules/pressReleases/index.js`:
-
-```javascript
-var _ = require('underscore');
-var blog = require('apostrophe-blog');
-
-module.exports = pressReleases;
-
-function pressReleases(options, callback) {
-  return new pressReleases.PressReleases(options, callback);
-}
-
-pressReleases.PressReleases = function(options, callback) {
-  var self = this;
-  _.defaults(options, {
-    instance: 'blogPost',
-    name: options.name || 'pressReleases',
-    label: options.name || 'Press Releases',
-    icon: false,
-    webAssetDir: __dirname
-  });
-
-  blog.Blog.call(this, options, null);
-
-  if (callback) {
-    process.nextTick(function() { return callback(null); });
+modules: {
+  sweet: {
+    extend: 'apostrophe-blog'
+  },
+  savory: {
+    extend: 'apostrophe-blog'
   }
-};
-```
-
-Don't forget to register the page loader function in `app.js` where you configure the `apostrophe-pages` module:
-
-```javascript
-load: [
-  ...
-  snippets.loader,
-  blog.loader,
-  pressReleases.loader
-]
-```
-
-We also need a bare-bones `lib/modules/pressReleases/public/js/editor.js` file on the browser side:
-
-```javascript
-function PressReleases(options) {
-  var self = this;
-  AposBlog.call(self, options);
 }
 ```
 
-That's it! Now we can copy the regular blog module `index.html` and `show.html` files to our module's `views` folder and modify them as much as we like. If the user picks "Press Releases" rather than "Blog," they'll see our customized treatment of the index and show pages. Since we are using the same instance type as the regular "Blog" page type, we don't have to provide a new admin menu or a separate snippet for reuse around the site.
+Add both page types as well:
+
+```javascript
+  pages: {
+    types: [
+      { name: 'default', label: 'Default (Two Column)' },
+      { name: 'home', label: 'Home Page' },
+      { name: 'sweet', label: 'Sweet-Styled Blog' },
+      { name: 'savory', label: 'Savory-Styled Blog' },
+    ]
+  }, ... more configuration ...
+```
+
+Now create `index.html` and `show.html` files in `lib/modules/sweet/views` and `lib/modules/savory/views`.
+
+Now you can create pages with either type. They will draw from the same pool of content (the "Articles" menu), but you can lock down the pages to display articles with particular tags.
 
 ### RSS Feed Options
 
@@ -1175,32 +996,36 @@ The RSS feed feature can be configured via the `feed` option when configuring th
 
 To shut off the feed entirely for snippets or any subclass of snippets, set `feed` to `false`.
 
-The following additional options are supported. Note that the title of the feed is normally set quite well already based on the title of your site (if you are using `apostrophe-site`) and the title of the index page.
+The following RSS-related options are supported and can be passed to any module derived from snippets. Note that the title of the feed is normally set quite well already based on the title of your site (if you are using `apostrophe-site`) and the title of the index page.
 
 ```javascript
-feed: {
-  // Separates the site title and the page title to autogenerate a feed title
-  titleSeparator: ' - ',
+modules: {
+  'apostrophe-blog': {
+    feed: {
+      // Separates the site title and the page title to autogenerate a feed title
+      titleSeparator: ' - ',
 
-  // Hard code the title of the feed
-  title: 'This is the title of the feed, no matter what',
+      // Hard code the title of the feed
+      title: 'This is the title of the feed, no matter what',
 
-  // Change the prefix but still append the page title after that
-  titlePrefix: 'Prepend this to the title of the page to title the feed: ',
+      // Change the prefix but still append the page title after that
+      titlePrefix: 'Prepend this to the title of the page to title the feed: ',
 
-  // By default we show the thumbnail, if the snippet has one
-  thumbnail: true,
+      // By default we show the thumbnail, if the snippet has one
+      thumbnail: true,
 
-  // By default we show the first image in the body, if the snippet has no thumbnail
-  alternateThumbnail: true,
+      // By default we show the first image in the body, if the snippet has no thumbnail
+      alternateThumbnail: true,
 
-  // By default we show the rich text of a snippet in its entirety, although only one
-  // image if any. If you set this true you'll get plaintext only
-  summary: true,
+      // By default we show the rich text of a snippet in its entirety, although only one
+      // image if any. If you set this true you'll get plaintext only
+      summary: true,
 
-  // By default we show the entire plaintext when summary is true. Use this option
-  // to limit the character count
-  characters: 1000
+      // By default we show the entire plaintext when summary is true. Use this option
+      // to limit the character count
+      characters: 1000
+    }
+  }
 }
 ```
 

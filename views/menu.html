@@ -1,12 +1,12 @@
 {% if edit %}
 
 <ul class="apos-admin-bar-item apos-accordion-menu">
-  <li class="apos-accordion-title"><i class="icon-snippets"></i> Snippets</li>
+  <li class="apos-accordion-title"><i class="{{ menuIcon }}"></i> {{ pluralLabel }}</li>
   <li class="apos-accordion-items">
     <ul class="apos-page-bar">
-      <li href="#" class="apos-control apos-accordion-item apos-button apos-new-button apos-new-snippet-button" data-new-snippet>New Snippet</li>
-      <li href="#" class="apos-control apos-accordion-item apos-button apos-manage-button apos-manage-snippet-button" data-manage-snippet>Manage Snippets</li>
-      <li href="#" class="apos-control apos-accordion-item apos-button apos-manage-button apos-manage-snippet-button" data-import-snippet>Import Snippets</li>
+      <li href="#" class="apos-control apos-accordion-item apos-button apos-new-button apos-new-snippet-button" {{ newButtonData }}>New {{ instanceLabel }}</li>
+      <li href="#" class="apos-control apos-accordion-item apos-button apos-manage-button apos-manage-snippet-button" {{ manageButtonData }}>Manage {{ pluralLabel }}</li>
+      <li href="#" class="apos-control apos-accordion-item apos-button apos-manage-button apos-manage-snippet-button" {{ importButtonData }}>Import {{ pluralLabel }}</li>
     </ul>
   </li>
 </ul>

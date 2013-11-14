@@ -356,7 +356,6 @@ function AposSnippets(options) {
           }
           selectiveData.push(datum);
         });
-        apos.log(selectiveData);
         $field.selective({ preventDuplicates: true, sortable: field.sortable, extras: !!field.relationship, data: selectiveData, source: aposPages.getManager(field.withType)._action + '/autocomplete' });
         return callback();
       },
@@ -670,6 +669,7 @@ function AposSnippets(options) {
       $el = apos.modalFromTemplate('.apos-import-' + self._css, {
         init: function(callback) {
           // The file upload's completion will trigger the import operation
+          $el.find('[name="file"]').attr('data-url', self._action + '/import');
           $el.find('[data-action="save"]').remove();
           $el.find('[name="file"]').fileupload({
             maxNumberOfFiles: 1,

@@ -1,5 +1,6 @@
 {% include 'formMacros.html' %}
-<div class="apos-template apos-page-settings-snippets">
-{{ formTags('tags', 'Show Snippets Tagged:') }}
+<div class="apos-template {{ pageSettingsClass }}">
+{% set label = 'Show ' + pluralLabel + ' Tagged:' %}
+{{ formTags('tags', label) }}
 {{ formTags('notTags', 'But Not Tagged:') }}
 </div>

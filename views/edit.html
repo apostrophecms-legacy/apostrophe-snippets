@@ -2,22 +2,20 @@
 
 {% include "snippetMacros.html" %}
 
-{% block class %}apos-edit-snippet{% endblock %}
+{% block class %}{{ editClass }}{% endblock %}
 
-{% block label %}Edit Snippet{% endblock %}
+{% block label %}Edit {{ instanceLabel }}{% endblock %}
 
 {% block topButtons %}
 {{ snippetEditButtons() }}
 {% endblock %}
 
 {% block slug %}
-  {# Snippet permalink pages are rarely used directly, so we don't #}
-  {# usually allow snippet slugs to be edited. Just provide a hidden #}
-  {# field so the JS that syncs slug edits can work... #}
-  <input type="hidden" name="slug" />
-
-  {# But for most modules extending this module you'd want an editable slug, like this #}
-  {# {{ snippetText('slug', 'Slug') }} #}
+  {# True, snippet pages aren't used often, but almost everything derived #}
+  {# from snippets displays a slug in a URL at some point, so the default #}
+  {# template should feature this field. It can be hidden by CSS for the #}
+  {# true snippets but must be present, otherwise javascript will be unhappy #}
+  {{ snippetText('slug', 'Slug') }}
 {% endblock %}
 
 {% block buttons %}

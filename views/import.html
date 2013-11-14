@@ -1,14 +1,20 @@
-<div class="apos-modal apos-template apos-import-snippet">
-  <h3>{% block action %}Import Snippets{% endblock %}</h3>
+<div class="apos-modal apos-template {{ importClass }}">
+  <h3>{% block action %}Import {{ label }}{% endblock %}</h3>
   <div class="apos-modal-body">
     <form>
       <fieldset class="apos-fieldset apos-fieldset-singleton">
         <label>CSV File</label>
         {# Blueimp makes this go #}
-        <input data-url="/apos-snippets/import" type="file" name="file" />
+        <input type="file" name="file" />
       </fieldset>
       <p>
-        This form accepts a CSV file which should have the following headings: <code>title</code>, <code>body</code>, and <code>tags</code>. Tags are comma-separated. Categories is currently accepted as a synonym for tags. The body column is imported as plain text. Any additional headings are politely ignored. <strong>Please note that duplicates are not detected.</strong> If you import duplicates you may need to remove them manually.
+        This form accepts a CSV file which may have the following headings: <code>title</code>, <code>tags</code>, <code>published</code>
+        {%- for field in fields -%}
+          {%- if (field.type != 'singleton') and (not aposBeginsWith(field.type, 'join')) -%}
+            , {{ field.name }}
+          {%- endif -%}
+        {%- endfor -%}.
+        Tags in the tags field should be comma-separated. Any unrelated headings are politely ignored. <strong>Please note that duplicates are not detected.</strong> If you import duplicates you may need to remove them manually.
       </p>
     </form>
   </div>
