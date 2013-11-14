@@ -6,7 +6,7 @@
   * [Inserting the Snippets Admin Menu](#inserting-the-snippets-admin-menu)
   * [Enabling Snippets As A Page Type](#enabling-snippets-as-a-page-type)
 * [Creating Your Own Content Types](#creating-your-own-content-types-subclassing-snippets)
-  * [Configuring New Content Types](#your-custom-content-type-the-server-side)
+  * [Configuring New Content Types](#configuring-new-content-types)
   * [Custom Templates](#custom-templates)
   * [Adding New Properties To Your Snippets Using the Schema](#adding-new-properties-to-your-snippets-using-the-schema)
   * [Advanced Techniques: Overriding Methods in Your Subclass](#advanced-techniques-overriding-methods-in-your-subclass)
