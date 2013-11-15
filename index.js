@@ -1091,7 +1091,7 @@ snippets.Snippets = function(options, callback) {
   //
   // options.fetch.tags { parameter: 'tag' }
 
-  self.get = function(req, userCriteria, optionsArg, callback) {
+  self.get = function(req, userCriteria, optionsArg, mainCallback) {
     var options = {};
     var filterCriteria = {};
     var results = null;
@@ -1133,7 +1133,7 @@ snippets.Snippets = function(options, callback) {
     };
 
     return async.series([ query, join, metadata, permalinker ], function(err) {
-      return callback(err, results);
+      return mainCallback(err, results);
     });
 
     function query(callback) {
@@ -1142,6 +1142,11 @@ snippets.Snippets = function(options, callback) {
           return callback(err);
         }
         results = resultsArg;
+        if (!results.pages) {
+          // getDistinct and perhaps other options that do not return actual snippets;
+          // allow the results object through without further processing
+          return mainCallback(null, results);
+        }
         results.snippets = results.pages;
         delete results.pages;
         return callback(null);

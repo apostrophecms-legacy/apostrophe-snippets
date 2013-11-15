@@ -572,8 +572,6 @@ To do so, you'll need to add a `/lib/modules/stories/index.js` file, in which yo
 A bare-bones `index.js` looks like this:
 
 ```javascript
-var _ = require('underscore');
-
 module.exports = stories;
 
 function stories(options, callback) {
