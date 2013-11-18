@@ -161,7 +161,7 @@ We recommend creating your own, additional `storyMacros.html` file and including
 
 *There is a very easy way to do this.* Snippets now support a simple JSON format for creating a schema of fields. Both the browser side and the server side understand this, so all you have to do is add them to the dialogs as described below and set up the schema. You can still do it the hard way, however, if you need custom behavior.
 
-Here is a super-simple example of a project-level subclass of the people module (itself a subclass of snippets) that adds new fields painlessly. Here I assume you are using `apostrophe-site` to configure your site:
+Here is a super-simple example of a project-level subclass of the people module (itself a subclass of snippets) that adds new fields painlessly. Here I assume you are using `apostrophe-site` to configure your site (you should be).
 
 ```javascript
 ... Configuring other modules ...
@@ -224,6 +224,50 @@ When using the `singleton` type, you must always specify `widgetType` to indicat
 
 Joins are also supported (see below).
 
+### Removing Fields
+
+Two fields come standard with snippets: `thumbnail` and `body`. `thumbnail` is a singleton with widget type `slideshow`, and `body` is an area.
+
+If either of these is of no use to you, just remove it:
+
+```javascript
+'my-own-thing': {
+  removeFields: [ 'thumbnail', 'body' ]
+}
+```
+
+### Changing the Order of Fields
+
+You can change the order of fields, for instance to put something above the built-in `body` field:
+
+```javascript
+'apostrophe-people': {
+  orderFields: [ 'year', 'specialness' ]
+}
+```
+
+Any fields you do not specify will appear in the original order, after the last field you do specify (see `removeFields` if you really want a field to go away).
+
+### Altering Fields: The Easy Way
+
+It's easy to replace a field that already exists, such as the "body" field, for instance in order to change its type. Just pass it to `addFields` with the same name as the existing field:
+
+```javascript
+'my-own-thing': {
+  addFields: [
+    {
+      name: 'body',
+      type: 'string',
+      label: 'Body'
+    }
+  ]
+}
+```
+
+#### Altering Fields: The Hard Way
+
+There is also an `alterFields` option available. This must be a function which receives the fields array as its argument and modifies it. Most of the time you will not need this option; see `removeFields`, `addFields` and `orderFields`. It is mostly useful if you want to make one small change to a field that is already rather complicated. Note you must modify the existing array of fields in place.
+
 ### Adding Properties to the New and Edit Dialogs
 
 This is not your problem! The latest versions of the `new.html` and `edit.html` templates invoke `snippetAllFields`, a macro which outputs all of the fields in your schema, in order.
@@ -245,10 +289,6 @@ Note that the name of each property must match the name you gave it in the schem
 See `snippetMacros.html` for all of the available convenience macros for adding fields. See also `formMacros.html` for the details of their implementation.
 
 Note that you do not need to supply any arguments that can be inferred from the schema, such as the `choices` list for a `select` property, or the widget type of a singleton. The real initialization work happens in browser-side JavaScript powered by the schema.
-
-#### Altering Existing Fields
-
-There is also an `alterFields` option available. This must be a function which receives the fields array as its argument and modifies it. Use this when you need to change fields already configured for you by the module you are extending. It is possible to remove the `body` and `thumbnail` areas in this way.
 
 #### Search and Schema Fields
 

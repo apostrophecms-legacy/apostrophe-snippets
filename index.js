@@ -262,11 +262,62 @@ snippets.Snippets = function(options, callback) {
       }
     ];
 
-    // Simple way to add fields to the schema
+    // addFields adds or overrides fields in the schema, preserving its order
     if (options.addFields) {
-      self.convertFields = self.convertFields.concat(options.addFields);
+      var newFields = [];
+      var replacementsMade = {};
+      _.each(self.convertFields, function(field) {
+        var replacement = _.find(options.addFields, function(addField) {
+          return field.name === addField.name;
+        });
+        if (replacement) {
+          newFields.push(replacement);
+          replacementsMade[newFields.name] = true;
+        } else {
+          newFields.push(field);
+        }
+      });
+      _.each(options.addFields, function(field) {
+        if (!replacementsMade[field.name]) {
+          newFields.push(field);
+        }
+      });
+      self.convertFields = newFields;
     }
-    // A function that alters the schema
+
+    // removeFields removes fields from the schema, preserving its order
+    if (options.removeFields) {
+      self.convertFields = _.filter(self.convertFields, function(field) {
+        return !_.contains(options.removeFields, field.name);
+      });
+    }
+
+    // orderFields changes the order of fields. Any fields not specified
+    // go to the end, in their old order (see removeFields). Subclasses
+    // should honor any setting passed by a sub-subclass before their own default
+
+    if (options.orderFields) {
+      var fieldsObject = {};
+      var copied = {};
+      _.each(self.convertFields, function(field) {
+        fieldsObject[field.name] = field;
+      });
+      self.convertFields = [];
+      _.each(options.orderFields, function(name) {
+        if (fieldsObject[name]) {
+          self.convertFields.push(fieldsObject[name]);
+        }
+        copied[name] = true;
+      });
+      _.each(fieldsObject, function(field, name) {
+        if (!copied[name]) {
+          self.convertFields.push(field);
+        }
+      });
+    }
+
+    // alterFields is a custom function that alters the schema. Hopefully
+    // hardly ever used thanks to addFields, removeFields and orderFields
     if (options.alterFields) {
       options.alterFields(self.convertFields);
     }
