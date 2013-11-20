@@ -875,7 +875,7 @@ The following methods are convenient for manipulating snippet objects:
 
 These methods respect the permissions of the current user and won't allow the user to do things they are not allowed to do. They should be used in preference to directly manipulating the `self._apos.pages` collection in most cases.
 
-The `self.putOne` method also invokes a `self.beforePutOne` method, which always receives the parameters `req, oldSlug, snippet, callback`. This is a convenient point at which to update denormalized copies of properties. This method is different from `beforeSave` in that it should be used for all operations in which you want to update a snippet, not just when a user is editing one via the "Manage Snippets" dialog.
+The `self.putOne` method also invokes `self.beforePutOne` method and `self.afterPutOne` methods, which always receive the parameters `req, oldSlug, options, snippet, callback`. This is a convenient point at which to update denormalized copies of properties or perform a sync to other systems. These methods differ from `beforeSave` in that they are used for all operations in which you want to update a snippet, not just when a user is editing one via the "Manage Snippets" dialog or importing them from CSV.
 
 ### Pushing our JavaScript and CSS assets to the browser
 

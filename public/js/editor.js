@@ -65,21 +65,31 @@ function AposSnippets(options) {
       }
     };
 
+    // Populate the editor's fields and invoke the afterPopulatingEditor callback
+    // for easy extension by those not relying on the schema
     self.populateEditor = function($el, snippet, callback) {
       self.populateFields($el, snippet, function() {
         return self.afterPopulatingEditor($el, snippet, callback);
       });
     };
 
+    // Populate all fields specified in the schema and also any custom fields implemented
+    // directly. Used for "new" and "edit"
     self.populateFields = function($el, snippet, callback) {
       apos.enableTags($el.find('[data-name="tags"]'), snippet.tags);
+      return self.populateSomeFields($el, self.convertFields, snippet, callback);
+    };
+
+    // Populate form elements corresponding to a set of fields as specified in a schema
+    // (the convertFields argument). The inverse of self.convertSomeFields
+    self.populateSomeFields = function($el, convertFields, snippet, callback) {
       // This is a workaround for the lack of async.each client side.
       // Think about bringing that into the browser.
       function populateField(i) {
-        if (i >= self.convertFields.length) {
+        if (i >= convertFields.length) {
           return callback(null);
         }
-        var field = self.convertFields[i];
+        var field = convertFields[i];
         // Not all displayers use this
         var $field = $el.findByName(field.name);
         return self.displayers[field.type](snippet, field.name, $field, $el, field, function() {
@@ -87,6 +97,17 @@ function AposSnippets(options) {
         });
       }
       return populateField(0);
+    };
+
+    // Gather data from form elements and push it into properties of the data object,
+    // as specified by the schema provided. The inverse of self.populateSomeFields
+    self.convertSomeFields = function($el, convertFields, data, callback) {
+      _.each(convertFields, function(field) {
+        // This won't be enough for every type of field, so we pass $el too
+        var $field = $el.findByName(field.name);
+        self.converters[field.type](data, field.name, $field, $el, field);
+      });
+      return callback(null);
     };
 
     self.addingToManager = function($el, $snippet, snippet) {
@@ -375,22 +396,17 @@ function AposSnippets(options) {
       };
       data.tags = $el.find('[data-name="tags"]').selective('get');
 
-      // Easy conversion of custom fields, including all areas and singletons
-      _.each(self.convertFields, function(field) {
-        // This won't be enough for every type of field, so we pass $el too
-        var $field = $el.findByName(field.name);
-        self.converters[field.type](data, field.name, $field, $el, field);
+      self.convertSomeFields($el, self.convertFields, data, function() {
+        if (action === 'update') {
+          self.beforeUpdate($el, data, afterAction);
+        } else {
+          self.beforeInsert($el, data, afterAction);
+        }
+        // beforeSave is more convenient in most cases
+        function afterAction() {
+          self.beforeSave($el, data, go);
+        }
       });
-
-      if (action === 'update') {
-        self.beforeUpdate($el, data, afterAction);
-      } else {
-        self.beforeInsert($el, data, afterAction);
-      }
-      // beforeSave is more convenient in most cases
-      function afterAction() {
-        self.beforeSave($el, data, go);
-      }
 
       function go() {
         $.ajax(
@@ -445,7 +461,6 @@ function AposSnippets(options) {
       $el.find('[data-pill] [data-choice]').removeClass('apos-active');
       _.each(self.filters, function(value, filter) {
         $el.find('[data-pill][data-name="' + filter + '"] [data-choice="' + value + '"]').addClass('apos-active');
-        $el.find('[data-pill][data-name="' + filter + '"] [data-choice="' + value + '"]').addClass('woggle');
       });
 
       // Filter clicks

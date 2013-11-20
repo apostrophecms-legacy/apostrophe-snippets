@@ -439,7 +439,11 @@ snippets.Snippets = function(options, callback) {
     };
 
     self.convertAllFields = function(from, data, snippet) {
-      _.each(self.convertFields, function(field) {
+      return self.convertSomeFields(self.convertFields, from, data, snippet);
+    };
+
+    self.convertSomeFields = function(schema, from, data, snippet) {
+      _.each(schema, function(field) {
         self.converters[from][field.type](data, field.name, snippet, field);
       });
     };
@@ -610,6 +614,10 @@ snippets.Snippets = function(options, callback) {
         async.series([ getSnippet, massage, update, redirect ], send);
 
         function getSnippet(callback) {
+          // Fetch the object via getPage so that permissions are considered properly,
+          // but bypass self.get so that we don't do expensive joins or
+          // delete password fields or otherwise mess up what is essentially
+          // just an update operation.
           self._apos.getPage(req, originalSlug, function(err, page) {
             if (err) {
               return callback(err);
@@ -1318,31 +1326,68 @@ snippets.Snippets = function(options, callback) {
   };
 
   /**
-   * Store or update a snippet. The slug argument is optional but
-   * must be given if you are changing the slug of an existing
-   * snippet, in which case it must be the old slug.
+   * Store or update a snippet. If options.permissions is explicitly
+   * false, permissions are not checked.
+   *
+   * You may skip the slug and options parameters. The slug parameter
+   * must be the CURRENT slug of the snippet; you can change the slug
+   * by changing the slug property of the snippet object, and passing
+   * the OLD slug as the slug parameter.
+   *
+   * If you skip slug, the slug property of the snippet is used. This
+   * is only appropriate if you are definitely not changing the slug.
+   *
+   * To add additional behavior provide self.beforePutOne and
+   * self.afterPutOne methods. These start out empty but bear in mind
+   * that intermediate subclasses may set them.
    */
-  self.putOne = function(req, slug, snippet, callback) {
-    if (!snippet) {
-      snippet = slug;
+  self.putOne = function(req, slug, options, snippet, callback) {
+    // Allow slug and options parameters to be skipped
+    var recoverSlug = false;
+    if (typeof(slug) !== 'string') {
+      callback = snippet;
+      snippet = options;
+      options = slug;
+      recoverSlug = true;
+    }
+    if (!callback) {
+      callback = snippet;
+      snippet = options;
+      options = {};
+    }
+    if (recoverSlug) {
       slug = snippet.slug;
     }
-    if(!snippet.type) {
+
+    if (!snippet.type) {
       snippet.type = self._instance;
     }
-    return self.beforePutOne(req, slug, snippet, function(err) {
+    return self.beforePutOne(req, slug, options, snippet, function(err) {
       if (err) {
         return callback(err);
       }
-      return self._apos.putPage(req, slug, snippet, callback);
+      return self._apos.putPage(req, slug, options, snippet, function(err) {
+        if (err) {
+          return callback(err);
+        }
+        return self.afterPutOne(req, slug, options, snippet, callback);
+      });
     });
   };
 
   /**
    * Override me to have a last chance to alter the snippet or
-   * check permissions
+   * check permissions before putOne stores it
    */
-  self.beforePutOne = function(req, slug, snippet, callback) {
+  self.beforePutOne = function(req, slug, options, snippet, callback) {
+    return callback(null);
+  };
+
+  /**
+   * Override me to do something after putOne stores a snippet, such as
+   * syncing to a second system
+   */
+  self.afterPutOne = function(req, slug, options, snippet, callback) {
     return callback(null);
   };
 
