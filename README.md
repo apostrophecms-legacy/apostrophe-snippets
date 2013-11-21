@@ -54,7 +54,7 @@ To enable snippets in a project, just add the `apostrophe-snippets` module to yo
 
 ```javascript
   modules: {
-    'apostrophe-snippets' {},
+    'apostrophe-snippets': {},
     ... other modules ...
   }
 ```
