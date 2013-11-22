@@ -231,7 +231,7 @@ snippets.Snippets = function(options, callback) {
     // etc. and also additional type-dependent properties like min and max
     // (for integers) and choices (for selects).
 
-    self.convertFields = [
+    self.schema = [
       {
         // This one will always import as an empty area for now when importing CSV.
         // TODO: allow URLs in CSV to be imported.
@@ -266,7 +266,7 @@ snippets.Snippets = function(options, callback) {
     if (options.addFields) {
       var newFields = [];
       var replacementsMade = {};
-      _.each(self.convertFields, function(field) {
+      _.each(self.schema, function(field) {
         var replacement = _.find(options.addFields, function(addField) {
           return field.name === addField.name;
         });
@@ -282,12 +282,12 @@ snippets.Snippets = function(options, callback) {
           newFields.push(field);
         }
       });
-      self.convertFields = newFields;
+      self.schema = newFields;
     }
 
     // removeFields removes fields from the schema, preserving its order
     if (options.removeFields) {
-      self.convertFields = _.filter(self.convertFields, function(field) {
+      self.schema = _.filter(self.schema, function(field) {
         return !_.contains(options.removeFields, field.name);
       });
     }
@@ -299,19 +299,19 @@ snippets.Snippets = function(options, callback) {
     if (options.orderFields) {
       var fieldsObject = {};
       var copied = {};
-      _.each(self.convertFields, function(field) {
+      _.each(self.schema, function(field) {
         fieldsObject[field.name] = field;
       });
-      self.convertFields = [];
+      self.schema = [];
       _.each(options.orderFields, function(name) {
         if (fieldsObject[name]) {
-          self.convertFields.push(fieldsObject[name]);
+          self.schema.push(fieldsObject[name]);
         }
         copied[name] = true;
       });
       _.each(fieldsObject, function(field, name) {
         if (!copied[name]) {
-          self.convertFields.push(field);
+          self.schema.push(field);
         }
       });
     }
@@ -319,7 +319,7 @@ snippets.Snippets = function(options, callback) {
     // alterFields is a custom function that alters the schema. Hopefully
     // hardly ever used thanks to addFields, removeFields and orderFields
     if (options.alterFields) {
-      options.alterFields(self.convertFields);
+      options.alterFields(self.schema);
     }
 
     // For bc
@@ -439,7 +439,7 @@ snippets.Snippets = function(options, callback) {
     };
 
     self.convertAllFields = function(from, data, snippet) {
-      return self.convertSomeFields(self.convertFields, from, data, snippet);
+      return self.convertSomeFields(self.schema, from, data, snippet);
     };
 
     self.convertSomeFields = function(schema, from, data, snippet) {
@@ -975,7 +975,7 @@ snippets.Snippets = function(options, callback) {
 
     self._apos.addListener('index', function(snippet, lines) {
       if (snippet.type === self._instance) {
-        _.each(self.convertFields, function(field) {
+        _.each(self.schema, function(field) {
           if (field.search === false) {
             return;
           }
@@ -1030,7 +1030,7 @@ snippets.Snippets = function(options, callback) {
     // safely copied and pasted and edited as well
 
     var data = {
-      fields: self.convertFields,
+      fields: self.schema,
       alwaysEditing: self._apos.alwaysEditing,
       newClass: 'apos-new-' + self._css,
       instanceLabel: self.instanceLabel,
@@ -1223,7 +1223,7 @@ snippets.Snippets = function(options, callback) {
         return callback(null);
       }
       // Only interested in joins
-      var joins = _.filter(self.convertFields, function(field) {
+      var joins = _.filter(self.schema, function(field) {
         return !!joinrs[field.type];
       });
       if (results.snippets.length > 1) {
@@ -1885,7 +1885,7 @@ snippets.Snippets = function(options, callback) {
     typeCss: self._typeCss,
     manager: self.manager,
     action: self._action,
-    convertFields: self.convertFields
+    schema: self.schema
   };
   extend(true, args, browser.options || {});
 

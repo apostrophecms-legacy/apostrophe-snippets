@@ -14,7 +14,7 @@ function AposSnippets(options) {
   self._action = options.action;
   // "Manage" pagination
   self._managePerPage = options.managePerPage || 20;
-  self.convertFields = options.convertFields;
+  self.schema = options.schema;
 
   // PAGE SETTINGS FOR THIS TYPE
 
@@ -77,19 +77,19 @@ function AposSnippets(options) {
     // directly. Used for "new" and "edit"
     self.populateFields = function($el, snippet, callback) {
       apos.enableTags($el.find('[data-name="tags"]'), snippet.tags);
-      return self.populateSomeFields($el, self.convertFields, snippet, callback);
+      return self.populateSomeFields($el, self.schema, snippet, callback);
     };
 
     // Populate form elements corresponding to a set of fields as specified in a schema
-    // (the convertFields argument). The inverse of self.convertSomeFields
-    self.populateSomeFields = function($el, convertFields, snippet, callback) {
+    // (the schema argument). The inverse of self.convertSomeFields
+    self.populateSomeFields = function($el, schema, snippet, callback) {
       // This is a workaround for the lack of async.each client side.
       // Think about bringing that into the browser.
       function populateField(i) {
-        if (i >= convertFields.length) {
+        if (i >= schema.length) {
           return callback(null);
         }
-        var field = convertFields[i];
+        var field = schema[i];
         // Not all displayers use this
         var $field = $el.findByName(field.name);
         return self.displayers[field.type](snippet, field.name, $field, $el, field, function() {
@@ -101,8 +101,8 @@ function AposSnippets(options) {
 
     // Gather data from form elements and push it into properties of the data object,
     // as specified by the schema provided. The inverse of self.populateSomeFields
-    self.convertSomeFields = function($el, convertFields, data, callback) {
-      _.each(convertFields, function(field) {
+    self.convertSomeFields = function($el, schema, data, callback) {
+      _.each(schema, function(field) {
         // This won't be enough for every type of field, so we pass $el too
         var $field = $el.findByName(field.name);
         self.converters[field.type](data, field.name, $field, $el, field);
@@ -396,7 +396,7 @@ function AposSnippets(options) {
       };
       data.tags = $el.find('[data-name="tags"]').selective('get');
 
-      self.convertSomeFields($el, self.convertFields, data, function() {
+      self.convertSomeFields($el, self.schema, data, function() {
         if (action === 'update') {
           self.beforeUpdate($el, data, afterAction);
         } else {
