@@ -1815,7 +1815,7 @@ snippets.Snippets = function(options, callback) {
   // is already known (in particular, the people module).
 
   self.permalink = function(req, snippet, page, callback) {
-    snippet.url = page.slug + '/' + snippet.slug;
+    snippet.url = self._apos.addSlashIfNeeded(page.slug) + snippet.slug;
     return callback(null);
   };
 
