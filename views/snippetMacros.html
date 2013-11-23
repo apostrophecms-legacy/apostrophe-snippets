@@ -188,9 +188,9 @@
 {% endmacro %}
 
 {# Output all the schema fields. Second argument is optional and contains options. #}
-{# If "from" is set, start with that field. #}
-{# If "to" is set, end with that field. #}
-{# You can use "from" and "to" to output a portion of the schema fields #}
+{# If "from" is set, start with that field. If "after" is set, start after it. #}
+{# If "to" is set, end with that field. If "before" is set, end just before it. #}
+{# You can use "from", "to", "after" and "before" to output a portion of the schema fields #}
 {# in order, automatically, then output one in a customized way, then resume #}
 {# outputting the rest automatically. #}
 
@@ -205,8 +205,11 @@
   {% set fromFound = false %}
   {% set toFound = false %}
   {% for field in fields %}
-    {% if (not options.from) or (field.name == options.from) %}
+    {% if (not (options.from or options.after)) or (field.name == options.from) %}
       {% set fromFound = true %}
+    {% endif %}
+    {% if (field.name == options.before) %}
+      {% set toFound = true %}
     {% endif %}
     {% set found = fromFound and (not toFound) %}
     {% set notExcepted = (not aposContains(options.except, field.name)) %}
@@ -241,6 +244,8 @@
         {{ snippetText(field.name, field.label) }}
       {% elif (field.type == 'time') %}
         {{ snippetText(field.name, field.label) }}
+      {% elif (field.type == 'password') %}
+        {{ snippetPassword(field.name, field.label) }}
       {% elif (field.type == 'area') %}
         {{ snippetArea(field.name, field.label) }}
       {% elif ((field.type == 'joinByOne') or (field.type == 'joinByArray')) %}
@@ -257,6 +262,9 @@
     {% endif %}
     {% if (field.name == options.to) %}
       {% set toFound = true %}
+    {% endif %}
+    {% if (field.name == options.after) %}
+      {% set fromFound = true %}
     {% endif %}
   {% endfor %}
 {% endmacro %}

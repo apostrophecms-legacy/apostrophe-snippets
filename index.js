@@ -283,13 +283,14 @@ snippets.Snippets = function(options, callback) {
     // addFields adds or overrides fields in the schema, preserving its order.
     // If the "before" or "after" option is present, then that field is spliced in
     // "before" or "after" the specified field, if found, and any subsequently
-    // added fields without a "before" or "after" follow that one, unless an
-    // explicit "end: true" is found.
+    // added fields without a "before" or "after" follow that one. "end: true"
+    // and "start: true" are additional ways to change the location where the
+    // next field will appear.
     if (options.addFields) {
       var nextSplice = self.schema.length;
       _.each(options.addFields, function(field) {
         var i;
-        for (i = 0; (i < self.schema); i++) {
+        for (i = 0; (i < self.schema.length); i++) {
           if (self.schema[i].name === field.name) {
             self.schema.splice(i, 1);
             if (!(field.before || field.after)) {
@@ -300,6 +301,9 @@ snippets.Snippets = function(options, callback) {
             // before or after requested, so fall through and let them work
             break;
           }
+        }
+        if (field.start) {
+          nextSplice = 0;
         }
         if (field.end) {
           nextSplice = self.schema.length;
@@ -409,6 +413,14 @@ snippets.Snippets = function(options, callback) {
       time: function(data, name, snippet, field) {
         snippet[name] = self._apos.sanitizeTime(data[name], field.def);
       },
+      password: function(data, name, snippet, field) {
+        // Change the stored password hash only if a new value
+        // has been offered
+        var _password = self._apos.sanitizeString(data.password);
+        if (_password.length) {
+          snippet[name] = self._apos.hashPassword(data.password);
+        }
+      }
     };
     // As far as the server is concerned a singleton is just an area
     self.converters.csv.singleton = self.converters.csv.area;
@@ -595,22 +607,22 @@ snippets.Snippets = function(options, callback) {
         var title;
         var slug;
 
-        // We use the schema for all properties now, but the slug is
-        // editable only when editing an existing snippet. Resolve it
-        // by copying req.body.title to req.body.slug and letting the
-        // schema do what it normally does
-        req.body.slug = req.body.title;
+        // Slug is not editable for a brand new snippet in the editor
+        var fields = _.filter(self.schema, function(field) {
+          return (field.name !== 'slug');
+        });
 
         snippet = { type: self._instance, areas: {}, createdAt: new Date() };
 
-        self.convertAllFields('form', req.body, snippet);
+        self.convertSomeFields(fields, 'form', req.body, snippet);
 
-        if (!snippet.publishedAt) {
-          // Do we really need this default for non-blog snippets?
-          snippet.publishedAt = new Date();
-        }
+        snippet.slug = self._apos.slugify(snippet.title);
 
         snippet.sortTitle = self._apos.sortify(snippet.title);
+
+        if (!snippet.publishedAt) {
+          snippet.publishedAt = new Date();
+        }
 
         async.series([ permissions, beforeInsert, beforeSave, insert, afterInsert, afterSave ], send);
 
@@ -628,7 +640,6 @@ snippets.Snippets = function(options, callback) {
         }
 
         function insert(callback) {
-          console.log(snippet);
           return self.putOne(req, snippet.slug, snippet, callback);
         }
 
@@ -1099,7 +1110,14 @@ snippets.Snippets = function(options, callback) {
       return result;
     });
 
-    self.pushAsset('template', 'new', { when: 'user', data: data });
+    // The new template should not include the slug field
+    var newData = {};
+    extend(true, newData, data);
+    newData.fields = _.filter(self.schema, function(field) {
+      return (field.name !== 'slug');
+    });
+
+    self.pushAsset('template', 'new', { when: 'user', data: newData });
     self.pushAsset('template', 'edit', { when: 'user', data: data });
     self.pushAsset('template', 'manage', { when: 'user', data: data });
     self.pushAsset('template', 'import', { when: 'user', data: data });

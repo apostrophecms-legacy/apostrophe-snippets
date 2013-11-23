@@ -279,6 +279,9 @@ function AposSnippets(options) {
       string: function(data, name, $field, $el, field) {
         data[name] = $field.val();
       },
+      password: function(data, name, $field, $el, field) {
+        data[name] = $field.val();
+      },
       slug: function(data, name, $field, $el, field) {
         data[name] = $field.val();
       },
@@ -317,6 +320,10 @@ function AposSnippets(options) {
         return self.enableSingleton($el, name, data.areas ? data.areas[name] : null, field.widgetType, field.options || {}, callback);
       },
       string: function(data, name, $field, $el, field, callback) {
+        $field.val(data[name]);
+        return callback();
+      },
+      password: function(data, name, $field, $el, field, callback) {
         $field.val(data[name]);
         return callback();
       },

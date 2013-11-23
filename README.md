@@ -238,7 +238,28 @@ If either of these is of no use to you, just remove it:
 
 ### Changing the Order of Fields
 
-You can change the order of fields, for instance to put something above the built-in `body` field:
+When adding fields, you can specify where you want them to appear relative to existing fields via the `before`, `after`, `start` and `end` options:
+
+```javascript
+addFields: [
+  {
+    name: 'favoriteCookie',
+    type: 'string',
+    label: 'Favorite Cookie',
+    after: 'title'
+  }
+]
+```
+
+Any additional fields after `favoriteCookie` will be inserted with it, following the title field.
+
+Use the `before` option instead of `after` to cause a field to appear before another field.
+
+Use `start: true` to cause a field to appear at the top.
+
+Use `start: end` to cause a field to appear at the end.
+
+If this is not enough, you can explicitly change the order of the fields with `orderFields`:
 
 ```javascript
 'apostrophe-people': {
@@ -246,7 +267,7 @@ You can change the order of fields, for instance to put something above the buil
 }
 ```
 
-Any fields you do not specify will appear in the original order, after the last field you do specify (see `removeFields` if you really want a field to go away).
+Any fields you do not specify will appear in the original order, after the last field you do specify (use `removeFields` if you want a field to go away).
 
 ### Altering Fields: The Easy Way
 
@@ -272,21 +293,29 @@ There is also an `alterFields` option available. This must be a function which r
 
 This is not your problem! The latest versions of the `new.html` and `edit.html` templates invoke `snippetAllFields`, a macro which outputs all of the fields in your schema, in order.
 
-However, if you want to, or you need to because you are implementing extra fields without using the schema, then you can copy the `new.html` template from the snippets module to your views folder and customize it to output the fields with the individual macros in `snippetMacros.html`, such as `snippetText`, `snippetSelect`, etc. Or you can use custom markup, as long as there is a wrapper element with a `data-name` attribute set to the name of the field, and the input elements have a `name` attribute set to the name of the field.
-
-You can also mix and match. This code outputs most of the fields in a long schema, then outputs one field directly, then outputs the rest of the fields. `hairColor` is the name of the last field before `shoeSize`, and `favoriteCheese` is the name of the first field after `shoeSize`:
+However, if you want to, or you need to because you are implementing extra fields without using the schema, then you can copy `new.html` to `lib/modules/modulename/views/new.html`. Since your template starts by extending the `newBase.html` template, you can be selective and just override the `insideForm` block to do something a little different with the fields, but not rewrite the entire template:
 
 ```jinja2
-{{ snippetAllFields(fields, { to: 'hairColor' }) }}
+{% block insideForm %}
+{{ snippetAllFields(fields, { before: 'shoeSize' }) }}
+<p>Here comes the shoe size kids!</p>
 {{ snippetText('shoeSize', 'Shoe Size') }}
-{{ snippetAllFields(fields, { from: 'favoriteCheese' }) }}
+<p>Wasn't that great?</p>
+{{ snippetAllFields(fields, { from: 'shoeSize' }) }}
+{% endblock %}
 ```
+
+See `snippetMacros.html` for all the macros available to render different types of fields.
+
+This example code outputs most of the fields in a long schema, then outputs one field directly, then outputs the rest of the fields.
+
+In addition to `before` and `from`, you may also use `after` and `to`. `before` and `after` are exclusive, while `from` and `to` are inclusive. Combining `before` and `from` let us wrap something around a specific field without messing up other fields or even having to know what they are.
+
+Of course you can also override `new.html` completely from scratch, provided you produce markup with the same data attributes and field names.
 
 You usually won't need to touch `edit.html` because it gracefully extends whatever you do in `new.html`.
 
 Note that the name of each property must match the name you gave it in the schema. weLikeMongoDb, soPleaseUseIntercap, not-hyphens_or_underscores.
-
-See `snippetMacros.html` for all of the available convenience macros for adding fields. See also `formMacros.html` for the details of their implementation.
 
 Note that you do not need to supply any arguments that can be inferred from the schema, such as the `choices` list for a `select` property, or the widget type of a singleton. The real initialization work happens in browser-side JavaScript powered by the schema.
 

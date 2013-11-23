@@ -1,18 +1,1 @@
-{% include 'snippetMacros.html' %}
-<div class="apos-modal apos-template {% block class %}{{ newClass }}{% endblock %}">
-  <h3>{% block label %}New {{ instanceLabel | e }}{% endblock %}</h3>
-  {% block topButtons %}
-  {# Makes more sense in edit view #}
-  {# {{ snippetNewButtons() }} #}
-  {% endblock %}
-  <div class="apos-modal-body">
-    <form>
-      {% block insideForm %}
-        {{ snippetAllFields(fields, { except: [ 'slug' ]}) }}
-      {% endblock %}
-    </form>
-  </div>
-  {% block buttons %}
-  {{ snippetNewButtons() }}
-  {% endblock %}
-</div>
+{% extends 'newBase.html' %}
