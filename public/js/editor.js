@@ -53,8 +53,8 @@ function AposSnippets(options) {
           });
         },
         init: function(callback) {
-          $el.find('[name=published]').val(1);
-          return self.populateEditor($el, { areas: {} }, callback);
+          var defaultSnippet = self.getDefaultSnippet();
+          return self.populateEditor($el, defaultSnippet, callback);
         },
         next: function() {
           self.launchNew();
@@ -76,8 +76,19 @@ function AposSnippets(options) {
     // Populate all fields specified in the schema and also any custom fields implemented
     // directly. Used for "new" and "edit"
     self.populateFields = function($el, snippet, callback) {
-      apos.enableTags($el.find('[data-name="tags"]'), snippet.tags);
       return self.populateSomeFields($el, self.schema, snippet, callback);
+    };
+
+    self.getDefaultSnippet = function() {
+      var def = {
+        areas: {}
+      };
+      _.each(self.schema, function(field) {
+        if (field.def !== undefined) {
+          def[field.name] = field.def;
+        }
+      });
+      return def;
     };
 
     // Populate form elements corresponding to a set of fields as specified in a schema
@@ -268,6 +279,12 @@ function AposSnippets(options) {
       string: function(data, name, $field, $el, field) {
         data[name] = $field.val();
       },
+      slug: function(data, name, $field, $el, field) {
+        data[name] = $field.val();
+      },
+      tags: function(data, name, $field, $el, field) {
+        data[name] = $el.find('[data-name="' + name + '"]').selective('get');
+      },
       boolean: function(data, name, $field, $el, field) {
         data[name] = $field.val();
       },
@@ -282,7 +299,13 @@ function AposSnippets(options) {
       },
       url: function(data, name, $field, $el, field) {
         data[name] = $field.val();
-      }
+      },
+      date: function(data, name, $field, $el, field) {
+        data[name] = $field.val();
+      },
+      time: function(data, name, $field, $el, field) {
+        data[name] = $field.val();
+      },
     };
 
     // Methods to display all of the field types supported by the schema
@@ -295,6 +318,14 @@ function AposSnippets(options) {
       },
       string: function(data, name, $field, $el, field, callback) {
         $field.val(data[name]);
+        return callback();
+      },
+      slug: function(data, name, $field, $el, field, callback) {
+        $field.val(data[name]);
+        return callback();
+      },
+      tags: function(data, name, $field, $el, field, callback) {
+        apos.enableTags($el.find('[data-name="' + name + '"]'), data[name]);
         return callback();
       },
       url: function(data, name, $field, $el, field, callback) {
@@ -383,18 +414,26 @@ function AposSnippets(options) {
       joinByArrayReverse: function(data, name, $field, $el, field, callback) {
         // Not edited on the reverse side
         return callback();
-      }
+      },
+      date: function(data, name, $field, $el, field, callback) {
+        $field.val(data[name]);
+        apos.enhanceDate($field);
+        return callback();
+      },
+      time: function(data, name, $field, $el, field, callback) {
+        if (data[name] && data[name].length) {
+          // Revert to local time for editing
+          $field.val(apos.formatTime(data[name]));
+        }
+        return callback();
+      },
     };
 
     self.insertOrUpdate = function($el, action, options, callback) {
       var data = {
-        title: $el.find('[name="title"]').val(),
-        slug: $el.find('[name="slug"]').val(),
         type: $el.find('[name="type"]').val(),
-        published: $el.find('[name=published]').val(),
         originalSlug: options.slug
       };
-      data.tags = $el.find('[data-name="tags"]').selective('get');
 
       self.convertSomeFields($el, self.schema, data, function() {
         if (action === 'update') {
@@ -599,15 +638,12 @@ function AposSnippets(options) {
             }
             snippet = data;
 
-            $el.find('[name=title]').val(snippet.title);
-            $el.find('[name=slug]').val(snippet.slug);
-
-            // Boolean fields must get an explicit '1' or '0' for
-            // the select element
-            $el.find('[name=published]').val(snippet.published ? '1' : '0');
-
             // name=slug must always exist, at least as a hidden field, to support this
-            apos.suggestSlugOnTitleEdits($el.find('[name=title]'), $el.find('[name=slug]'));
+            var $title = $el.find('[name=title]');
+            var $slug = $el.find('[name=slug]');
+            if ($slug.length) {
+              apos.suggestSlugOnTitleEdits($title, $slug);
+            }
 
             $el.on('click', '[data-action="delete"]', function() {
               $.ajax({

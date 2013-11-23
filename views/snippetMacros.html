@@ -58,6 +58,14 @@
   </fieldset>
 {% endmacro %}
 
+{% macro snippetDate(name, label) %}
+{{ formDate(name, label) }}
+{% endmacro %}
+
+{% macro snippetTime(name, label) %}
+{{ formTime(name, label) }}
+{% endmacro %}
+
 {# See enableArea in snippets' main.js for the necessary plumbing, including #}
 {# specifying the type we want for the singleton #}
 {% macro snippetSingleton(name, label) %}
@@ -68,6 +76,7 @@
 {% macro snippetArea(name, label) %}
   {{ formArea(name, label) }}
 {% endmacro %}
+
 
 {# A pill button with several mutually exclusive choices #}
 {% macro snippetPill(name, label, options) %}
@@ -201,7 +210,8 @@
     {% endif %}
     {% set found = fromFound and (not toFound) %}
     {% set notExcepted = (not aposContains(options.except, field.name)) %}
-    {% set allowed = (options.only == false) or aposContains(options.only, field.name) %}
+    {% set allowed = (not options.only) or aposContains(options.only, field.name) %}
+
     {% if (found and notExcepted and allowed) %}
       {# TODO: look into calling macros by name somehow #}
       {% if (field.type == 'string') %}
@@ -210,6 +220,10 @@
         {% else %}
           {{ snippetText(field.name, field.label) }}
         {% endif %}
+      {% elif (field.type == 'slug') %}
+        {{ snippetText(field.name, field.label) }}
+      {% elif (field.type == 'tags') %}
+        {{ snippetTags(field.name, field.label) }}
       {% elif (field.type == 'integer') %}
         {{ snippetText(field.name, field.label) }}
       {% elif (field.type == 'float') %}
@@ -222,6 +236,11 @@
         {{ snippetText(field.name, field.label) }}
       {% elif (field.type == 'singleton') %}
         {{ snippetSingleton(field.name, field.label) }}
+      {% elif (field.type == 'date') %}
+        {# js enhances this via jquery ui datepicker #}
+        {{ snippetText(field.name, field.label) }}
+      {% elif (field.type == 'time') %}
+        {{ snippetText(field.name, field.label) }}
       {% elif (field.type == 'area') %}
         {{ snippetArea(field.name, field.label) }}
       {% elif ((field.type == 'joinByOne') or (field.type == 'joinByArray')) %}

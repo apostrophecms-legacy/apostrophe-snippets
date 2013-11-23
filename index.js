@@ -180,10 +180,6 @@ snippets.Snippets = function(options, callback) {
       self._menuName = 'apos' + self._apos.capitalizeFirst(self._instance) + 'Menu';
     }
 
-    self.getDefaultTitle = function() {
-      return 'My Snippet';
-    };
-
     self.authorAsEditor = function(req, snippet) {
       if (req.user && (!req.user.permissions.admin)) {
         // Always add the creator as a permitted editor
@@ -233,6 +229,28 @@ snippets.Snippets = function(options, callback) {
 
     self.schema = [
       {
+        name: 'title',
+        label: 'Title',
+        type: 'string',
+        def: 'My ' + self.instanceLabel
+      },
+      {
+        name: 'slug',
+        label: 'Slug',
+        type: 'slug'
+      },
+      {
+        name: 'published',
+        label: 'Published',
+        def: true,
+        type: 'boolean'
+      },
+      {
+        name: 'tags',
+        label: 'Tags',
+        type: 'tags'
+      },
+      {
         // This one will always import as an empty area for now when importing CSV.
         // TODO: allow URLs in CSV to be imported.
         name: 'thumbnail',
@@ -262,27 +280,49 @@ snippets.Snippets = function(options, callback) {
       }
     ];
 
-    // addFields adds or overrides fields in the schema, preserving its order
+    // addFields adds or overrides fields in the schema, preserving its order.
+    // If the "before" or "after" option is present, then that field is spliced in
+    // "before" or "after" the specified field, if found, and any subsequently
+    // added fields without a "before" or "after" follow that one, unless an
+    // explicit "end: true" is found.
     if (options.addFields) {
-      var newFields = [];
-      var replacementsMade = {};
-      _.each(self.schema, function(field) {
-        var replacement = _.find(options.addFields, function(addField) {
-          return field.name === addField.name;
-        });
-        if (replacement) {
-          newFields.push(replacement);
-          replacementsMade[newFields.name] = true;
-        } else {
-          newFields.push(field);
-        }
-      });
+      var nextSplice = self.schema.length;
       _.each(options.addFields, function(field) {
-        if (!replacementsMade[field.name]) {
-          newFields.push(field);
+        var i;
+        for (i = 0; (i < self.schema); i++) {
+          if (self.schema[i].name === field.name) {
+            self.schema.splice(i, 1);
+            if (!(field.before || field.after)) {
+              // Replace it in its old position if none was explicitly requested
+              self.schema.splice(i, 0, field);
+              return;
+            }
+            // before or after requested, so fall through and let them work
+            break;
+          }
         }
+        if (field.end) {
+          nextSplice = self.schema.length;
+        }
+        if (field.after) {
+          for (i = 0; (i < self.schema.length); i++) {
+            if (self.schema[i].name === field.after) {
+              nextSplice = i + 1;
+              break;
+            }
+          }
+        }
+        if (field.before) {
+          for (i = 0; (i < self.schema.length); i++) {
+            if (self.schema[i].name === field.before) {
+              nextSplice = i;
+              break;
+            }
+          }
+        }
+        self.schema.splice(nextSplice, 0, field);
+        nextSplice++;
       });
-      self.schema = newFields;
     }
 
     // removeFields removes fields from the schema, preserving its order
@@ -339,6 +379,15 @@ snippets.Snippets = function(options, callback) {
       string: function(data, name, snippet, field) {
         snippet[name] = self._apos.sanitizeString(data[name], field.def);
       },
+      slug: function(data, name, snippet, field) {
+        snippet[name] = self._apos.slugify(self._apos.sanitizeString(data[name], field.def));
+      },
+      tags: function(data, name, snippet, field) {
+        var tags;
+        tags = self._apos.sanitizeString(data.tags);
+        tags = self._apos.tagsToArray(tags);
+        snippet[name] = tags;
+      },
       boolean: function(data, name, snippet, field) {
         snippet[name] = self._apos.sanitizeBoolean(data[name], field.def);
       },
@@ -353,7 +402,13 @@ snippets.Snippets = function(options, callback) {
       },
       url: function(data, name, snippet, field) {
         snippet[name] = self._apos.sanitizeUrl(data[name], field.def);
-      }
+      },
+      date: function(data, name, snippet, field) {
+        snippet[name] = self._apos.sanitizeDate(data[name], field.def);
+      },
+      time: function(data, name, snippet, field) {
+        snippet[name] = self._apos.sanitizeTime(data[name], field.def);
+      },
     };
     // As far as the server is concerned a singleton is just an area
     self.converters.csv.singleton = self.converters.csv.area;
@@ -438,12 +493,21 @@ snippets.Snippets = function(options, callback) {
       // Not edited on this side of the relation
     };
 
+    self.converters.form.tags = function(data, name, snippet, field) {
+      snippet[name] = self._apos.sanitizeTags(data.tags);
+    };
+
     self.convertAllFields = function(from, data, snippet) {
       return self.convertSomeFields(self.schema, from, data, snippet);
     };
 
     self.convertSomeFields = function(schema, from, data, snippet) {
       _.each(schema, function(field) {
+        // Support for legacy field names, which makes it easier to support
+        // legacy new.html and edit.html templates for things like the blog
+        if (field.legacy && (data[field.legacy] !== undefined)) {
+          data[field.name] = data[field.legacy];
+        }
         self.converters[from][field.type](data, field.name, snippet, field);
       });
     };
@@ -476,20 +540,11 @@ snippets.Snippets = function(options, callback) {
       // try/catch of its own that is making it impossible to log any
       // errors if we don't catch them. TODO: go looking for that and fix it.
       try {
-        var tags = '';
-        tags = self._apos.sanitizeString(data.tags);
-        tags = self._apos.tagsToArray(tags);
-        var categories = self._apos.sanitizeString(data.categories);
-        categories = self._apos.tagsToArray(categories);
-        tags = tags.concat(categories);
         var published = self._apos.sanitizeBoolean(data.published, true);
 
         var snippet = {
           type: self._instance,
-          areas: {},
-          title: data.title || self.getDefaultTitle(),
-          tags: tags,
-          published: published
+          areas: {}
         };
 
         self.convertAllFields('csv', data, snippet);
@@ -531,29 +586,31 @@ snippets.Snippets = function(options, callback) {
     };
 
     self.addStandardRoutes = function() {
-      // TODO: refactor lots of duplication in /insert and /update
 
       self._app.post(self._action + '/insert', function(req, res) {
         var snippet;
-        var title;
         var thumbnail;
         var content;
+
+        var title;
         var slug;
-        var published = self._apos.sanitizeBoolean(req.body.published, true);
 
-        title = req.body.title.trim();
-        // Validation is annoying, automatic cleanup is awesome
-        if (!title.length) {
-          title = self.getDefaultTitle();
-        }
-        slug = self._apos.slugify(title);
+        // We use the schema for all properties now, but the slug is
+        // editable only when editing an existing snippet. Resolve it
+        // by copying req.body.title to req.body.slug and letting the
+        // schema do what it normally does
+        req.body.slug = req.body.title;
 
-        tags = self._apos.sanitizeTags(req.body.tags);
-
-        snippet = { title: title, published: published, type: self._instance, tags: tags, areas: {}, slug: slug, createdAt: new Date(), publishedAt: new Date() };
-        snippet.sortTitle = self._apos.sortify(snippet.title);
+        snippet = { type: self._instance, areas: {}, createdAt: new Date() };
 
         self.convertAllFields('form', req.body, snippet);
+
+        if (!snippet.publishedAt) {
+          // Do we really need this default for non-blog snippets?
+          snippet.publishedAt = new Date();
+        }
+
+        snippet.sortTitle = self._apos.sortify(snippet.title);
 
         async.series([ permissions, beforeInsert, beforeSave, insert, afterInsert, afterSave ], send);
 
@@ -571,7 +628,8 @@ snippets.Snippets = function(options, callback) {
         }
 
         function insert(callback) {
-          return self.putOne(req, slug, snippet, callback);
+          console.log(snippet);
+          return self.putOne(req, snippet.slug, snippet, callback);
         }
 
         function afterInsert(callback) {
@@ -594,21 +652,13 @@ snippets.Snippets = function(options, callback) {
 
       self._app.post(self._action + '/update', function(req, res) {
         var snippet;
-        var title;
         var content;
         var originalSlug;
-        var slug;
-        var tags;
-        var published = self._apos.sanitizeBoolean(req.body.published, true);
-
-        title = self._apos.sanitizeString(req.body.title, self.getDefaultTitle());
-
-        tags = self._apos.sanitizeTags(req.body.tags);
 
         originalSlug = self._apos.sanitizeString(req.body.originalSlug);
-        slug = self._apos.slugify(req.body.slug);
-        if (!slug.length) {
-          slug = originalSlug;
+
+        if (!req.body.slug) {
+          req.body.slug = originalSlug;
         }
 
         async.series([ getSnippet, massage, update, redirect ], send);
@@ -635,11 +685,7 @@ snippets.Snippets = function(options, callback) {
 
         function massage(callback) {
           self.convertAllFields('form', req.body, snippet);
-          snippet.title = title;
-          snippet.slug = slug;
-          snippet.tags = tags;
-          snippet.sortTitle = self._apos.sortify(title);
-          snippet.published = published;
+          snippet.sortTitle = self._apos.sortify(snippet.title);
           return async.series([
             function(callback) {
               return self.beforeUpdate(req, req.body, snippet, callback);
@@ -665,7 +711,7 @@ snippets.Snippets = function(options, callback) {
         }
 
         function redirect(callback) {
-          self._apos.updateRedirect(originalSlug, slug, callback);
+          self._apos.updateRedirect(originalSlug, snippet.slug, callback);
         }
 
         function send(err) {
