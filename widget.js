@@ -26,8 +26,21 @@ widget.Widget = function(options) {
   // (note devs can still override the list)
   self.apos.defaultControls.push(self.name);
 
+  // For use in titling the "type part of a title" field
+  var titleField = _.find(self.snippets.schema, function(field) {
+    return field.name === 'title';
+  }) || { label: 'Title' };
+
   // Include our editor template in the markup when aposTemplates is called
-  self.pushAsset('template', 'widgetEditor', { when: 'user' });
+  self.pushAsset('template', 'widgetEditor', {
+    when: 'user',
+    data: {
+      widgetEditorClass: 'apos-' + self.snippets._pluralCss + '-widget-editor',
+      instanceLabel: self.snippets.instanceLabel,
+      pluralLabel: self.snippets.pluralLabel,
+      titleLabel: titleField.label || 'Title'
+    }
+  });
 
   // So far we've always kept this in the same file with the rest of the module's CSS,
   // so don't clutter up the console with 404s in dev

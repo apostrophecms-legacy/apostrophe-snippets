@@ -1086,6 +1086,7 @@ snippets.Snippets = function(options, callback) {
     // for newly invented types too at least as a starting point, and they can be
     // safely copied and pasted and edited as well
 
+    self._pluralCss = self._apos.cssName(self.name);
     var data = {
       fields: self.schema,
       alwaysEditing: self._apos.alwaysEditing,
@@ -1101,7 +1102,7 @@ snippets.Snippets = function(options, callback) {
       manageButtonData: 'data-manage-' + self._css,
       importButtonData: 'data-import-' + self._css,
       menuIcon: 'icon-' + self.icon,
-      pageSettingsClass: 'apos-page-settings-' + self._apos.cssName(self.name)
+      pageSettingsClass: 'apos-page-settings-' + self._pluralCss
     };
 
     self._apos.addLocal(self._menuName, function(args) {

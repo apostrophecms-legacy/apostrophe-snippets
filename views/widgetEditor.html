@@ -1,16 +1,16 @@
 {% extends "baseWidgetEditor.html" %}
 {% include "formMacros.html" %}
 {% block widgetVars %}
-  {% set widgetClass = 'apos-snippets-widget-editor' %}
+  {% set widgetClass = widgetEditorClass %}
 {% endblock %}
 
 {% block title %}
-  Display Snippets
+  Display {{ pluralLabel }}
 {% endblock %}
 
 {% block instructions %}
-Start typing the title of a snippet, then click on the suggestions that appear to insert them.
-Or just use tags to pull in snippets.
+Start typing the title of a {{ instanceLabel | lower }}, then click on the suggestions that appear to insert them.
+Or just use tags to pull in {{ pluralLabel | lower }}.
 {% endblock %}
 
 {% block formBody %}
@@ -21,14 +21,14 @@ Or just use tags to pull in snippets.
 </fieldset>
 
 {{ formTags('tags', 'Tags') }}
-{{ formText('limit', 'Snippets Shown') }}
+{{ formText('limit', pluralLabel + ' Shown') }}
 
 <fieldset class="apos-fieldset apos-fieldset-radio">
-  <label>By Title</label>
+  <label>By {{ titleLabel }}</label>
   <input type="radio" name="by" value="id" />
 </fieldset>
 
-{{ formSelective('ids', 'Titles') }}
+{{ formSelective('ids', titleLabel) }}
 
 {% endblock %}
 
