@@ -425,6 +425,9 @@ function AposSnippets(options) {
       date: function(data, name, $field, $el, field, callback) {
         $field.val(data[name]);
         apos.enhanceDate($field);
+        if (field.legacy) {
+          apos.enhanceDate($el.findByName(field.legacy));
+        }
         return callback();
       },
       time: function(data, name, $field, $el, field, callback) {

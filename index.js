@@ -1430,6 +1430,7 @@ snippets.Snippets = function(options, callback) {
       if (err) {
         return callback(err);
       }
+
       return self._apos.putPage(req, slug, options, snippet, function(err) {
         if (err) {
           return callback(err);
