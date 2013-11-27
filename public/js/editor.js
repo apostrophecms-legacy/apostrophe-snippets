@@ -116,6 +116,9 @@ function AposSnippets(options) {
       _.each(schema, function(field) {
         // This won't be enough for every type of field, so we pass $el too
         var $field = $el.findByName(field.name);
+        if (!$field.length) {
+          $field = $el.findByName(field.legacy);
+        }
         self.converters[field.type](data, field.name, $field, $el, field);
       });
       return callback(null);
