@@ -25,7 +25,22 @@ snippets.Snippets = function(options, callback) {
   self._searchable = (options.searchable !== undefined) ? options.searchable : true;
   self._options = options;
   self._perPage = options.perPage || 10;
-  self._schemas = options.schemas;
+
+  // With apostrophe-site we'll get a single shared instance of
+  // apostrophe-schemas, which is better. Without it, we'll settle for
+  // requiring the one in our dependencies, as a backwards compatibility
+  // measure. This is not an ideal way to go - you should use
+  // apostrophe-site.
+
+  if (options.schemas) {
+    self._schemas = options.schemas;
+  } else {
+    self._schemas = require('apostrophe-schemas')({
+      apos: self._apos,
+      app: self._app
+    });
+    self._schemas.setPages(self._pages);
+  }
 
   // Set defaults for feeds, but respect it if self._options.feed has been
   // explicitly set false
@@ -283,6 +298,15 @@ snippets.Snippets = function(options, callback) {
     // Let apostrophe-schemas consume the addFields, removeFields,
     // orderFields and alterFields options and produce a schema
     // that takes subclassing into account
+
+    if (!self._schemas) {
+      throw 'ERROR: self._schemas not set in snippets/index.js\n' +
+        'You probably are not using apostrophe-site.\n' +
+        'See the apostrophe-schemas documentation for\n' +
+        'information on how to manually inject it into all\n' +
+        'of your modules, or just update your app.js to use\n' +
+        'apostrophe-site.';
+    }
     self.schema = self._schemas.compose(options);
 
     // For bc

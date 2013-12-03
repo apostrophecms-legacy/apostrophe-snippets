@@ -28,6 +28,7 @@
     "csv": "~0.2.9",
     "moment": "~2.0.0",
     "absolution": "~0.1.0",
-    "rss": "~0.2.1"
+    "rss": "~0.2.1",
+    "apostrophe-schemas": "~0.1.x"
   }
 }
