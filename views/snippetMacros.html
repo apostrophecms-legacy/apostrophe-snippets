@@ -187,85 +187,9 @@
   }}
 {% endmacro %}
 
-{# Output all the schema fields. Second argument is optional and contains options. #}
-{# If "from" is set, start with that field. If "after" is set, start after it. #}
-{# If "to" is set, end with that field. If "before" is set, end just before it. #}
-{# You can use "from", "to", "after" and "before" to output a portion of the schema fields #}
-{# in order, automatically, then output one in a customized way, then resume #}
-{# outputting the rest automatically. #}
-
-{# You can also output specific fields by specifying only: [ 'field1', 'field2' ... ] #}
-{# or exclude specific fields by specifying except: [ 'field1', 'field2' ... ]. #}
-
-{# Fields are always output in the order specified at configuration time. #}
-
-{# Any field types not known to this macro are skipped, without error. #}
+{% include "schemas:schemaMacros.html" %}
 
 {% macro snippetAllFields(fields, options = { from: false, to: false, except: [], only: false }) %}
-  {% set fromFound = false %}
-  {% set toFound = false %}
-  {% for field in fields %}
-    {% if (not (options.from or options.after)) or (field.name == options.from) %}
-      {% set fromFound = true %}
-    {% endif %}
-    {% if (field.name == options.before) %}
-      {% set toFound = true %}
-    {% endif %}
-    {% set found = fromFound and (not toFound) %}
-    {% set notExcepted = (not aposContains(options.except, field.name)) %}
-    {% set allowed = (not options.only) or aposContains(options.only, field.name) %}
-
-    {% if (found and notExcepted and allowed) %}
-      {# TODO: look into calling macros by name somehow #}
-      {% if (field.type == 'string') %}
-        {% if field.textarea %}
-          {{ snippetTextarea(field.name, field.label) }}
-        {% else %}
-          {{ snippetText(field.name, field.label) }}
-        {% endif %}
-      {% elif (field.type == 'slug') %}
-        {{ snippetText(field.name, field.label) }}
-      {% elif (field.type == 'tags') %}
-        {{ snippetTags(field.name, field.label) }}
-      {% elif (field.type == 'integer') %}
-        {{ snippetText(field.name, field.label) }}
-      {% elif (field.type == 'float') %}
-        {{ snippetText(field.name, field.label) }}
-      {% elif (field.type == 'boolean') %}
-        {{ snippetBoolean(field.name, field.label) }}
-      {% elif (field.type == 'select') %}
-        {{ snippetSelect(field.name, field.label, field.choices) }}
-      {% elif (field.type == 'url') %}
-        {{ snippetText(field.name, field.label) }}
-      {% elif (field.type == 'singleton') %}
-        {{ snippetSingleton(field.name, field.label) }}
-      {% elif (field.type == 'date') %}
-        {# js enhances this via jquery ui datepicker #}
-        {{ snippetText(field.name, field.label) }}
-      {% elif (field.type == 'time') %}
-        {{ snippetText(field.name, field.label) }}
-      {% elif (field.type == 'password') %}
-        {{ snippetPassword(field.name, field.label) }}
-      {% elif (field.type == 'area') %}
-        {{ snippetArea(field.name, field.label) }}
-      {% elif ((field.type == 'joinByOne') or (field.type == 'joinByArray')) %}
-        {# Note we only present fields for forward joins, reverse joins are #}
-        {# edited on the other side #}
-        {{ snippetSelective(field.name, field.label, {
-          relationship: field.relationship,
-          placeholder: field.placeholder
-        }) }}
-      {% endif %}
-      {% if field.help %}
-        <p class="apos-help">{{ field.help | e }}</p>
-      {% endif %}
-    {% endif %}
-    {% if (field.name == options.to) %}
-      {% set toFound = true %}
-    {% endif %}
-    {% if (field.name == options.after) %}
-      {% set fromFound = true %}
-    {% endif %}
-  {% endfor %}
+  {{ schemaFields(fields, options) }}
 {% endmacro %}
 
