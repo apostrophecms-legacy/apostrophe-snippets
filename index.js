@@ -1414,6 +1414,13 @@ snippets.Snippets = function(options, callback) {
     return callback(null);
   };
 
+  // This method extends the mongodb criteria used to fetch snippets
+  // based on query parameters and general rules that should be applied
+  // to the normal view of content. Even an admin should not see unpublished
+  // content in this view because it is disconcerting and suggests that
+  // the public will see it too. A separate method, addApiCriteria, is
+  // applied to the "manage" view
+
   self.addCriteria = function(req, criteria, options) {
     options.fetch = {
       tags: { parameter: 'tag' }
@@ -1452,6 +1459,7 @@ snippets.Snippets = function(options, callback) {
         options.fetch.tags.always = tag;
       }
     }
+    criteria.published = true;
   };
 
   // When a snippet (such as a blog post by Dave) appears as a callout on another
