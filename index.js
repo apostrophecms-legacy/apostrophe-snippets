@@ -844,65 +844,78 @@ snippets.Snippets = function(options, callback) {
       }
     });
 
-    // Make sure that aposScripts and aposStylesheets summon our
-    // browser-side UI assets for managing snippets
-
-    // Useful data when rendering menus, edit modals, manage modals, etc.
-    // Use of these variables makes it safe to use the snippet menu and modals
-    // for newly invented types too at least as a starting point, and they can be
-    // safely copied and pasted and edited as well
-
     self._pluralCss = self._apos.cssName(self.name);
-    var data = {
-      fields: self.schema,
-      alwaysEditing: self._apos.alwaysEditing,
-      newClass: 'apos-new-' + self._css,
-      instanceLabel: self.instanceLabel,
-      editClass: 'apos-edit-' + self._css,
-      manageClass: 'apos-manage-' + self._css,
-      importClass: 'apos-import-' + self._css,
-      label: self.label,
-      pluralLabel: self.pluralLabel,
-      newButtonData: 'data-new-' + self._css,
-      editButtonData: 'data-edit-' + self._css,
-      manageButtonData: 'data-manage-' + self._css,
-      importButtonData: 'data-import-' + self._css,
-      menuIcon: 'icon-' + self.icon,
-      pageSettingsClass: 'apos-page-settings-' + self._pluralCss
+
+    // Push our assets at the last possible moment. This allows us
+    // to make decisions about the data to be passed to assets based
+    // on other modules that may not have been initialized yet when
+    // we were first constructed
+
+    self._apos.on('beforeEndAssets', function() {
+      self.pushAllAssets();
+    });
+
+    self.pushAllAssets = function() {
+      // Make sure that aposScripts and aposStylesheets summon our
+      // browser-side UI assets for managing snippets
+
+      // Useful data when rendering menus, edit modals, manage modals, etc.
+      // Use of these variables makes it safe to use the snippet menu and modals
+      // for newly invented types too at least as a starting point, and they can be
+      // safely copied and pasted and edited as well
+
+      var data = {
+        fields: self.schema,
+        alwaysEditing: self._apos.alwaysEditing,
+        newClass: 'apos-new-' + self._css,
+        instanceLabel: self.instanceLabel,
+        editClass: 'apos-edit-' + self._css,
+        manageClass: 'apos-manage-' + self._css,
+        importClass: 'apos-import-' + self._css,
+        label: self.label,
+        pluralLabel: self.pluralLabel,
+        newButtonData: 'data-new-' + self._css,
+        editButtonData: 'data-edit-' + self._css,
+        manageButtonData: 'data-manage-' + self._css,
+        importButtonData: 'data-import-' + self._css,
+        menuIcon: 'icon-' + self.icon,
+        pageSettingsClass: 'apos-page-settings-' + self._pluralCss
+      };
+
+      self._apos.addLocal(self._menuName, function(args) {
+        _.defaults(args, data);
+        var result = self.render('menu', args);
+        return result;
+      });
+
+      // The new template should not include the slug field
+      var newData = {};
+      extend(true, newData, data);
+      newData.fields = _.filter(self.schema, function(field) {
+        return (field.name !== 'slug');
+      });
+
+      self.pushAsset('template', 'new', { when: 'user', data: newData });
+      self.pushAsset('template', 'edit', { when: 'user', data: data });
+      self.pushAsset('template', 'manage', { when: 'user', data: data });
+      self.pushAsset('template', 'import', { when: 'user', data: data });
+
+      // CUSTOM PAGE SETTINGS TEMPLATE
+      self.pushAsset('template', 'pageSettings', {
+        when: 'user',
+        data: {
+          label: self.label,
+          instanceLabel: self.instanceLabel,
+          pluralLabel: self.pluralLabel,
+          pageSettingsClass: 'apos-page-settings-' + self._apos.cssName(self.name)
+        }
+      });
+
+      self.pushAsset('script', 'editor', { when: 'user' });
+      self.pushAsset('script', 'content', { when: 'always' });
     };
 
-    self._apos.addLocal(self._menuName, function(args) {
-      _.defaults(args, data);
-      var result = self.render('menu', args);
-      return result;
-    });
-
-    // The new template should not include the slug field
-    var newData = {};
-    extend(true, newData, data);
-    newData.fields = _.filter(self.schema, function(field) {
-      return (field.name !== 'slug');
-    });
-
-    self.pushAsset('template', 'new', { when: 'user', data: newData });
-    self.pushAsset('template', 'edit', { when: 'user', data: data });
-    self.pushAsset('template', 'manage', { when: 'user', data: data });
-    self.pushAsset('template', 'import', { when: 'user', data: data });
   }
-
-  // CUSTOM PAGE SETTINGS TEMPLATE
-  self.pushAsset('template', 'pageSettings', {
-    when: 'user',
-    data: {
-      label: self.label,
-      instanceLabel: self.instanceLabel,
-      pluralLabel: self.pluralLabel,
-      pageSettingsClass: 'apos-page-settings-' + self._apos.cssName(self.name)
-    }
-  });
-
-  self.pushAsset('script', 'editor', { when: 'user' });
-  self.pushAsset('script', 'content', { when: 'always' });
 
   // We've decided not to push stylesheets that live in the core
   // Apostrophe modules, because we prefer to write LESS files in the
@@ -986,6 +999,15 @@ snippets.Snippets = function(options, callback) {
     var filterCriteria = {};
     var results = null;
     extend(true, options, optionsArg);
+
+    // If the user has the special admin permission for this specific type,
+    // we acknowledge that here and shut off further permissions checks
+    // before we get to the pages.get call
+
+    if (req.user.permissions['admin-' + self._css]) {
+      options.permissions = false;
+    }
+
     // For snippets the default sort is alpha
     if (options.sort === undefined) {
       options.sort = { sortTitle: 1 };
@@ -1106,18 +1128,33 @@ snippets.Snippets = function(options, callback) {
     if (!snippet.type) {
       snippet.type = self._instance;
     }
-    return self.beforePutOne(req, slug, options, snippet, function(err) {
-      if (err) {
-        return callback(err);
-      }
 
-      return self._apos.putPage(req, slug, options, snippet, function(err) {
-        if (err) {
-          return callback(err);
+    // Copy options object so we can change it safely
+    var _options = {};
+    extend(true, _options, options);
+    options = _options;
+
+    return async.series({
+      // Type-specific permissions check
+      permissions: function(callback) {
+        if (options.permissions === false) {
+          return callback(null);
         }
+        return self._apos.permissions(req, 'edit-' + self._css, snippet._id ? snippet : null, callback);
+      },
+      beforePutOne: function(callback) {
+        // We already checked in a more type-specific way
+        options.permissions = false;
+        return self.beforePutOne(req, slug, options, snippet, callback);
+      },
+      putPage: function(callback) {
+        return self._apos.putPage(req, slug, options, snippet, callback);
+      },
+      afterPutOne: function(callback) {
         return self.afterPutOne(req, slug, options, snippet, callback);
-      });
-    });
+      }
+    }, callback);
+
   };
 
   /**
