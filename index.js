@@ -1004,7 +1004,7 @@ snippets.Snippets = function(options, callback) {
     // we acknowledge that here and shut off further permissions checks
     // before we get to the pages.get call
 
-    if (req.user.permissions['admin-' + self._css]) {
+    if (req.user && req.user.permissions['admin-' + self._css]) {
       options.permissions = false;
     }
 
