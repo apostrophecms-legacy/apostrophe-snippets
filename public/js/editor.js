@@ -99,6 +99,16 @@ function AposSnippets(options) {
       return aposSchemas.convertFields($el, schema, data, callback);
     };
 
+    // bc wrapper
+    self.getSingletonJSON = function($el, name) {
+      return aposSchemas.getSingletonJSON($el, name);
+    };
+
+    // bc wrapper
+    self.getAreaJSON = function($el, name) {
+      return aposSchemas.getAreaJSON($el, name);
+    };
+
     self.addingToManager = function($el, $snippet, snippet) {
     };
 
