@@ -17,6 +17,7 @@ function snippets(options, callback) {
 
 snippets.Snippets = function(options, callback) {
   var self = this;
+
   // "Protected" properties. We want modules like the blog to be able
   // to access these, thus no variables defined in the closure
   self._apos = options.apos;
@@ -855,6 +856,27 @@ snippets.Snippets = function(options, callback) {
       self.pushAllAssets();
     });
 
+    if (self._adminOnly) {
+      // If a type has the adminOnly flag then only admins may
+      // edit it, ever. This is used for people and groups, the
+      // editing of which could allow someone to make themselves
+      // an admin
+
+      self._apos.on('permissions', function(req, action, result) {
+        var matches = action.match(/^(\w+)\-([\w\-]+)$/);
+        if (!matches) {
+          return;
+        }
+        if (matches[2] !== self._instance) {
+          return;
+        }
+        if (matches[1] === 'view') {
+          return;
+        }
+        result.response = 'Forbidden';
+      });
+    }
+
     self.pushAllAssets = function() {
       // Make sure that aposScripts and aposStylesheets summon our
       // browser-side UI assets for managing snippets
@@ -882,8 +904,49 @@ snippets.Snippets = function(options, callback) {
         pageSettingsClass: 'apos-page-settings-' + self._pluralCss
       };
 
-      self._apos.addLocal(self._menuName, function(args) {
-        _.defaults(args, data);
+      var permissionName = self._apos.cssName(self._instance);
+      var adminPermissionName = 'admin-' + permissionName;
+      var editPermissionName = 'edit-' + permissionName;
+      var submitPermissionName = 'submit-' + permissionName;
+
+      // Present dropdown menu with "New," "Manage," "Import". This
+      // would be trivial if it weren't for the permissions checks,
+      // which are a bit fussy.
+
+      self._apos.addLocal(self._menuName, function(_args) {
+        var permissions;
+        var args = {};
+        extend(true, args, data);
+        if (_args.edit !== undefined) {
+          // They passed an explicit edit flag
+          args.edit = _args.edit;
+        } else if (typeof(_args) === 'object') {
+          // They passed a permissions object
+          permissions = _args;
+          if (permissions.admin) {
+            args.edit = true;
+            args.import = true;
+          } else if (self._adminOnly) {
+            // Groups and people can never be edited by anyone
+            // but a full-scale site-wide admin, because they would
+            // then be able to just make themselves a full scale admin.
+            // The people module carves out a separate exception for
+            // editing your own profile. -Tom
+            args.edit = false;
+          } else if (permissions[adminPermissionName]) {
+            args.edit = true;
+            args.import = true;
+          } else if (permissions[editPermissionName]) {
+            args.edit = true;
+          } else if (permissions.edit) {
+            args.edit = true;
+          } else if (permissions[submitPermissionName]) {
+            args.submit = true;
+            args.edit = true;
+          }
+        } else {
+          throw new Error("You must pass the permissions object to " + self._menuName + ", like this: " + self._menuName + "(permissions) for bc you may pass { edit: true }, but this doesn't give you import, so please update your outerLayout.html");
+        }
         var result = self.render('menu', args);
         return result;
       });
@@ -1103,6 +1166,9 @@ snippets.Snippets = function(options, callback) {
    * If you skip slug, the slug property of the snippet is used. This
    * is only appropriate if you are definitely not changing the slug.
    *
+   * If you skip slug and the slug property of the snippet is undefined,
+   * a slug is assigned for you based on the title property.
+   *
    * To add additional behavior provide self.beforePutOne and
    * self.afterPutOne methods. These start out empty but bear in mind
    * that intermediate subclasses may set them.
@@ -1123,6 +1189,9 @@ snippets.Snippets = function(options, callback) {
     }
     if (recoverSlug) {
       slug = snippet.slug;
+      if (slug === undefined) {
+        slug = self._apos.slugify(snippet.title || 'My ' + self.instanceLabel);
+      }
     }
 
     if (!snippet.type) {
@@ -1142,6 +1211,25 @@ snippets.Snippets = function(options, callback) {
         }
         return self._apos.permissions(req, 'edit-' + self._css, snippet._id ? snippet : null, callback);
       },
+      // Also check publish permission if they are attempting to do that.
+      // If you try to edit something that has been published and you lack
+      // permission to publish it, that item becomes unpublished
+      // (TODO: a classier workflow for that)
+      publish: function(callback) {
+        if (options.permissions === false) {
+          return callback(null);
+        }
+        if (!snippet.published) {
+          return callback(null);
+        }
+        return self._apos.permissions(req, 'publish-' + self._css, snippet._id ? snippet : null, function(err) {
+          if (err) {
+            delete snippet.published;
+            self.publishBlocked(snippet);
+          }
+          return callback(null);
+        });
+      },
       beforePutOne: function(callback) {
         // We already checked in a more type-specific way
         options.permissions = false;
@@ -1156,6 +1244,15 @@ snippets.Snippets = function(options, callback) {
     }, callback);
 
   };
+
+  /**
+   * Override me to take additional action if a user is saving an object
+   * but does not have publishing privileges and the published flag, if
+   * it was ever set (which it may not have been), has just been removed
+   */
+
+   self.publishBlocked = function(snippet) {
+   };
 
   /**
    * Override me to have a last chance to alter the snippet or
