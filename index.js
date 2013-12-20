@@ -919,35 +919,34 @@ snippets.Snippets = function(options, callback) {
         var permissions;
         var args = {};
         extend(true, args, data);
-        if (_args.edit !== undefined) {
-          // They passed an explicit edit flag
-          args.edit = _args.edit;
-        } else if (typeof(_args) === 'object') {
+        if (_args) {
           // They passed a permissions object
           permissions = _args;
-          if (permissions.admin) {
-            args.edit = true;
-            args.import = true;
-          } else if (self._adminOnly) {
-            // Groups and people can never be edited by anyone
-            // but a full-scale site-wide admin, because they would
-            // then be able to just make themselves a full scale admin.
-            // The people module carves out a separate exception for
-            // editing your own profile. -Tom
-            args.edit = false;
-          } else if (permissions[adminPermissionName]) {
-            args.edit = true;
-            args.import = true;
-          } else if (permissions[editPermissionName]) {
-            args.edit = true;
-          } else if (permissions.edit) {
-            args.edit = true;
-          } else if (permissions[submitPermissionName]) {
-            args.submit = true;
-            args.edit = true;
-          }
         } else {
-          throw new Error("You must pass the permissions object to " + self._menuName + ", like this: " + self._menuName + "(permissions) for bc you may pass { edit: true }, but this doesn't give you import, so please update your outerLayout.html");
+          // Login or other situation where there is absolutely no information
+          // about a user yet
+          permissions = {};
+        }
+        if (permissions.admin) {
+          args.edit = true;
+          args.import = true;
+        } else if (self._adminOnly) {
+          // Groups and people can never be edited by anyone
+          // but a full-scale site-wide admin, because they would
+          // then be able to just make themselves a full scale admin.
+          // The people module carves out a separate exception for
+          // editing your own profile. -Tom
+          args.edit = false;
+        } else if (permissions[adminPermissionName]) {
+          args.edit = true;
+          args.import = true;
+        } else if (permissions[editPermissionName]) {
+          args.edit = true;
+        } else if (permissions.edit) {
+          args.edit = true;
+        } else if (permissions[submitPermissionName]) {
+          args.submit = true;
+          args.edit = true;
         }
         var result = self.render('menu', args);
         return result;
