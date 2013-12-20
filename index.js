@@ -873,7 +873,9 @@ snippets.Snippets = function(options, callback) {
         if (matches[1] === 'view') {
           return;
         }
-        result.response = 'Forbidden';
+        if (!(req.user && req.user.permissions.admin)) {
+          result.response = 'Forbidden';
+        }
       });
     }
 
