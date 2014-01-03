@@ -15,20 +15,19 @@ function AposSnippets(options) {
   // "Manage" pagination
   self._managePerPage = options.managePerPage || 20;
   self.schema = options.schema;
+  self.indexSchema = options.indexSchema;
 
   // PAGE SETTINGS FOR THIS TYPE
 
   self.settings = {
-    serialize: function($el, $details) {
-      var data = {
-        tags: $details.find('[data-name="tags"]').selective('get'),
-        notTags: $details.find('[data-name="notTags"]').selective('get')
-      };
-      return data;
+    serialize: function($el, $details, callback) {
+      var data = {};
+      return aposSchemas.convertFields($details, self.indexSchema, data, function(err) {
+        return callback(err, data);
+      });
     },
-    unserialize: function(data, $el, $details) {
-      apos.enableTags($details.find('[data-name="tags"]'), data.tags);
-      apos.enableTags($details.find('[data-name="notTags"]'), data.notTags);
+    unserialize: function(data, $el, $details, callback) {
+      return aposSchemas.populateFields($details, self.indexSchema, data, callback);
     }
   };
 

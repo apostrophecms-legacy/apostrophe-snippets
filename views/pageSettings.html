@@ -1,6 +1,5 @@
 {% include 'formMacros.html' %}
+{% include "schemas:schemaMacros.html" %}
 <div class="apos-template {{ pageSettingsClass }}">
-{% set label = 'Show ' + pluralLabel + ' Tagged:' %}
-{{ formTags('tags', label) }}
-{{ formTags('notTags', 'But Not Tagged:') }}
+{{ schemaFields(fields) }}
 </div>

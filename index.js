@@ -308,7 +308,31 @@ snippets.Snippets = function(options, callback) {
         'of your modules, or just update your app.js to use\n' +
         'apostrophe-site.';
     }
+
+    // self.schema = fields for the snippets themselves, always present,
+    // frequently extended
     self.schema = self._schemas.compose(options);
+
+    // self.indexSchema = additional fields for index pages ("blog", "events",
+    // "map", NOT "blogPost", "event", "mapLocation"). Often left alone,
+    // occasionally extended. Composed from options passed via
+    // options.indexSchema, which can be addFields, removeFields etc.,
+    // just like with the instance schema
+
+    options.indexSchema = options.indexSchema || {};
+    options.indexSchema.addFields = [
+      {
+        name: 'tags',
+        label: 'Show ' + self.pluralLabel + ' With These Tags',
+        type: 'tags'
+      },
+      {
+        name: 'notTags',
+        label: 'But WITHOUT These Tags',
+        type: 'tags'
+      }
+    ].concat(options.indexSchema.addFields || []);
+    self.indexSchema = self._schemas.compose(options.indexSchema);
 
     // For bc
     self.textToArea = self._apos.textToArea;
@@ -395,10 +419,6 @@ snippets.Snippets = function(options, callback) {
 
         snippet.sortTitle = self._apos.sortify(snippet.title);
 
-        if (!snippet.publishedAt) {
-          snippet.publishedAt = new Date();
-        }
-
         async.series([ permissions, beforeInsert, beforeSave, insert, afterInsert, afterSave ], send);
 
         function permissions(callback) {
@@ -411,6 +431,9 @@ snippets.Snippets = function(options, callback) {
         }
 
         function beforeSave(callback) {
+          if (!snippet.publishedAt) {
+            snippet.publishedAt = new Date();
+          }
           return self.beforeSave(req, req.body, snippet, callback);
         }
 
@@ -873,6 +896,9 @@ snippets.Snippets = function(options, callback) {
         if (matches[1] === 'view') {
           return;
         }
+        if (req.user && req.user.permissions.admin) {
+          return;
+        }
         result.response = 'Forbidden';
       });
     }
@@ -888,6 +914,7 @@ snippets.Snippets = function(options, callback) {
 
       var data = {
         fields: self.schema,
+        indexFields: self.indexSchema,
         alwaysEditing: self._apos.alwaysEditing,
         newClass: 'apos-new-' + self._css,
         instanceLabel: self.instanceLabel,
@@ -970,6 +997,7 @@ snippets.Snippets = function(options, callback) {
           label: self.label,
           instanceLabel: self.instanceLabel,
           pluralLabel: self.pluralLabel,
+          fields: self.indexSchema,
           pageSettingsClass: 'apos-page-settings-' + self._apos.cssName(self.name)
         }
       });
@@ -1010,11 +1038,15 @@ snippets.Snippets = function(options, callback) {
   //
   // PERMALINKING
   //
-  // By default no ._url property is set on each item, as you often
-  // are rendering items on a specific page and want to set the ._url
+  // By default no .url property is set on each item, as you often
+  // are rendering items on a specific page and want to set the .url
   // property to match. If you set the `permalink` option to true, the
-  // ._url property will be set for you, based on the findBestPage
+  // .url property will be set for you, based on the findBestPage
   // algorithm.
+  //
+  // JOINS
+  //
+  // Carries out joins as specified in the schema.
   //
   // FETCHING METADATA FOR FILTERS
   //
@@ -1151,6 +1183,108 @@ snippets.Snippets = function(options, callback) {
         return callback(err);
       }
       return callback(err, results.snippets[0]);
+    });
+  };
+
+  // Returns snippet index pages - for instance, blogs or calendars,
+  // rather than the individual articles or events - that the current
+  // user is permitted to visit.
+  //
+  // Normally viewers reach these by browsing, however in some cases
+  // you will want to know about all of the pages of a particular type.
+  //
+  // The result passed as the second argument to the callback is an
+  // object with a "pages" property containing the pages. (Although
+  // we currently pass no other properties, we may in the future,
+  // and wish to be forwards-compatible.)
+  //
+  // CRITERIA
+  //
+  // The criteria argument is combined with the standard MongoDB
+  // criteria for fetching pages via MongoDB's `$and` keyword.
+  // This allows you to use any valid MongoDB criteria when
+  // fetching pages.
+  //
+  // OPTIONS
+  //
+  // The `options` argument provides *everything offered by
+  // the `apos.get` method's `options` argument*, plus the following:
+  //
+  // PERMALINKING
+  //
+  // The slug property is copied to the url property for the convenience
+  // of code that deals with both snippets and index pages.
+  //
+  // JOINS
+  //
+  // Carries out joins as expectd in the schema.
+
+  self.getIndexes = function(req, userCriteria, optionsArg, callback) {
+    var options = {};
+    var filterCriteria = {};
+    var results = null;
+    extend(true, options, optionsArg);
+
+    // Default sort is alpha
+    if (options.sort === undefined) {
+      options.sort = { sortTitle: 1 };
+    }
+    // filterCriteria is the right place to build up criteria
+    // specific to this method; we'll $and it with the user's
+    // criteria before passing it on to apos.get
+    filterCriteria.type = self.name;
+    var fetch = options.fetch;
+    var permalink = options.permalink;
+
+    // Final criteria to pass to apos.get
+    var criteria = {
+      $and: [
+        userCriteria,
+        filterCriteria
+      ]
+    };
+
+    return async.series([ query, join, permalinker ], function(err) {
+      return mainCallback(err, results);
+    });
+
+    function query(callback) {
+      return self._apos.get(req, criteria, options, function(err, resultsArg) {
+        if (err) {
+          return callback(err);
+        }
+        results = resultsArg;
+        return callback(null);
+      });
+    }
+
+    function join(callback) {
+      var withJoins = options.withJoins;
+      return self._schemas.join(req, self.indexSchema, _.pluck(results.pages, 'typeSettings'), withJoins, callback);
+    }
+
+    function permalinker(callback) {
+      _.each(results.pages, function(page) {
+        page.url = page.slug;
+      });
+      return callback(null);
+    }
+  };
+
+  // Get just one index page. Otherwise identical to getIndexes.
+
+  self.getOneIndex = function(req, criteria, optionsArg, callback) {
+    var options = {};
+    extend(true, options, optionsArg);
+    options.limit = 1;
+    if (!options.skip) {
+      options.skip = 0;
+    }
+    return self.get(req, criteria, options, function(err, results) {
+      if (err) {
+        return callback(err);
+      }
+      return callback(err, results.pages[0]);
     });
   };
 
@@ -1340,41 +1474,25 @@ snippets.Snippets = function(options, callback) {
   };
 
   // This is a loader function, for use with the `load` option of
-  // the pages module's `serve` method.
-  //
-  // If the page type group is not "snippet" (or as overridden via self._instance),
-  // this loader does nothing.
-  //
-  // Otherwise, if the page matches the URL
-  // exactly, self function serves up the "main index" page of the snippet
-  // repository (a list of snippets in alphabetical in blog order).
-  //
-  // If the page is an inexact match, self function looks at the remainder of the
-  // URL to decide what to do. If the remainder is a slug, the snippet with that
-  // slug is served (a "permalink page").
-  //
-  // "Why would you want to give snippets permalinks?" You typically wouldn't. But in
-  // a module that inherits from snippets, like the blog module, this is the starting
-  // point for serving up blogs (index pages) and permalink pages.
+  // the pages module's `serve` method. apostrophe-sites wires it up
+  // automatically.
 
   self.loader = function(req, callback) {
-    async.series([go, permissions], callback);
+    if (!req.bestPage) {
+      return callback(null);
+    }
 
-    function go(callback) {
-      if (!req.bestPage) {
-        return callback(null);
-      }
+    // If the page type doesn't share our type name
+    // this page isn't relevant for us
+    if (req.bestPage.type !== self.name) {
+      return callback(null);
+    }
 
-      // If the page type doesn't share our type name
-      // this page isn't relevant for us
-      if (req.bestPage.type !== self.name) {
-        return callback(null);
-      }
+    async.series([joins, permissions, dispatch], callback);
 
-      // We consider a partial match to be good enough, depending on the
-      // remainder of the URL
-      req.page = req.bestPage;
-      self.dispatch(req, callback);
+    function joins(callback) {
+      var withJoins = options.withJoins;
+      return self._schemas.join(req, self.indexSchema, [ req.bestPage.typeSettings || {} ], null, callback);
     }
 
     function permissions(callback) {
@@ -1386,6 +1504,13 @@ snippets.Snippets = function(options, callback) {
         req.extras[permissionName] = !err;
         return callback(null);
       });
+    }
+
+    function dispatch(callback) {
+      // We consider a partial match to be good enough, depending on the
+      // remainder of the URL
+      req.page = req.bestPage;
+      self.dispatch(req, callback);
     }
   };
 
@@ -1744,8 +1869,7 @@ snippets.Snippets = function(options, callback) {
     settings: {
       sanitize: function(data, callback) {
         var ok = {};
-        ok.tags = self._apos.sanitizeTags(data.tags);
-        ok.notTags = self._apos.sanitizeTags(data.notTags);
+        self._schemas.convertFields(self.indexSchema, 'form', data, ok);
         return callback(null, ok);
       }
     }
@@ -1776,7 +1900,8 @@ snippets.Snippets = function(options, callback) {
     typeCss: self._typeCss,
     manager: self.manager,
     action: self._action,
-    schema: self.schema
+    schema: self.schema,
+    indexSchema: self.indexSchema
   };
   extend(true, args, browser.options || {});
 

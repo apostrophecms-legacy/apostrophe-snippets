@@ -22,6 +22,7 @@
   * [reverse many-to-many](#reverse-many-to-many-joins)
   * [Complicated Relationships](#when-relationships-get-complicated)
   * [Accessing Relationship Properties in a Reverse Join](#accessing-relationship-properties-in-a-reverse-join)
+* [Custom Properties and Joins for Index Pages](#custom-properties-and-joins-for-index-pages)
 * [Custom Properties Without Schemas](#adding-custom-properties-without-schemas)
 * [Adding Properties to new and edit dialogs](#adding-properties-to-the-new-and-edit-dialogs)
 * [Subclassing on the browser side](#sending-extra-properties-to-the-server-subclassing-on-the-browser-side)
@@ -761,9 +762,27 @@ Here we stash the original method in the variable `superDispatch`, then use the 
 
 This is an important technique because in many cases we do need the default behavior of the original method and we don't want to completely override it. When you completely override something you become responsible for keeping track of any changes in the original method. **It's better to override as little as possible.**
 
-### Adding Custom Properties Without Schemas
+### Custom Properties and Joins for Index Pages
 
-Here's an example of adding a property without using the schema mechanism. This is useful if you need to support something not covered by schemas.
+So far we've added properties to snippets themselves... such as blog posts and events.
+
+But what about the "blog" and "events" index pages that display them? It is sometimes useful to add properties to these too.
+
+You can do that by passing the `indexSchema` option when you configure the module in `app.js`. You can pass `addFields`, `removeFields`, `orderFields` and `alterFields` properties, exactly as you would when adding properties to snippets.
+
+You may use joins as well. In fact, there is no reason you can't join "index" types with "instance" types and vice versa.
+
+Index pages carry out their joins when the page is visited, so if you decide to join an events page with mapLocations, you can display your chosen locations on the events page.
+
+It is also possible to fetch all the index pages of a particular index type programmatically:
+
+    snippets.getIndexes(req, criteria, options, callback)
+
+Your callback receives an error if any, and if no error, an array of index pages. Joins are carried out according to the schema.
+
+### Adding Custom Properties To Snippets Without Schemas
+
+Here's an example of adding a property to a snippet without using the schema mechanism. This is useful if you need to support something not covered by schemas, although since custom schema types can be added, the chances are good you won't need this more direct approach.
 
 Blog posts have a property that regular snippets don't: a publication date. A blog post should not appear before its publication date. To implement that, we need to address several things:
 
