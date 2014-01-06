@@ -60,7 +60,7 @@ function AposSnippets(options) {
         }
       });
       if (!$el.length) {
-        apos.log('ERROR: there is no template with the apos-new' + self._css + ' class. You probably need to copy and edit new.html and edit.html for your snippet subclass.');
+        apos.log('ERROR: there is no template with the apos-new-' + self._css + ' class. You probably need to copy and edit new.html and edit.html for your snippet subclass.');
       }
     };
 
