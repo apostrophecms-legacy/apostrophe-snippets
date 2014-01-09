@@ -652,6 +652,7 @@ snippets.Snippets = function(options, callback) {
         self.addApiCriteria(req.query, criteria, options);
         self.get(req, criteria, options, function(err, results) {
           if (err) {
+            console.error(err);
             res.statusCode = 500;
             return res.send('error');
           }
