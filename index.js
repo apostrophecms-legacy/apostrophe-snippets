@@ -27,6 +27,7 @@ snippets.Snippets = function(options, callback) {
   self._options = options;
   self._perPage = options.perPage || 10;
 
+
   // With apostrophe-site we'll get a single shared instance of
   // apostrophe-schemas, which is better. Without it, we'll settle for
   // requiring the one in our dependencies, as a backwards compatibility
@@ -80,6 +81,7 @@ snippets.Snippets = function(options, callback) {
   self.pluralLabel = options.pluralLabel || self.label;
   self.instanceLabel = options.instanceLabel || 'Snippet';
   self.icon = options.icon || 'snippets';
+  self._pluralCss = self._apos.cssName(self.name);
 
   // The type property of the page object used to store the snippet, also
   // passed to views for use in CSS classes etc. Should be camel case. These
@@ -869,17 +871,6 @@ snippets.Snippets = function(options, callback) {
       }
     });
 
-    self._pluralCss = self._apos.cssName(self.name);
-
-    // Push our assets at the last possible moment. This allows us
-    // to make decisions about the data to be passed to assets based
-    // on other modules that may not have been initialized yet when
-    // we were first constructed
-
-    self._apos.on('beforeEndAssets', function() {
-      self.pushAllAssets();
-    });
-
     if (self._adminOnly) {
       // If a type has the adminOnly flag then only admins may
       // edit it, ever. This is used for people and groups, the
@@ -903,40 +894,62 @@ snippets.Snippets = function(options, callback) {
         result.response = 'Forbidden';
       });
     }
+  }
 
-    self.pushAllAssets = function() {
-      // Make sure that aposScripts and aposStylesheets summon our
-      // browser-side UI assets for managing snippets
+  // Push our assets at the last possible moment. This allows us
+  // to make decisions about the data to be passed to assets based
+  // on other modules that may not have been initialized yet when
+  // we were first constructed
 
-      // Useful data when rendering menus, edit modals, manage modals, etc.
-      // Use of these variables makes it safe to use the snippet menu and modals
-      // for newly invented types too at least as a starting point, and they can be
-      // safely copied and pasted and edited as well
+  self._apos.on('beforeEndAssets', function() {
+    self.pushAllAssets();
+  });
 
-      var data = {
-        fields: self.schema,
-        indexFields: self.indexSchema,
-        alwaysEditing: self._apos.alwaysEditing,
-        newClass: 'apos-new-' + self._css,
-        instanceLabel: self.instanceLabel,
-        editClass: 'apos-edit-' + self._css,
-        manageClass: 'apos-manage-' + self._css,
-        importClass: 'apos-import-' + self._css,
-        label: self.label,
-        pluralLabel: self.pluralLabel,
-        newButtonData: 'data-new-' + self._css,
-        editButtonData: 'data-edit-' + self._css,
-        manageButtonData: 'data-manage-' + self._css,
-        importButtonData: 'data-import-' + self._css,
-        menuIcon: 'icon-' + self.icon,
-        pageSettingsClass: 'apos-page-settings-' + self._pluralCss
-      };
+  self.pushAllAssets = function() {
+    // Make sure that aposScripts and aposStylesheets summon our
+    // browser-side UI assets for managing snippets
 
-      var permissionName = self._apos.cssName(self._instance);
-      var adminPermissionName = 'admin-' + permissionName;
-      var editPermissionName = 'edit-' + permissionName;
-      var submitPermissionName = 'submit-' + permissionName;
+    // Useful data when rendering menus, edit modals, manage modals, etc.
+    // Use of these variables makes it safe to use the snippet menu and modals
+    // for newly invented types too at least as a starting point, and they can be
+    // safely copied and pasted and edited as well
 
+    var data = {
+      fields: self.schema,
+      indexFields: self.indexSchema,
+      alwaysEditing: self._apos.alwaysEditing,
+      newClass: 'apos-new-' + self._css,
+      instanceLabel: self.instanceLabel,
+      editClass: 'apos-edit-' + self._css,
+      manageClass: 'apos-manage-' + self._css,
+      importClass: 'apos-import-' + self._css,
+      label: self.label,
+      pluralLabel: self.pluralLabel,
+      newButtonData: 'data-new-' + self._css,
+      editButtonData: 'data-edit-' + self._css,
+      manageButtonData: 'data-manage-' + self._css,
+      importButtonData: 'data-import-' + self._css,
+      menuIcon: 'icon-' + self.icon,
+      pageSettingsClass: 'apos-page-settings-' + self._pluralCss
+    };
+
+    var permissionName = self._apos.cssName(self._instance);
+    var adminPermissionName = 'admin-' + permissionName;
+    var editPermissionName = 'edit-' + permissionName;
+    var submitPermissionName = 'submit-' + permissionName;
+
+    // The new template should not include the slug field
+    var newData = {};
+    extend(true, newData, data);
+    newData.fields = _.filter(self.schema, function(field) {
+      return (field.name !== 'slug');
+    });
+
+    if (self.manager) {
+      self.pushAsset('template', 'new', { when: 'user', data: newData });
+      self.pushAsset('template', 'edit', { when: 'user', data: data });
+      self.pushAsset('template', 'manage', { when: 'user', data: data });
+      self.pushAsset('template', 'import', { when: 'user', data: data });
       // Present dropdown menu with "New," "Manage," "Import". This
       // would be trivial if it weren't for the permissions checks,
       // which are a bit fussy.
@@ -977,36 +990,24 @@ snippets.Snippets = function(options, callback) {
         var result = self.render('menu', args);
         return result;
       });
+    }
 
-      // The new template should not include the slug field
-      var newData = {};
-      extend(true, newData, data);
-      newData.fields = _.filter(self.schema, function(field) {
-        return (field.name !== 'slug');
-      });
+    // CUSTOM PAGE SETTINGS TEMPLATE. Even a type that isn't a manager can have its own page settings
+    self.pushAsset('template', 'pageSettings', {
+      when: 'user',
+      data: {
+        label: self.label,
+        instanceLabel: self.instanceLabel,
+        pluralLabel: self.pluralLabel,
+        fields: self.indexSchema,
+        pageSettingsClass: 'apos-page-settings-' + self._apos.cssName(self.name)
+      }
+    });
 
-      self.pushAsset('template', 'new', { when: 'user', data: newData });
-      self.pushAsset('template', 'edit', { when: 'user', data: data });
-      self.pushAsset('template', 'manage', { when: 'user', data: data });
-      self.pushAsset('template', 'import', { when: 'user', data: data });
-
-      // CUSTOM PAGE SETTINGS TEMPLATE
-      self.pushAsset('template', 'pageSettings', {
-        when: 'user',
-        data: {
-          label: self.label,
-          instanceLabel: self.instanceLabel,
-          pluralLabel: self.pluralLabel,
-          fields: self.indexSchema,
-          pageSettingsClass: 'apos-page-settings-' + self._apos.cssName(self.name)
-        }
-      });
-
-      self.pushAsset('script', 'editor', { when: 'user' });
-      self.pushAsset('script', 'content', { when: 'always' });
-    };
-
-  }
+    // Even a type that isn't a manager can have its own page settings and UI for pages of that type
+    self.pushAsset('script', 'editor', { when: 'user' });
+    self.pushAsset('script', 'content', { when: 'always' });
+  };
 
   // We've decided not to push stylesheets that live in the core
   // Apostrophe modules, because we prefer to write LESS files in the
