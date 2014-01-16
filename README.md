@@ -207,11 +207,11 @@ Here is a super-simple example of a project-level subclass of the people module 
 }, ... more modules ...
 ```
 
-#### What Field Types Are Available?
+### What Field Types Are Available?
 
 Currently:
 
-`string`, `boolean`, `integer`, `float`, `select`, `url`, `area`, `singleton`
+`string`, `boolean`, `integer`, `float`, `select`, `url`, `date`, `time`, `slug`, `tags`, `password`, `area`, `singleton`
 
 Except for `area`, all of these types accept a `def` option which provides a default value if the field's value is not specified.
 
@@ -219,11 +219,17 @@ The `integer` and `float` types also accept `min` and `max` options and automati
 
 The `select` type accepts a `choices` option which should contain an array of objects with `value` and `label` properties.
 
+The `date` type pops up a jQuery UI datepicker when clicked on, and the `time` type tolerates many different ways of entering the time, like "1pm" or "1:00pm" and "13:00".
+
+The `url` field type is tolerant of mistakes like leaving off `http:`.
+
+The `password` field type stores a salted hash of the password via `apos.hashPassword` which can be checked later with the `password-hash` module. If the user enters nothing the existing password is not updated.
+
 When using the `area` and `singleton` types, you may include an `options` property which will be passed to that area or singleton exactly as if you were passing it to `aposArea` or `aposSingleton`.
 
 When using the `singleton` type, you must always specify `widgetType` to indicate what type of widget should appear.
 
-Joins are also supported (see below).
+Joins are also supported as described below.
 
 ### Removing Fields
 
@@ -322,9 +328,13 @@ Note that you do not need to supply any arguments that can be inferred from the 
 
 #### Search and Schema Fields
 
-By default, all schema fields of type `string` or `select` are included in the search index. You can shut this off by setting the `search` option to `false` for a particular field. You can also reduce the search index weight of the field by setting `weight` to a lower value. The built-in search engine prioritizes results with a weight greater than `10` over "plain old rich text." By default the weight for schema fields is `15`.
+By default, all schema fields of type `string`, `select`, `area` and (in certain cases) `singleton` are included in the search index. You can shut this off by setting the `search` option to `false` for a particular field. You can also reduce the search index weight of the field by setting `weight` to a lower value. The built-in search engine prioritizes results with a weight greater than `10` over "plain old rich text." By default the weight for schema fields is `15`.
 
 Actually displaying your field as part of the summary shown when a snippet qualifies as a search result is usually not desirable, so by default this is not done. However you can include it in the summary text by setting the `silent` option to `false`.
+
+### Custom Field Types
+
+You can define custom field types to be included in schemas. For this advanced topic, see the [apostrophe-schemas](http://github.com/punkave/apostrophe-schemas) documentation. The `apostrophe-snippets` module is based upon `apostrohe-schemas`, so everything that can be done there is also supported with snippets.
 
 ### Joins in Schemas
 
@@ -632,6 +642,10 @@ Apostrophe instead lets us write this:
 ```
 
 *Much better.*
+
+### More About Schemas
+
+Schemas in snippets are built upon the [apostrophe-schemas](http://github.com/punkave/apostrophe-schemas) module. For even more information about schemas check out the documentation for that module.
 
 ### Advanced Techniques: Overriding Methods in Your Subclass
 
