@@ -334,7 +334,7 @@ Actually displaying your field as part of the summary shown when a snippet quali
 
 ### Custom Field Types
 
-You can define custom field types to be included in schemas. For this advanced topic, see the [apostrophe-schemas](http://github.com/punkave/apostrophe-schemas) documentation. The `apostrophe-snippets` module is based upon `apostrohe-schemas`, so everything that can be done there is also supported with snippets.
+You can define custom field types to be included in schemas. For this advanced topic, see the [apostrophe-schemas](http://github.com/punkave/apostrophe-schemas) documentation. The `apostrophe-snippets` module is based upon `apostrophe-schemas`, so everything that can be done there is also supported with snippets.
 
 ### Joins in Schemas
 
