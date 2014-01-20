@@ -191,7 +191,7 @@ function AposSnippets(options) {
       $el = apos.modalFromTemplate('.apos-manage-' + self._css, {
         init: function(callback) {
           // We want to know if a snippet is modified
-          $el.attr('data-apos-trigger-' + apos.eventName(self.name), '');
+          $el.attr('data-apos-trigger-' + apos.cssName(self.name), '');
           // Trigger an initial refresh
           triggerRefresh(callback);
         }
@@ -277,6 +277,8 @@ function AposSnippets(options) {
           $snippets.find('[data-item]:not(.apos-template)').remove();
           _.each(snippets, function(snippet) {
             var $snippet = apos.fromTemplate($snippets.find('[data-item].apos-template'));
+
+            // always populate title, trash and tags
             var $title = $snippet.find('[data-title]');
             $title.text(snippet.title || '[NO TITLE]');
             $title.attr('data-slug', snippet.slug);
@@ -286,6 +288,26 @@ function AposSnippets(options) {
             if (snippet.tags !== null) {
               $snippet.find('[data-tags]').text(snippet.tags);
             }
+
+            // Populate additional fields for each row if they have
+            // the "manage: true" property in the schema. This works for all
+            // the simple schema field types. It doesn't try to
+            // deal with joins, areas or singletons. TODO: this
+            // ought to offer field-specific displayers like
+            // the edit view does.
+
+            _.each(self.schema, function(field) {
+              if (field.manage) {
+                var $target = $snippet.find('[data-' + apos.cssName(field.name) + ']');
+                var val = snippet[field.name];
+                if (field.type === 'boolean') {
+                  $target.text(val ? 'Yes' : 'No');
+                } else {
+                  $target.text(val);
+                }
+              }
+            });
+
             self.addingToManager($el, $snippet, snippet);
             $snippets.append($snippet);
           });

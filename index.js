@@ -26,7 +26,7 @@ snippets.Snippets = function(options, callback) {
   self._searchable = (options.searchable !== undefined) ? options.searchable : true;
   self._options = options;
   self._perPage = options.perPage || 10;
-
+  self._adminOnly = options.adminOnly || self._adminOnly;
 
   // With apostrophe-site we'll get a single shared instance of
   // apostrophe-schemas, which is better. Without it, we'll settle for
