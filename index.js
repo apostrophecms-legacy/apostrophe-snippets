@@ -334,6 +334,7 @@ snippets.Snippets = function(options, callback) {
         type: 'tags'
       }
     ].concat(options.indexSchema.addFields || []);
+    options.indexSchema.requireFields = [ 'startDate' ].concat(options.indexSchema.requireFields || []);
     self.indexSchema = self._schemas.compose(options.indexSchema);
 
     // For bc
