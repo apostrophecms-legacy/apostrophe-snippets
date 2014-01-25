@@ -5,23 +5,23 @@
 {% endblock %}
 
 {% block title %}
-  Display {{ pluralLabel }}
+  __('Display %s', {{ pluralLabel }})
 {% endblock %}
 
 {% block instructions %}
-Start typing the title of a {{ instanceLabel | lower }}, then click on the suggestions that appear to insert them.
-Or just use tags to pull in {{ pluralLabel | lower }}.
+{{ __('Start typing the title of a %s, then click on the suggestions that appear to insert them.
+Or just use tags to pull in %s.', instanceLabel | lower, pluralLabel | lower ) }}
 {% endblock %}
 
 {% block formBody %}
 
 <fieldset class="apos-fieldset apos-fieldset-radio">
-  <label>By Tag</label>
+  <label>{{ __('By Tag') }}</label>
   <input type="radio" name="by" value="tag" />
 </fieldset>
 
-{{ formTags('tags', 'Tags') }}
-{{ formText('limit', pluralLabel + ' Shown') }}
+{{ formTags('tags', __('Tags')) }}
+{{ formText('limit', __('%s Shown', pluralLabel)) }}
 
 <fieldset class="apos-fieldset apos-fieldset-radio">
   <label>By {{ titleLabel }}</label>

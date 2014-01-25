@@ -92,18 +92,18 @@
 
 {% macro snippetNewButtons() %}
   <div class="apos-modal-footer">
-    <a href="#" data-action="save" data-next class="apos-control apos-button apos-save apos-add-next">Add Next</a>
-    <a href="#" data-action="save" class="apos-control apos-button apos-save">Add</a>
-    <a href="#" data-action="dismiss" class="apos-control apos-button apos-cancel">Cancel</a>
+    <a href="#" data-action="save" data-next class="apos-control apos-button apos-save apos-add-next">{{ __('Add Next') }}</a>
+    <a href="#" data-action="save" class="apos-control apos-button apos-save">{{ __('Add') }}</a>
+    <a href="#" data-action="dismiss" class="apos-control apos-button apos-cancel">{{ __('Cancel') }}</a>
   </div>
 {% endmacro %}
 
 {% macro snippetEditButtons() %}
   <div class="apos-modal-footer">
-    <a href="#" data-action="save" class="apos-control apos-button apos-save">Save</a>
-    <a href="#" data-action="delete" class="apos-control apos-button apos-delete">Move to Trash</a>
-    <a href="#" data-action="versions" class="apos-control apos-button apos-versions">Versions</a>
-    <a href="#" data-action="dismiss" class="apos-control apos-button apos-cancel">Cancel</a>
+    <a href="#" data-action="save" class="apos-control apos-button apos-save">{{ __('Save') }}</a>
+    <a href="#" data-action="delete" class="apos-control apos-button apos-delete">{{ __('Move to Trash') }}</a>
+    <a href="#" data-action="versions" class="apos-control apos-button apos-versions">{{ __('Versions') }}</a>
+    <a href="#" data-action="dismiss" class="apos-control apos-button apos-cancel">{{ __('Cancel') }}</a>
   </div>
 {% endmacro %}
 
@@ -117,11 +117,11 @@
       [
         {
           value: '0',
-          label: 'Live'
+          label: __('Live')
         },
         {
           value: '1',
-          label: 'Trash'
+          label: __('Trash')
         }
       ]
     )
@@ -134,15 +134,15 @@
       [
         {
           value: '1',
-          label: 'Published'
+          label: __('Published')
         },
         {
           value: '0',
-          label: 'Draft'
+          label: __('Draft')
         },
         {
           value: 'any',
-          label: 'Both'
+          label: __('Both')
         }
       ]
     )
@@ -172,15 +172,15 @@
       [
         {
           value: 'past',
-          label: 'Past'
+          label: __('Past')
         },
         {
           value: 'future',
-          label: 'Future'
+          label: __('Future')
         },
         {
           value: 'all',
-          label: 'All'
+          label: __('All')
         }
       ]
     )

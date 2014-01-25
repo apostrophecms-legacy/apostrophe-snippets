@@ -3,23 +3,23 @@
   <div class="apos-modal-body">
     <form>
       <fieldset class="apos-fieldset apos-fieldset-singleton">
-        <label>CSV File</label>
+        <label>{{ __('CSV File') }}</label>
         {# Blueimp makes this go #}
         <input type="file" name="file" />
       </fieldset>
       <p>
-        This form accepts a CSV file which may have the following headings: <code>title</code>, <code>tags</code>, <code>published</code>
+        {{ __('This form accepts a CSV file which may have the following headings: <code>title</code>, <code>tags</code>, <code>published</code>') }}
         {%- for field in fields -%}
           {%- if (field.type != 'singleton') and (not aposBeginsWith(field.type, 'join')) -%}
             , {{ field.name }}
           {%- endif -%}
         {%- endfor -%}.
-        Tags in the tags field should be comma-separated. Any unrelated headings are politely ignored. <strong>Please note that duplicates are not detected.</strong> If you import duplicates you may need to remove them manually.
+        {{ __('Tags in the tags field should be comma-separated. Any unrelated headings are politely ignored. <strong>Please note that duplicates are not detected.</strong> If you import duplicates you may need to remove them manually.') }}
       </p>
     </form>
   </div>
   <div class="apos-modal-footer">
-    <a href="#" data-action="save" class="apos-control apos-button apos-save">Import</a>
-    <a href="#" data-action="dismiss" class="apos-control apos-button apos-cancel">Cancel</a>
+    <a href="#" data-action="save" class="apos-control apos-button apos-save">{{ __('Import') }}</a>
+    <a href="#" data-action="dismiss" class="apos-control apos-button apos-cancel">{{ __('Cancel') }}</a>
   </div>
 </div>
