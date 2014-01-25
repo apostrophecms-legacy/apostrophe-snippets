@@ -1,13 +1,13 @@
 {% if edit %}
 
 <ul class="apos-admin-bar-item apos-accordion-menu">
-  <li class="apos-accordion-title"><i class="{{ menuIcon }}"></i> {{ pluralLabel }}</li>
+  <li class="apos-accordion-title"><i class="{{ menuIcon }}"></i> {{ __(pluralLabel) }}</li>
   <li class="apos-accordion-items">
     <ul class="apos-page-bar">
-      <li href="#" class="apos-control apos-accordion-item apos-button apos-new-button apos-new-snippet-button" {{ newButtonData }}>{% if submit %}{{ __('Submit') }}{% else %}{{ __('New') }}{% endif %} {{ instanceLabel }}</li>
-      <li href="#" class="apos-control apos-accordion-item apos-button apos-manage-button apos-manage-snippet-button" {{ manageButtonData }}>{% if submit %}{{ __('My') }}{% else %}Manage{% endif %} {{ pluralLabel }}</li>
+      <li href="#" class="apos-control apos-accordion-item apos-button apos-new-button apos-new-snippet-button" {{ newButtonData }}>{% if submit %}{{ __('Submit %s', __(instanceLabel)) }}{% else %}{{ __('New %s', __(instanceLabel)) }}{% endif %}</li>
+      <li href="#" class="apos-control apos-accordion-item apos-button apos-manage-button apos-manage-snippet-button" {{ manageButtonData }}>{% if submit %}{{ __('My %s', __(pluralLabel)) }}{% else %}{{ __('Manage %s', __(pluralLabel)) }}{% endif %}</li>
       {% if import %}
-        <li href="#" class="apos-control apos-accordion-item apos-button apos-manage-button apos-manage-snippet-button" {{ importButtonData }}>{{ __('Import %s', pluralLabel ) }}</li>
+        <li href="#" class="apos-control apos-accordion-item apos-button apos-manage-button apos-manage-snippet-button" {{ importButtonData }}>{{ __('Import %s', __(pluralLabel) ) }}</li>
       {% endif %}
     </ul>
   </li>

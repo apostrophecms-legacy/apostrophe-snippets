@@ -1,6 +1,6 @@
 {% include 'snippetMacros.html' %}
 <div class="apos-modal apos-template {% block class %}{{ newClass }}{% endblock %}">
-  <h3>{% block label %}{{ __('New %s', instanceLabel | e ) }}{% endblock %}</h3>
+  <h3>{% block label %}{{ __('New %s', __(instanceLabel) | e ) }}{% endblock %}</h3>
   {% block topButtons %}
   {# Makes more sense in edit view #}
   {# {{ snippetNewButtons() }} #}

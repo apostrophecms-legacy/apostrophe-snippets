@@ -5,7 +5,7 @@
 {% endblock %}
 
 {% block title %}
-  __('Display %s', {{ pluralLabel }})
+  {{ __('Display %s', pluralLabel ) }}
 {% endblock %}
 
 {% block instructions %}
@@ -20,11 +20,11 @@ Or just use tags to pull in %s.', instanceLabel | lower, pluralLabel | lower ) }
   <input type="radio" name="by" value="tag" />
 </fieldset>
 
-{{ formTags('tags', __('Tags')) }}
-{{ formText('limit', __('%s Shown', pluralLabel)) }}
+{{ formTags('tags', 'Tags') }}
+{{ formText('limit', pluralLabel + ' Shown') }}
 
 <fieldset class="apos-fieldset apos-fieldset-radio">
-  <label>By {{ titleLabel }}</label>
+  <label>By {{ __(titleLabel) }}</label>
   <input type="radio" name="by" value="id" />
 </fieldset>
 
