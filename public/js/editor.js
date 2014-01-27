@@ -137,7 +137,11 @@ function AposSnippets(options) {
         originalSlug: options.slug
       };
 
-      self.convertSomeFields($el, self.schema, data, function() {
+      self.convertSomeFields($el, self.schema, data, function(err) {
+        if (err) {
+          // Balk on "required" or similar error
+          return;
+        }
         if (action === 'update') {
           self.beforeUpdate($el, data, afterAction);
         } else {
