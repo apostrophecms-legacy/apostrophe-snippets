@@ -1863,7 +1863,13 @@ snippets.Snippets = function(options, callback) {
   };
 
   self.newInstance = function() {
-    return { type: self._instance, areas: {}, createdAt: new Date() };
+    var piece = { type: self._instance, areas: {}, createdAt: new Date() };
+    _.each(self.schema, function(field) {
+      if (field.def !== undefined) {
+        piece[field.name] = field.def;
+      }
+    });
+    return piece;
   };
 
   // Sanitize newly submitted page settings (never trust a browser)

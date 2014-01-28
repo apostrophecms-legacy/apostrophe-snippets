@@ -30,6 +30,7 @@
 * [Adding Properties to new and edit dialogs](#adding-properties-to-the-new-and-edit-dialogs)
 * [Subclassing on the browser side](#sending-extra-properties-to-the-server-subclassing-on-the-browser-side)
   * [Other methods to consider overriding in the browser](#other-methods-to-consider-overriding-on-the-browser-side)
+  * [Validating snippets](#validating-snippets)
 * [Manipulating Snippet Objects in the Database](#manipulating-snippet-objects-in-the-database)
 * [Pushing JS and CSS Assets to the Browser](#pushing-our-javascript-and-css-assets-to-the-browser)
 * [Saving Extra Properties on the Server](#saving-extra-properties-on-the-server)
@@ -851,31 +852,27 @@ Just like the server side code, this browser side code can be subclassed and ext
 
 `editor.js` will house all of the logic for subclassing snippets and is only loaded in the browser if a user is logged in. `content.js` is always loaded, giving us a convenient way to split up the logic between the _editing_ interface of the blog and the javascript related to showing it. We won't be making use of `content.js` for our Blog, but if we were making a widget such as a slideshow that required some logic this is where we would put it.
 
-Here's what `editor.js` looks like for the blog module:
+Here's what `editor.js` looks like in the simplest case in which you have one at all:
 
 ```javascript
-function AposBlog(optionsArg) {
-  ...
-}
-
-AposBlog.addWidgetType = function(options) {
-  ...
+function Stories(options) {
+  var self = this;
+  AposSnippets.call(self, options);
+  // Override some methods of snippets/editor.js here
 }
 ```
 
-Here we have two things: a constructor to create the module's browser-side JavaScript object, and a separate function to add a new widget to the site for reusing articles. *Since we have a distinct instance type, we must have a distinct widget too if we want to display blog posts via widgets.*
+Here we have a constructor to create the module's browser-side manager object.
 
-The `AposBlog` constructor's name is not an accident. `Apos` (or apos, for anything that is not a constructor) is the reserved prefix for Apostrophe-related variables on the browser side. The snippet module's server-side code will automatically push a JavaScript call into a block of browser-side calls at the end of the `body` element that creates and initializes the browser-side object for us.
+The snippet module's server-side code will automatically push a JavaScript call into a block of browser-side calls at the end of the `body` element that creates and initializes the browser-side object for us.
 
-By default, if the `name` option of our module is `blog`, the server will push a call to create an `AposBlog` object, passing it many of the same options the server side object receives:
+(For a simple subclass created via configuration in `app.js` which has its own instance name, the name of your constructor is the same as the name of your module, with the first letter capitalized. However, if you are subclassing a core Apostrophe module with the same name, prefix it with `My` to clearly distinguish it. If your module lives in `npm`, then the constructor's name should be prefixed with `Apos`. The `apostrophe-site` module makes sure these conventions work.)
 
-```javascript
-new AposBlog({ name: 'blog', instance: 'blogPost', css: 'blog-post', typeCss: 'blog', ... })
-```
+Your constructor receives many of the same options that the server side manager object has access to, including `name`, `instance`, `css`, `typeCss`, `instanceLabel` and `pluralLabel`.
 
 The `css` property is a CSS-friendly name for the instance type. The `typeCss` property is a CSS-friendly name for the index page type. These CSS-friendly names are very useful when manipulating DOM elements with jQuery.
 
-However, *please do not use the Apos prefix or the `apostrophe-` prefix for your own modules*. Just to avoid confusion, we ask that third-party developers use their own prefix. You don't want your code to stop working when we release a module of the same name. We don't even use the prefix ourselves if we are writing project-specific code that won't be published in the npm repository.
+A note to prospective authors of npm modules: *please do not use the Apos prefix or the `apostrophe-` prefix for your own modules*. Just to avoid confusion, we ask that third-party developers use their own prefix. You don't want your code to stop working when we release a module of the same name. We don't even use the prefix ourselves if we are writing project-specific code that won't be published in the npm repository.
 
 "But if I use my own prefix, how will the server push the right call to construct my object?" Good question. You can fix that by adding one more property when you initialize your module on the server side as shown earlier:
 
@@ -885,14 +882,14 @@ _.defaults(options, {
   name: options.name || 'blog',
   ...
   browser: {
-    construct: 'MyBlog'
+    construct: 'XYZCoBlog'
   }
 });
 ```
 
-Now the server will push a call to create a `MyBlog' object instead.
+Now the server will push a call to create an `XYZCoBlog' object instead.
 
-But we still haven't seen how extra properties of a snippet are handled. So let's look at that code from `editor.js` in the blog module.
+But we still haven't seen how to override methods on the browser side. So let's look at that code from `editor.js` in the blog module:
 
 ```javascript
 var superBeforeSave = self.beforeSave;
@@ -953,6 +950,26 @@ There are other methods you can override or extend. `addingToManager` is called 
     }
   };
 ```
+
+### Validating Snippets
+
+All forms of validation supported by [apostrophe-schemas](https://github.com/punkave/apostrophe-schemas) are supported by snippets. However, that's currently not a terribly long list. And there will always be a few complex cases where custom validation code in the browser is nice to have.
+
+You can write your own validator callback. Here's the default version:
+
+```javascript
+self.validate = function($el, data, action, callback) {
+  return callback(null);
+};
+```
+
+You can override this method to inspect anything in the DOM via `$el`, which contains all of the editable fields. And you can also inspect the properties of `data`, which has already been populated with the user's input by this point. In most cases the latter is the easiest way to go.
+
+If you don't like what you find, make the user aware of the validation problem, then invoke the callback with an error. This error is not displayed to the user and simply prevents the save operation from completing for now.
+
+If all is well invoke the callback with `null`.
+
+*This ends our coverage of browser-side code.* Let's return to the server side for a few advanced topics.
 
 ### Manipulating snippet objects in the database
 
