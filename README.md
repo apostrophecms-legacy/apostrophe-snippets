@@ -967,6 +967,13 @@ You can override this method to inspect anything in the DOM via `$el`, which con
 
 If you don't like what you find, make the user aware of the validation problem, then invoke the callback with an error. This error is not displayed to the user and simply prevents the save operation from completing for now.
 
+If the validation problem concerns a particular field, you can use `aposSchemas` to call attention to the error:
+
+```javascript
+// I don't like what is in the title
+aposSchemas.addError($el, 'title');
+```
+
 If all is well invoke the callback with `null`.
 
 *This ends our coverage of browser-side code.* Let's return to the server side for a few advanced topics.
