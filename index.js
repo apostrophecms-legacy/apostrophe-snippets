@@ -743,7 +743,7 @@ snippets.Snippets = function(options, callback) {
           // Since arrays in REST queries are ambiguous,
           // treat the absence of either parameter as an
           // empty `ids` array
-          return res.send(JSON.stringify([]));
+          return res.send([]);
         }
         if (data.values && data.values.length && (req.query.limit === undefined)) {
           // We are loading specific items to repopulate a control,
@@ -765,8 +765,8 @@ snippets.Snippets = function(options, callback) {
           }
           var snippets = results.snippets;
           // Put the snippets in id order
-          if (req.query.values) {
-            snippets = self._apos.orderById(req.query.values, snippets);
+          if (data.values) {
+            snippets = self._apos.orderById(data.values, snippets);
           }
           return res.send(
             JSON.stringify(_.map(snippets, function(snippet) {
