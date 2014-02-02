@@ -29,6 +29,6 @@
     "moment": "~2.0.0",
     "absolution": "~1.0.0",
     "rss": "~0.2.1",
-    "apostrophe-schemas": "~0.1.x"
+    "apostrophe-schemas": "~0.5.x"
   }
 }
