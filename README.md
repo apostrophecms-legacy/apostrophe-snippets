@@ -51,6 +51,10 @@ So there are four main ways a snippet might appear to the end user:
 * On a *show page*, featuring that snippet by itself at its own URL. As far as the `apostrophe-pages` module and Apostrophe's page tree are concerned, a "show page" is actually just an extension of an index page. The snippets module spots the slug of the index page in the URL, then takes the remainder of the URL and looks for a snippet with that slug. "Subclasses" of snippets, like the blog module, may easily alter the way the remainder of the URL is used to accommodate displaying a publication date in the URL.
 * Via an RSS feed. Adding `?feed=rss` to the URL of a snippet index page automatically generates an RSS feed. Methods of the snippets module can be easily overridden and extended to support more feed types.
 
+### Code Stability
+
+0.4.x releases receive bug fixes only. For active development, follow 0.5.x releases and/or the master branch in github.
+
 ## Using Snippets Directly
 
 Snippets are quite useful by themselves. Quite often, the snippet widget is enabled in a project to allow reuse of frequently-changing content displayed in a variety of places at the end user's discretion, rather than hardcoding a shared area or singleton into the page templates.
