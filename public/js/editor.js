@@ -44,12 +44,7 @@ function AposSnippets(options) {
     self.launchNew = function() {
       var $el = apos.modalFromTemplate('.apos-new-' + self._css, {
         save: function(callback) {
-          return self.validate($el, 'insert', function(err) {
-            if (err) {
-              return callback(err);
-            }
-            return self.insertOrUpdate($el, 'insert', {}, callback);
-          });
+          return self.insertOrUpdate($el, 'insert', {}, callback);
         },
         init: function(callback) {
           var defaultSnippet = self.getDefaultSnippet();
@@ -137,16 +132,28 @@ function AposSnippets(options) {
         originalSlug: options.slug
       };
 
-      self.convertSomeFields($el, self.schema, data, function() {
-        if (action === 'update') {
-          self.beforeUpdate($el, data, afterAction);
-        } else {
-          self.beforeInsert($el, data, afterAction);
+      self.convertSomeFields($el, self.schema, data, function(err) {
+        if (err) {
+          // Balk on "required" or similar error
+          aposSchemas.scrollToError($el);
+          return;
         }
-        // beforeSave is more convenient in most cases
-        function afterAction() {
-          self.beforeSave($el, data, go);
-        }
+        return self._validate($el, data, action, function(err) {
+          if (err) {
+            // Balk on validation error
+            aposSchemas.scrollToError($el);
+            return;
+          }
+          if (action === 'update') {
+            self.beforeUpdate($el, data, afterAction);
+          } else {
+            self.beforeInsert($el, data, afterAction);
+          }
+          // beforeSave is more convenient in most cases
+          function afterAction() {
+            self.beforeSave($el, data, go);
+          }
+        });
       });
 
       function go() {
@@ -415,18 +422,29 @@ function AposSnippets(options) {
       });
 
       function save(callback) {
-        return self.validate($el, 'update', function(err) {
-          if (err) {
-            return callback(err);
-          }
-          return self.insertOrUpdate($el, 'update', { slug: slug }, callback);
-        });
+        return self.insertOrUpdate($el, 'update', { slug: slug }, callback);
       }
       return false;
     };
 
-    // You may optionally override this method to validate the form. Inspect the fields
-    // of $el and, if you consider them unacceptable, invoke callback with anything other
+    // A bc wrapper for invoking self.validate which works even if
+    // self.validate is legacy code taking only three arguments.
+    // Should not be needed in newer projects, but we expose it here
+    // so that apostrophe-moderator can work with older code.
+
+    self._validate = function($el, data, action, callback) {
+      var validate;
+      // bc with 3-argument validators
+      if (self.validate.length === 3) {
+        return self.validate($el, action, callback);
+      } else {
+        return self.validate($el, data, action, callback);
+      }
+    };
+
+    // You may optionally override this method to validate the form. Inspect the
+    // properties of `data` or, if you wish, directly examine `$el` via jQuery. If
+    // you don't like what you see, invoke callback with anything other
     // than null to block the saving of the form and continue editing. There is a strong
     // bias toward sanitizing the user's input rather than blocking them in this way, but
     // in some applications it is worthwhile.
@@ -434,7 +452,7 @@ function AposSnippets(options) {
     // `action` will be either `insert` or `update`. If the distinction between a new
     // item and an updated one is irrelevant to your validation you may ignore it.
 
-    self.validate = function($el, action, callback) {
+    self.validate = function($el, data, action, callback) {
       return callback(null);
     };
 

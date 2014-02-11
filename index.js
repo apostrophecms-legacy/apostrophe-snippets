@@ -743,7 +743,7 @@ snippets.Snippets = function(options, callback) {
           // Since arrays in REST queries are ambiguous,
           // treat the absence of either parameter as an
           // empty `ids` array
-          return res.send(JSON.stringify([]));
+          return res.send([]);
         }
         if (data.values && data.values.length && (req.query.limit === undefined)) {
           // We are loading specific items to repopulate a control,
@@ -765,8 +765,8 @@ snippets.Snippets = function(options, callback) {
           }
           var snippets = results.snippets;
           // Put the snippets in id order
-          if (req.query.values) {
-            snippets = self._apos.orderById(req.query.values, snippets);
+          if (data.values) {
+            snippets = self._apos.orderById(data.values, snippets);
           }
           return res.send(
             JSON.stringify(_.map(snippets, function(snippet) {
@@ -1863,7 +1863,13 @@ snippets.Snippets = function(options, callback) {
   };
 
   self.newInstance = function() {
-    return { type: self._instance, areas: {}, createdAt: new Date() };
+    var piece = { type: self._instance, areas: {}, createdAt: new Date() };
+    _.each(self.schema, function(field) {
+      if (field.def !== undefined) {
+        piece[field.name] = field.def;
+      }
+    });
+    return piece;
   };
 
   // Sanitize newly submitted page settings (never trust a browser)
@@ -1892,6 +1898,17 @@ snippets.Snippets = function(options, callback) {
   self._browser = browser;
   var pages = browser.pages || 'aposPages';
   var construct = getBrowserConstructor();
+  if (_.find(self._pages.types, function(type) {
+    return type.name === self._instance;
+  })) {
+    throw 'The ' + self.name + ' module has the instance type ' + self._instance + '\n' +
+     'which already exists in your project as a page template.\n' +
+     'Instance types are not "regular pages" and should never\n' +
+     'appear in the pages menu. You must remove it from the types\n' +
+     'option of the pages module in app.js or change the instance\n' +
+     'type to be distinct. You may have intended to add ' + self.name + '\n' +
+     'to pages.types, which is fine.';
+  }
   self._pages.addType(self);
   var args = {
     name: self.name,
