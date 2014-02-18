@@ -629,12 +629,5 @@ AposSnippets.subclassIfNeeded = function(constructorName, baseConstructorName, o
       window[baseConstructorName].call(self, options);
     };
   }
-
-  if (!window[constructorName].addWidgetType) {
-    window[constructorName].addWidgetType = function(optionsArg) {
-      _.defaults(optionsArg, options.widget || {});
-      window[baseConstructorName].addWidgetType(options);
-    };
-  }
 };
 
