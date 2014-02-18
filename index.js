@@ -1946,7 +1946,9 @@ snippets.Snippets = function(options, callback) {
       action: self._action,
       instance: self._instance
     };
-    self._apos.pushGlobalCallWhen('user', '@.addWidgetType(?)', construct, widgetTypeOptions);
+    // The default implementation of addWidgetType is good enough now for
+    // most cases
+    self._apos.pushGlobalCallWhen('user', '(@.addWidgetType || AposSnippets.addWidgetType)(?)', construct, widgetTypeOptions);
   }
 
   function getBrowserConstructor() {
