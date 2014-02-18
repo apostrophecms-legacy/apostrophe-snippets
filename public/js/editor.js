@@ -456,6 +456,10 @@ function AposSnippets(options) {
       return callback(null);
     };
 
+    self.extendWidget = function(widget) {
+      // A chance to extend the snippet widget
+    };
+    
     // Import snippets
     $('body').on('click', '[data-import-' + self._css + ']', function() {
       var valid = false;
@@ -508,6 +512,7 @@ AposSnippets.addWidgetType = function(options) {
     name: options.name || 'snippets',
     label: options.label || 'Snippets',
     action: options.action || '/apos-snippets',
+    instance: options.instance || 'snippet',
     defaultLimit: options.defaultLimit || 1
   };
 
@@ -517,6 +522,7 @@ AposSnippets.addWidgetType = function(options) {
 
     // Constructor
     editor: function(options) {
+      var manager = self;
       var self = this;
       self._class = _class;
 
@@ -600,6 +606,11 @@ AposSnippets.addWidgetType = function(options) {
 
       self.prePreview = self.debrief;
       self.preSave = self.debrief;
+
+      // Give the manager for this instance type a chance to
+      // extend the widget
+      var manager = aposPages.getManager(self._class.instance);
+      manager.extendWidget(self);
     }
   };
 };

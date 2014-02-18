@@ -1940,7 +1940,13 @@ snippets.Snippets = function(options, callback) {
       widgetConstructor = snippets.widget.Widget;
     }
     new widgetConstructor({ apos: self._apos, icon: self.icon, app: self._app, snippets: self, name: self.name, label: self.label });
-    self._apos.pushGlobalCallWhen('user', '@.addWidgetType()', construct);
+    var widgetTypeOptions = {
+      name: self.name,
+      label: self.pluralLabel,
+      action: self._action,
+      instance: self._instance
+    };
+    self._apos.pushGlobalCallWhen('user', '@.addWidgetType(?)', construct, widgetTypeOptions);
   }
 
   function getBrowserConstructor() {
