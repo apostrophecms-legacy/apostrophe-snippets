@@ -1954,10 +1954,9 @@ snippets.Snippets = function(options, callback) {
   }
 
   // Figure out the name of the base class constructor on the browser side. If
-  // it's not available set a dummy name; this will work out OK because this
-  // typically means subclassing was done explicitly on the browser side.
+  // it's not explicitly set we assume we're subclassing snippets
   function getBaseBrowserConstructor() {
-    return self._browser.baseConstruct || 'AposPresumablyExplicit';
+    return self._browser.baseConstruct || 'AposSnippets';
   }
 
   if (callback) {

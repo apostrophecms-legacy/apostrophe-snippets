@@ -631,8 +631,10 @@ AposSnippets.subclassIfNeeded = function(constructorName, baseConstructorName, o
   }
 
   if (!window[constructorName].addWidgetType) {
+    console.log(constructorName);
     window[constructorName].addWidgetType = function(optionsArg) {
       _.defaults(optionsArg, options.widget || {});
+      console.log(baseConstructorName);
       window[baseConstructorName].addWidgetType(options);
     };
   }
