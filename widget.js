@@ -118,7 +118,34 @@ widget.Widget = function(options) {
       var options = {};
 
       self.addCriteria(item, criteria, options);
-      self.snippets.get(req, criteria, options, function(err, results) {
+
+      // If the criteria are simple enough check a local cache that is kept
+      // for the duration of this request. This can lead to a large speedup
+      // if there are many snippet widgets in the content being displayed that
+      // reference the same content. This simplicity test keeps us out of trouble
+      // if something that can't be serialized neatly as JSON is part of a
+      // criteria object in some subclass of snippets (examples: dates, regexes)
+
+      var key;
+      var cacheable = true;
+      for (key in criteria) {
+        if ((key !== '_id') && (key !== 'tags')) {
+          cacheable = false;
+        }
+      }
+
+      if (cacheable) {
+        key = JSON.stringify(criteria);
+
+        if (req.aposSnippetLoadCache && req.aposSnippetLoadCache[key]) {
+          item._snippets = req.aposSnippetLoadCache[key];
+          return setImmediate(function() {
+            return callback(null);
+          });
+        }
+      }
+
+      return self.snippets.get(req, criteria, options, function(err, results) {
         if (err) {
           item._snippets = [];
           console.log(err);
@@ -143,6 +170,13 @@ widget.Widget = function(options) {
         }
         self.snippets.addUrls(req, snippets, send);
         function send(err) {
+          if (err) {
+            return callback(err);
+          }
+          if (cacheable) {
+            req.aposSnippetLoadCache = req.aposSnippetLoadCache || {};
+            req.aposSnippetLoadCache[key] = snippets;
+          }
           item._snippets = snippets;
           return callback(null);
         }
