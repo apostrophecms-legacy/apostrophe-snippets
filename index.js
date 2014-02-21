@@ -1940,7 +1940,16 @@ snippets.Snippets = function(options, callback) {
       widgetConstructor = snippets.widget.Widget;
     }
     new widgetConstructor({ apos: self._apos, icon: self.icon, app: self._app, snippets: self, name: self.name, label: self.label });
-    self._apos.pushGlobalCallWhen('user', '@.addWidgetType()', construct);
+    var widgetTypeOptions = {
+      name: self.name,
+      label: self.pluralLabel,
+      action: self._action,
+      instance: self._instance
+    };
+    // The default implementation of addWidgetType is good enough now for
+    // all cases because it calls extendWidget(widget) on the manager of the
+    // appropriate type
+    self._apos.pushGlobalCallWhen('user', 'AposSnippets.addWidgetType(?)', widgetTypeOptions);
   }
 
   function getBrowserConstructor() {
@@ -1948,10 +1957,9 @@ snippets.Snippets = function(options, callback) {
   }
 
   // Figure out the name of the base class constructor on the browser side. If
-  // it's not available set a dummy name; this will work out OK because this
-  // typically means subclassing was done explicitly on the browser side.
+  // it's not explicitly set we assume we're subclassing snippets
   function getBaseBrowserConstructor() {
-    return self._browser.baseConstruct || 'AposPresumablyExplicit';
+    return self._browser.baseConstruct || 'AposSnippets';
   }
 
   if (callback) {
