@@ -324,7 +324,7 @@ snippets.Snippets = function(options, callback) {
     options.indexSchema = options.indexSchema || {};
     options.indexSchema.addFields = [
       {
-        name: 'tags',
+        name: 'withTags',
         label: 'Show ' + self.pluralLabel + ' With These Tags',
         type: 'tags'
       },
@@ -1349,7 +1349,7 @@ snippets.Snippets = function(options, callback) {
 
     function join(callback) {
       var withJoins = options.withJoins;
-      return self._schemas.join(req, self.indexSchema, _.pluck(results.pages, 'typeSettings'), withJoins, callback);
+      return self._schemas.join(req, self.indexSchema, results.pages, withJoins, callback);
     }
 
     function permalinker(callback) {
@@ -1530,8 +1530,8 @@ snippets.Snippets = function(options, callback) {
       // this page.
       if (fetch[property].parameter && req.query[fetch[property].parameter]) {
         delete getPropertyOptions[property];
-        if (req.page.typeSettings[property] && req.page.typeSettings[property].length) {
-          getPropertyOptions[property] = req.page.typeSettings[property];
+        if (req.page[property] && req.page[property].length) {
+          getPropertyOptions[property] = req.page[property];
         }
       }
       self._apos.get(req, criteria, getPropertyOptions, function(err, values) {
@@ -1581,7 +1581,7 @@ snippets.Snippets = function(options, callback) {
 
     function joins(callback) {
       var withJoins = options.withJoins;
-      return self._schemas.join(req, self.indexSchema, [ req.bestPage.typeSettings || {} ], null, callback);
+      return self._schemas.join(req, self.indexSchema, [ req.bestPage ], null, callback);
     }
 
     function permissions(callback) {
@@ -1773,15 +1773,13 @@ snippets.Snippets = function(options, callback) {
     options.fetch = {
       tags: { parameter: 'tag' }
     };
-    if (req.page.typeSettings) {
-      if (req.page.typeSettings.tags && req.page.typeSettings.tags.length) {
-        options.tags = req.page.typeSettings.tags;
-      }
-      if (req.page.typeSettings.notTags && req.page.typeSettings.notTags.length) {
-        options.notTags = req.page.typeSettings.notTags;
-        // This restriction also applies when fetching distinct tags
-        options.fetch.tags.except = req.page.typeSettings.notTags;
-      }
+    if (req.page.withTags && req.page.withTags.length) {
+      options.tags = req.page.withTags;
+    }
+    if (req.page.notTags && req.page.notTags.length) {
+      options.notTags = req.page.notTags;
+      // This restriction also applies when fetching distinct tags
+      options.fetch.tags.except = req.page.notTags;
     }
     if (req.query.tag) {
       // Override the criteria for fetching snippets but leave options.fetch.tags
@@ -1837,7 +1835,7 @@ snippets.Snippets = function(options, callback) {
   // The scoring algorithm was ported directly from Apostrophe 1.5's aEngineTools class.
   //
   // If this algorithm is basically right for your subclass of snippets, but you
-  // want to match on a different property of the page's typeSettings object
+  // want to match on a different property of the page
   // rather than tags, you can set self.bestPageMatchingProperty. If this property
   // contains an array of snippet IDs, you can set self.bestPageById.
   //
@@ -1877,7 +1875,7 @@ snippets.Snippets = function(options, callback) {
       var best = null;
       _.each(viewable, function(page) {
         var score = 0;
-        var pageTags = (page.typeSettings && page.typeSettings[property]) ? page.typeSettings[property] : [];
+        var pageTags = page[property] ? page[property] : [];
         if (!pageTags.length) {
           score = 1;
         }
