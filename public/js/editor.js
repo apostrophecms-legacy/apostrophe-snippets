@@ -59,6 +59,12 @@ function AposSnippets(options) {
       }
     };
 
+    // Copy a snippet
+    $('body').on('click', '[data-copy-' + self._css + ']', function() {
+      self.edit($(this).attr('data-slug'), true);
+      return false;
+    });
+
     // Populate the editor's fields and invoke the afterPopulatingEditor callback
     // for easy extension by those not relying on the schema
     self.populateEditor = function($el, snippet, callback) {
@@ -285,6 +291,10 @@ function AposSnippets(options) {
           _.each(snippets, function(snippet) {
             var $snippet = apos.fromTemplate($snippets.find('[data-item].apos-template'));
 
+            // Set up the copy button
+            var $copy = $snippet.find('[data-copy-' + self._css + ']');
+            $copy.attr('data-slug', snippet.slug);
+
             // always populate title, trash and tags
             var $title = $snippet.find('[data-title]');
             $title.text(snippet.title || '[NO TITLE]');
@@ -351,7 +361,7 @@ function AposSnippets(options) {
       }
     });
 
-    self.edit = function(slug) {
+    self.edit = function(slug, copy) {
       var relaunch = false;
       var active = false;
       var $el = apos.modalFromTemplate('.apos-edit-' + self._css, {
@@ -361,13 +371,23 @@ function AposSnippets(options) {
           if (!$el.length) {
             apos.log('ERROR: there is no template with the apos-edit-' + self._css + ' class. You probably need to copy and edit new.html and edit.html for your snippet subclass.');
           }
-          $.getJSON(self._action + '/get-one', { slug: slug, editable: true }, function(data) {
+          var verb = copy ? '/copy' : '/get-one';
+
+          $.getJSON(self._action + verb, { slug: slug, editable: true }, function(data) {
             if (!data) {
               // TODO all alerts should get prettified into something nicer
               alert('That item does not exist or you do not have permission to edit it.');
               return callback('no such item');
             }
             snippet = data;
+            // Copy operations introduce a new slug
+            slug = snippet.slug;
+
+            if (copy) {
+              // Refresh the manage list view to ensure the new copy is
+              // listed there when we get back to it even if the user hits cancel
+              triggerRefresh();
+            }
 
             // name=slug must always exist, at least as a hidden field, to support this
             var $title = $el.find('[name=title]');
@@ -389,6 +409,13 @@ function AposSnippets(options) {
                   alert('You do not have access or the item has been deleted.');
                 }
               });
+              return false;
+            });
+
+            $el.on('click', '[data-action="copy"]', function() {
+              // Dismiss this one, open an editor for a new copy
+              $el.trigger('aposModalHide');
+              self.edit(slug, true);
               return false;
             });
 

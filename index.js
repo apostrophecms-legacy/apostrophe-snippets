@@ -324,7 +324,7 @@ snippets.Snippets = function(options, callback) {
     options.indexSchema = options.indexSchema || {};
     options.indexSchema.addFields = [
       {
-        name: 'tags',
+        name: 'withTags',
         label: 'Show ' + self.pluralLabel + ' With These Tags',
         type: 'tags'
       },
@@ -386,7 +386,7 @@ snippets.Snippets = function(options, callback) {
           }
         ], callback);
       } catch (e) {
-        console.log(e);
+        console.error(e);
         throw e;
       }
     };
@@ -454,7 +454,7 @@ snippets.Snippets = function(options, callback) {
 
         function send(err) {
           if (err) {
-            console.log(err);
+            console.error(err);
             res.statusCode = 500;
             return res.send('error');
           }
@@ -529,7 +529,7 @@ snippets.Snippets = function(options, callback) {
         function send(err) {
           if (err) {
             res.statusCode = 500;
-            console.log(err);
+            console.error(err);
             return res.send('error');
           }
           return res.send(JSON.stringify(snippet));
@@ -675,6 +675,92 @@ snippets.Snippets = function(options, callback) {
           }
         });
       });
+
+      self._app.get(self._action + '/copy', function(req, res) {
+        var criteria = {};
+        var options = {};
+        var n;
+        var snippet;
+        self.addApiCriteria(req.query, criteria, options);
+        return async.series({
+          get: function(callback) {
+            return self.get(req, criteria, options, function(err, results) {
+              if (results && results.snippets.length) {
+                snippet = results.snippets[0];
+                return callback(null);
+              } else {
+                return callback('notfound');
+              }
+            });
+          },
+          beforeCopy: function(callback) {
+            return self.beforeCopy(snippet, callback);
+          },
+          prep: function(callback) {
+            // Delete the id so that we get a new one when putOne calls putPage.
+            // That also ensures unique slugs are generated for us if necessary
+            delete snippet._id;
+
+            var count;
+            return async.doWhilst(function(callback) {
+              // Choose a title and slug that imply a copy without using
+              // any language I'll have to internationalize
+              var matches;
+              matches = snippet.slug.match(/\-(\d+)$/);
+              if (matches) {
+                n = parseInt(matches[1], 10) + 1;
+                snippet.slug = snippet.slug.replace(/\-\d+$/, '-' + n);
+              } else {
+                snippet.slug += '-2';
+              }
+              matches = snippet.title.match(/ \((\d+)\)$/);
+              if (matches) {
+                n = parseInt(matches[1], 10) + 1;
+                snippet.title = snippet.title.replace(/ \(\d+\)$/, ' (' + n + ')');
+              } else {
+                snippet.title += ' (2)';
+              }
+
+              // Make sure this title and slug are not in use already
+              return self._apos.pages.find({
+                $or: [
+                  { 'slug' : snippet.slug },
+                  { 'title': snippet.title }
+                ]
+              }).count(function(err, _count) {
+                if (err) {
+                  return callback(err);
+                }
+                count = _count;
+                return callback(null);
+              });
+            }, function() { return (count > 0); }, callback);
+          },
+
+          put: function(callback) {
+            return self.putOne(req, snippet.slug, snippet, callback);
+          }
+        }, function(err) {
+          if (err) {
+            if (err === 'notfound') {
+              // TODO it would be better to have a status property and switch this
+              // to POST and generally make it more like our newer APIs in 0.5
+              return res.send(null);
+            } else {
+              res.statusCode = 500;
+              return res.send('error');
+            }
+          }
+          return res.send(snippet);
+        });
+      });
+
+      // An extension point for modifying a snippet before it is copied.
+      // If you pass an error to the callback the copy will not succeed.
+
+      self.beforeCopy = function(snippet, callback) {
+        return callback(null);
+      };
 
       // A good extension point for adding criteria specifically for the /get and
       // get-one API calls used when managing content
@@ -928,6 +1014,7 @@ snippets.Snippets = function(options, callback) {
       pluralLabel: self.pluralLabel,
       newButtonData: 'data-new-' + self._css,
       editButtonData: 'data-edit-' + self._css,
+      copyButtonData: 'data-copy-' + self._css,
       manageButtonData: 'data-manage-' + self._css,
       importButtonData: 'data-import-' + self._css,
       menuIcon: 'icon-' + self.icon,
@@ -1262,7 +1349,7 @@ snippets.Snippets = function(options, callback) {
 
     function join(callback) {
       var withJoins = options.withJoins;
-      return self._schemas.join(req, self.indexSchema, _.pluck(results.pages, 'typeSettings'), withJoins, callback);
+      return self._schemas.join(req, self.indexSchema, results.pages, withJoins, callback);
     }
 
     function permalinker(callback) {
@@ -1443,13 +1530,13 @@ snippets.Snippets = function(options, callback) {
       // this page.
       if (fetch[property].parameter && req.query[fetch[property].parameter]) {
         delete getPropertyOptions[property];
-        if (req.page.typeSettings[property] && req.page.typeSettings[property].length) {
-          getPropertyOptions[property] = req.page.typeSettings[property];
+        if (req.page[property] && req.page[property].length) {
+          getPropertyOptions[property] = req.page[property];
         }
       }
       self._apos.get(req, criteria, getPropertyOptions, function(err, values) {
         if (err) {
-          console.log(err);
+          console.error(err);
           return callback(err);
         }
         results[property] = values;
@@ -1494,7 +1581,7 @@ snippets.Snippets = function(options, callback) {
 
     function joins(callback) {
       var withJoins = options.withJoins;
-      return self._schemas.join(req, self.indexSchema, [ req.bestPage.typeSettings || {} ], null, callback);
+      return self._schemas.join(req, self.indexSchema, [ req.bestPage ], null, callback);
     }
 
     function permissions(callback) {
@@ -1686,15 +1773,13 @@ snippets.Snippets = function(options, callback) {
     options.fetch = {
       tags: { parameter: 'tag' }
     };
-    if (req.page.typeSettings) {
-      if (req.page.typeSettings.tags && req.page.typeSettings.tags.length) {
-        options.tags = req.page.typeSettings.tags;
-      }
-      if (req.page.typeSettings.notTags && req.page.typeSettings.notTags.length) {
-        options.notTags = req.page.typeSettings.notTags;
-        // This restriction also applies when fetching distinct tags
-        options.fetch.tags.except = req.page.typeSettings.notTags;
-      }
+    if (req.page.withTags && req.page.withTags.length) {
+      options.tags = req.page.withTags;
+    }
+    if (req.page.notTags && req.page.notTags.length) {
+      options.notTags = req.page.notTags;
+      // This restriction also applies when fetching distinct tags
+      options.fetch.tags.except = req.page.notTags;
     }
     if (req.query.tag) {
       // Override the criteria for fetching snippets but leave options.fetch.tags
@@ -1750,7 +1835,7 @@ snippets.Snippets = function(options, callback) {
   // The scoring algorithm was ported directly from Apostrophe 1.5's aEngineTools class.
   //
   // If this algorithm is basically right for your subclass of snippets, but you
-  // want to match on a different property of the page's typeSettings object
+  // want to match on a different property of the page
   // rather than tags, you can set self.bestPageMatchingProperty. If this property
   // contains an array of snippet IDs, you can set self.bestPageById.
   //
@@ -1771,8 +1856,7 @@ snippets.Snippets = function(options, callback) {
     // super expensive callLoadersForPage calls
     return self._apos.get(req, { type: { $in: typeNames }, slug: /^\// }, { fields: { areas: 0 } }, function(err, results) {
       if (err) {
-        console.log('error is:');
-        console.log(err);
+        console.error(err);
         return callback(err);
       }
       var pages = results.pages;
@@ -1791,7 +1875,7 @@ snippets.Snippets = function(options, callback) {
       var best = null;
       _.each(viewable, function(page) {
         var score = 0;
-        var pageTags = (page.typeSettings && page.typeSettings[property]) ? page.typeSettings[property] : [];
+        var pageTags = page[property] ? page[property] : [];
         if (!pageTags.length) {
           score = 1;
         }
