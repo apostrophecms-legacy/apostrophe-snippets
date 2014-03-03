@@ -922,7 +922,7 @@ self.afterPopulatingEditor = function($el, snippet, callback) {
 Let's set up an additional area called `parking`. We'll need a call in `afterPopulatingEditor`:
 
 ```javascript
-self.enableArea($el, 'parking', snippet.areas.parking, function() {
+self.enableArea($el, 'parking', snippet.parking, function() {
   return superAfterPopulatingEditor($el, snippet, callback);
 });
 ```
