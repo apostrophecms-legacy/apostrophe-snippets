@@ -357,8 +357,7 @@ snippets.Snippets = function(options, callback) {
       try {
 
         var snippet = {
-          type: self._instance,
-          areas: {}
+          type: self._instance
         };
 
         self.convertAllFields('csv', data, snippet);
@@ -1947,7 +1946,7 @@ snippets.Snippets = function(options, callback) {
   };
 
   self.newInstance = function() {
-    var piece = { type: self._instance, areas: {}, createdAt: new Date() };
+    var piece = { type: self._instance, createdAt: new Date() };
     _.each(self.schema, function(field) {
       if (field.def !== undefined) {
         piece[field.name] = field.def;

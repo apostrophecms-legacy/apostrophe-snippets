@@ -80,9 +80,7 @@ function AposSnippets(options) {
     };
 
     self.getDefaultSnippet = function() {
-      var def = {
-        areas: {}
-      };
+      var def = {};
       _.each(self.schema, function(field) {
         if (field.def !== undefined) {
           def[field.name] = field.def;
