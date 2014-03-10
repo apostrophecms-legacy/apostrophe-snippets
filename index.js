@@ -666,9 +666,9 @@ snippets.Snippets = function(options, callback) {
         var criteria = {};
         var options = {};
         self.addApiCriteria(req.query, criteria, options);
-        self.get(req, criteria, options, function(err, results) {
-          if (results && results.snippets.length) {
-            res.send(JSON.stringify(results.snippets[0]));
+        return self.getOne(req, criteria, options, function(err, snippet) {
+          if (snippet) {
+            res.send(JSON.stringify(snippet));
           } else {
             res.send(JSON.stringify(null));
           }
@@ -778,6 +778,13 @@ snippets.Snippets = function(options, callback) {
           criteria.slug = query.slug;
           // Don't let it become an option too
           delete query.slug;
+        }
+
+        var _id = self._apos.sanitizeString(query._id);
+        if (_id.length) {
+          criteria._id = query._id;
+          // Don't let it become an option too
+          delete query._id;
         }
 
         // Everything else is assumed to be an option
@@ -1106,9 +1113,6 @@ snippets.Snippets = function(options, callback) {
   // self.pushAsset('stylesheet', 'content', { when: 'always' });
 
   // END OF MANAGER FUNCTIONALITY
-
-  // Add static routes that serve assets for this module and all of its ancestors
-  self.serveAssets();
 
   // Returns snippets the current user is permitted to read.
   //
