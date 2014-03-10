@@ -781,6 +781,13 @@ snippets.Snippets = function(options, callback) {
           delete query.slug;
         }
 
+        var _id = self._apos.sanitizeString(query._id);
+        if (_id.length) {
+          criteria._id = query._id;
+          // Don't let it become an option too
+          delete query._id;
+        }
+
         // Everything else is assumed to be an option
         extend(true, options, query);
 
