@@ -4,7 +4,7 @@
 
 {% block class %}{{ editClass }}{% endblock %}
 
-{% block label %}Edit {{ instanceLabel }}{% endblock %}
+{% block label %}{{ __('Edit %s', __(instanceLabel) ) }}{% endblock %}
 
 {% block topButtons %}
 {{ snippetEditButtons() }}
