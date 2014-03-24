@@ -1010,7 +1010,6 @@ snippets.Snippets = function(options, callback) {
     var data = {
       fields: self.schema,
       indexFields: self.indexSchema,
-      alwaysEditing: self._apos.alwaysEditing,
       newClass: 'apos-new-' + self._css,
       instanceLabel: self.instanceLabel,
       editClass: 'apos-edit-' + self._css,
