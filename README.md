@@ -124,6 +124,7 @@ modules: {
     label: 'Stories',
     instance: 'story',
     instanceLabel: 'Story',
+    menuName: 'aposStoryMenu',
     addFields: [
       {
         name: 'year',
@@ -149,7 +150,7 @@ The `instance` property is a singular word for one item - one story, in this cas
 
 **You must also create `lib/modules/stories` in your project.** Soon we'll add custom templates there, but it must exist even before you do that.
 
-**Edit `outerLayout.html`** and add a line to insert the menu for managing stories:
+**Edit `outerLayout.html`** and add a the same line you declared in the `stories.menuName` property above, to insert the menu for managing stories:
 
 ```jinja2
   {{ aposStoryMenu({ edit: permissions.admin }) }}
