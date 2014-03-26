@@ -109,6 +109,14 @@ widget.Widget = function(options) {
       }
     },
 
+    addDiffLines: function(item, lines) {
+      if (item.by === 'id') {
+        lines.push(self.label + ': items selected: ' + ((item.ids && item.ids.length) || 0));
+      } else {
+        lines.push(self.label + ': tags selected: ' + item.tags.join(', '));
+      }
+    },
+
     // Asynchronously load the content of the snippets we're reusing.
     // The properties you add should start with an _ to denote that
     // they shouldn't become data attributes or get stored back to MongoDB
