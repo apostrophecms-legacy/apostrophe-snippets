@@ -1,9 +1,13 @@
 {% include 'snippetMacros.html' %}
 <div class="apos-modal apos-template {% block class %}{{ newClass }}{% endblock %}">
-  <h3>{% block label %}{{ __('New %s', __(instanceLabel) | e ) }}{% endblock %}</h3>
+  <h3 class="apos-modal-title">{% block label %}{{ __('New %s', __(instanceLabel) | e ) }}{% endblock %}</h3>
+  {% block buttons %}
+    {{ snippetNewControls() }}
+  {% endblock %}
+  
   {% block topButtons %}
   {# Makes more sense in edit view #}
-  {# {{ snippetNewButtons() }} #}
+  {# {{ snippetNewControls() }} #}
   {% endblock %}
   <div class="apos-modal-body">
     <form>
@@ -12,7 +16,4 @@
       {% endblock %}
     </form>
   </div>
-  {% block buttons %}
-  {{ snippetNewButtons() }}
-  {% endblock %}
 </div>
