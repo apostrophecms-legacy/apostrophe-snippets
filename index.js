@@ -313,6 +313,7 @@ snippets.Snippets = function(options, callback) {
 
     // self.schema = fields for the snippets themselves, always present,
     // frequently extended
+
     self.schema = self._schemas.compose(options);
 
     // self.indexSchema = additional fields for index pages ("blog", "events",
@@ -322,6 +323,7 @@ snippets.Snippets = function(options, callback) {
     // just like with the instance schema
 
     options.indexSchema = options.indexSchema || {};
+
     options.indexSchema.addFields = [
       {
         name: 'withTags',
