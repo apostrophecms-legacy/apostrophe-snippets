@@ -1037,6 +1037,8 @@ self.extendWidget = function(widget) {
 };
 ```
 
+#### Extending the Widget on the Server Side
+
 And here's how we implement `special` on the server side. We'll demonstrate how to use it to change the query used to fetch objects for the widget:
 
 ```javascript
