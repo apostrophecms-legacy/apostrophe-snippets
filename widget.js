@@ -63,137 +63,133 @@ widget.Widget = function(options) {
     }
   };
 
-  self.apos.itemTypes[self.name] = {
-    widget: true,
-    label: self.label,
-    css: self.apos.cssName(self.name),
-    icon: self.icon,
-    sanitize: function(item) {
-      item.by += '';
-      item.tags = self.apos.sanitizeTags(item.tags);
-      if (!Array.isArray(item.ids)) {
-        item.ids = [];
-      }
-      item.ids = _.map(item.ids, function(id) {
-        // Must be string
-        id = self.apos.sanitizeString(id);
-        return id;
-      });
-      item.limit = self.apos.sanitizeInteger(item.limit, 5, 1, 1000);
-    },
+  self.widget = true;
+  self.css = self.apos.cssName(self.name);
+  self.sanitize = function(item) {
+    item.by += '';
+    item.tags = self.apos.sanitizeTags(item.tags);
+    if (!Array.isArray(item.ids)) {
+      item.ids = [];
+    }
+    item.ids = _.map(item.ids, function(id) {
+      // Must be string
+      id = self.apos.sanitizeString(id);
+      return id;
+    });
+    item.limit = self.apos.sanitizeInteger(item.limit, 5, 1, 1000);
+  };
 
-    render: function(data) {
-      return self.snippets.render('widget', data);
-    },
+  self.renderWidget = function(data) {
+    return self.snippets.render('widget', data);
+  };
 
-    // Snippet widgets contribute to the plaintext of a page
-    getPlaintext: function(item, lines) {
-      var s = '';
+  // Snippet text contributes to the plaintext of a page
+  self.getPlaintext = function(item, lines) {
+    var s = '';
+    _.each(item._snippets, function(snippet) {
+      s += self.apos.getSearchTextsForPage(snippet) + "\n";
+    });
+    return s;
+  };
+
+  // Snippet text contributes to search text of page only if the link is
+  // firm - made via id - and not dynamic - made via tag
+  self.addSearchTexts = function(item, texts) {
+    if (item.by === 'id') {
       _.each(item._snippets, function(snippet) {
-        s += self.apos.getSearchTextsForPage(snippet) + "\n";
+        var pageTexts = self.apos.getSearchTextsForPage(snippet);
+        // We have to do this because we are updating texts by reference
+        _.each(pageTexts, function (text) {
+          texts.push(text);
+        });
       });
-      return s;
-    },
+    }
+  };
 
-    // Snippet text contributes to search text of page only if the link is
-    // firm - made via id - and not dynamic - made via tag
-    addSearchTexts: function(item, texts) {
-      if (item.by === 'id') {
-        _.each(item._snippets, function(snippet) {
-          var pageTexts = self.apos.getSearchTextsForPage(snippet);
-          // We have to do this because we are updating texts by reference
-          _.each(pageTexts, function (text) {
-            texts.push(text);
-          });
+  self.addDiffLines = function(item, lines) {
+    if (item.by === 'id') {
+      lines.push(self.label + ': items selected: ' + ((item.ids && item.ids.length) || 0));
+    } else {
+      lines.push(self.label + ': tags selected: ' + item.tags.join(', '));
+    }
+  };
+
+  // Asynchronously load the content of the snippets we're reusing.
+  // The properties you add should start with an _ to denote that
+  // they shouldn't become data attributes or get stored back to MongoDB
+
+  self.load = function(req, item, callback) {
+    var criteria = {};
+    var options = {};
+
+    self.addCriteria(item, criteria, options);
+
+    // If the criteria are simple enough check a local cache that is kept
+    // for the duration of this request. This can lead to a large speedup
+    // if there are many snippet widgets in the content being displayed that
+    // reference the same content. This simplicity test keeps us out of trouble
+    // if something that can't be serialized neatly as JSON is part of a
+    // criteria object in some subclass of snippets (examples: dates, regexes)
+
+    var key;
+    var cacheable = true;
+    for (key in criteria) {
+      if ((key !== '_id') && (key !== 'tags')) {
+        cacheable = false;
+      }
+    }
+
+    if (cacheable) {
+      key = JSON.stringify(criteria);
+
+      if (req.aposSnippetLoadCache && req.aposSnippetLoadCache[key]) {
+        item._snippets = req.aposSnippetLoadCache[key];
+        return setImmediate(function() {
+          return callback(null);
         });
       }
-    },
+    }
 
-    addDiffLines: function(item, lines) {
+    return self.snippets.get(req, criteria, options, function(err, results) {
+      if (err) {
+        item._snippets = [];
+        console.log(err);
+        return callback(err);
+      }
+      var snippets = results.snippets;
       if (item.by === 'id') {
-        lines.push(self.label + ': items selected: ' + ((item.ids && item.ids.length) || 0));
-      } else {
-        lines.push(self.label + ': tags selected: ' + item.tags.join(', '));
+        snippets = self.apos.orderById(item.ids, snippets);
+        // Put them in the same order as the ids that were manually selected
+        // (you can't do this with mongodb sort, so we do it here)
+        var snippetsById = {};
+        _.each(snippets, function(snippet) {
+          snippetsById[snippet._id] = snippet;
+        });
+        snippets = [];
+        _.each(item.ids, function(id) {
+          // Careful, we must politely ignore ids that don't exist anymore
+          if (snippetsById.hasOwnProperty(id)) {
+            snippets.push(snippetsById[id]);
+          }
+        });
       }
-    },
-
-    // Asynchronously load the content of the snippets we're reusing.
-    // The properties you add should start with an _ to denote that
-    // they shouldn't become data attributes or get stored back to MongoDB
-
-    load: function(req, item, callback) {
-      var criteria = {};
-      var options = {};
-
-      self.addCriteria(item, criteria, options);
-
-      // If the criteria are simple enough check a local cache that is kept
-      // for the duration of this request. This can lead to a large speedup
-      // if there are many snippet widgets in the content being displayed that
-      // reference the same content. This simplicity test keeps us out of trouble
-      // if something that can't be serialized neatly as JSON is part of a
-      // criteria object in some subclass of snippets (examples: dates, regexes)
-
-      var key;
-      var cacheable = true;
-      for (key in criteria) {
-        if ((key !== '_id') && (key !== 'tags')) {
-          cacheable = false;
-        }
-      }
-
-      if (cacheable) {
-        key = JSON.stringify(criteria);
-
-        if (req.aposSnippetLoadCache && req.aposSnippetLoadCache[key]) {
-          item._snippets = req.aposSnippetLoadCache[key];
-          return setImmediate(function() {
-            return callback(null);
-          });
-        }
-      }
-
-      return self.snippets.get(req, criteria, options, function(err, results) {
+      self.snippets.addUrls(req, snippets, send);
+      function send(err) {
         if (err) {
-          item._snippets = [];
-          console.log(err);
           return callback(err);
         }
-        var snippets = results.snippets;
-        if (item.by === 'id') {
-          snippets = self.apos.orderById(item.ids, snippets);
-          // Put them in the same order as the ids that were manually selected
-          // (you can't do this with mongodb sort, so we do it here)
-          var snippetsById = {};
-          _.each(snippets, function(snippet) {
-            snippetsById[snippet._id] = snippet;
-          });
-          snippets = [];
-          _.each(item.ids, function(id) {
-            // Careful, we must politely ignore ids that don't exist anymore
-            if (snippetsById.hasOwnProperty(id)) {
-              snippets.push(snippetsById[id]);
-            }
-          });
+        if (cacheable) {
+          req.aposSnippetLoadCache = req.aposSnippetLoadCache || {};
+          req.aposSnippetLoadCache[key] = snippets;
         }
-        self.snippets.addUrls(req, snippets, send);
-        function send(err) {
-          if (err) {
-            return callback(err);
-          }
-          if (cacheable) {
-            req.aposSnippetLoadCache = req.aposSnippetLoadCache || {};
-            req.aposSnippetLoadCache[key] = snippets;
-          }
-          item._snippets = snippets;
-          return callback(null);
-        }
-      });
-    },
+        item._snippets = snippets;
+        return callback(null);
+      }
+    });
+  };
 
-    empty: function(item) {
-      return (!item._snippets) || (!item._snippets.length);
-    }
+  self.empty = function(item) {
+    return (!item._snippets) || (!item._snippets.length);
   };
 };
 

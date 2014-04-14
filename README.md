@@ -981,7 +981,9 @@ If all is well invoke the callback with `null`.
 
 A "widget" is used to display selected snippets in the context of a page. The standard widget for snippets is automatically subclassed when you subclass snippets, and it works well: you can pick your own pieces by title or pull them in by tag. But what if we want to add a new field to the widget editor, or change its behavior more significantly?
 
-Here's how to do it. Continuing with the "Stories" example above, we add this code to our constructor:
+#### Extending the Widget on the Browser Side
+
+Here's how to do it in the browser. Continuing with the "Stories" example above, we add this code to our constructor:
 
 ```javascript
 var superExtendWidget = self.extendWidget;
@@ -1034,6 +1036,29 @@ self.extendWidget = function(widget) {
   }
 };
 ```
+
+And here's how we implement `special` on the server side. We'll demonstrate how to use it to change the query used to fetch objects for the widget:
+
+```javascript
+// In stories/index.js, inside the constructor, after the call to the base class constructor
+
+var superExtendWidget = self.extendWidget;
+self.extendWidget = function() {
+  superExtendWidget();
+  var superAddCriteria = self.addCriteria;
+  self.addCriteria = function(item, criteria, options) {
+    superAddCriteria(item, criteria, options);
+    // Only return objects with the "special" property if "item.special" is truthy
+    criteria.special = !!item.special;
+  };
+};
+```
+
+Note that we use the "super pattern" to call the original version of each method we're overriding.
+
+"How did `special` get saved on the server?" The default sanitizer for snippet widgets saves any properties it does not recognize without modifying them. It's possible to override `self.sanitizer` to be pickier in your `extendWidget` method.
+
+"What other methods can I override?" Check out `widgets.js` in the `apostrophe-snippets` module for further inspiration.
 
 ## Advanced Server Side Topics
 

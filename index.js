@@ -2027,17 +2027,37 @@ snippets.Snippets = function(options, callback) {
     } else {
       widgetConstructor = snippets.widget.Widget;
     }
-    new widgetConstructor({ apos: self._apos, icon: self.icon, app: self._app, snippets: self, name: self.name, label: self.label });
+
+    // Manager object for all widgets that display this type of content
+    var widget = new widgetConstructor({ apos: self._apos, icon: self.icon, app: self._app, snippets: self, name: self.name, label: self.label });
+
+    // Now tell the browser side what it needs to know to manage
+    // instances of the widget
     var widgetTypeOptions = {
       name: self.name,
       label: self.pluralLabel,
       action: self._action,
       instance: self._instance
     };
+
     // The default implementation of addWidgetType is good enough now for
     // all cases because it calls extendWidget(widget) on the manager of the
-    // appropriate type
+    // appropriate type on the browser side
     self._apos.pushGlobalCallWhen('user', 'AposSnippets.addWidgetType(?)', widgetTypeOptions);
+
+    // For your overriding convenience. See widget.js in this module for the
+    // methods and properties you might want to override on
+    // the widget object
+    self.extendWidget = function(widget) {
+    };
+
+    self._apos.addWidgetType(widget.name, widget);
+
+    // Call extendWidget on next tick so that there is time to
+    // override it first
+    process.nextTick(function() {
+      self.extendWidget(widget);
+    });
   }
 
   function getBrowserConstructor() {
