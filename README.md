@@ -1043,18 +1043,26 @@ And here's how we implement `special` on the server side. We'll demonstrate how 
 // In stories/index.js, inside the constructor, after the call to the base class constructor
 
 var superExtendWidget = self.extendWidget;
-self.extendWidget = function() {
+self.extendWidget = function(widget) {
   superExtendWidget();
-  var superAddCriteria = self.addCriteria;
-  self.addCriteria = function(item, criteria, options) {
+  var superAddCriteria = widget.addCriteria;
+  widget.addCriteria = function(item, criteria, options) {
     superAddCriteria(item, criteria, options);
-    // Only return objects with the "special" property if "item.special" is truthy
-    criteria.special = !!item.special;
+    // If we only want "special" objects, change the mongodb criteria
+    if (item.special) {
+     criteria.special = true;
+    }
+  };
+  var superSanitize = widget.sanitize;
+  widget.sanitize = function(item) {
+    superSanitize(item);
+    // Double negation ensures a nice clean boolean value
+    item.special = !!item.special;
   };
 };
 ```
 
-Note that we use the "super pattern" to call the original version of each method we're overriding.
+Note that we use the "super pattern" to call the original version of each method we're overriding. Without this, other properties would not make it into our criteria or be sanitized for storage.
 
 "How did `special` get saved on the server?" The default sanitizer for snippet widgets saves any properties it does not recognize without modifying them. It's possible to override `self.sanitizer` to be pickier in your `extendWidget` method.
 
