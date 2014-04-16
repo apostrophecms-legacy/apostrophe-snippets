@@ -823,12 +823,12 @@ snippets.Snippets = function(options, callback) {
 
       self._app.all(self._action + '/autocomplete', function(req, res) {
         var criteria = {};
+        var data = (req.method === 'POST') ? req.body : req.query;
         var options = {
           fields: self.getAutocompleteFields(),
-          limit: req.query.limit || 50,
-          skip: req.query.skip
+          limit: self._apos.sanitizeInteger(data.limit, 50),
+          skip: self._apos.sanitizeInteger(data.skip, 0)
         };
-        var data = (req.method === 'POST') ? req.body : req.query;
         if (data.term !== undefined) {
           options.titleSearch = data.term;
         } else if (data.values !== undefined) {
@@ -839,7 +839,7 @@ snippets.Snippets = function(options, callback) {
           // empty `ids` array
           return res.send([]);
         }
-        if (data.values && data.values.length && (req.query.limit === undefined)) {
+        if (data.values && data.values.length && (data.limit === undefined)) {
           // We are loading specific items to repopulate a control,
           // so get all of them
           delete options.limit;

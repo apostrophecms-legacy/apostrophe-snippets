@@ -547,7 +547,6 @@ AposSnippets.addWidgetType = function(options) {
 
     // Constructor
     editor: function(options) {
-      var manager = self;
       var self = this;
       self._class = _class;
 
@@ -591,9 +590,7 @@ AposSnippets.addWidgetType = function(options) {
 
         self.pending = true;
 
-        // TODO: use of GET with a list of IDs is bad, use POST and
-        // make sure the routes accept POST
-        $.getJSON(self.action + '/autocomplete', { values: self.data.ids || []}, function(data) {
+        $.jsonCall(self.action + '/autocomplete', { values: self.data.ids || []}, function(data) {
           self.pending = false;
           self.$ids.selective({
             data: data,
@@ -612,7 +609,7 @@ AposSnippets.addWidgetType = function(options) {
 
       self.debrief = function(callback) {
         self.data.by = self.$by.radio();
-        self.data.tags = self.$tags.selective('get');
+        self.data.tags = self.$tags.selective('get', { incomplete: true });
         self.data.limit = parseInt(self.$limit.val(), 10);
         if (self.pending) {
           self.pendingCallback = whenReady;
@@ -621,7 +618,7 @@ AposSnippets.addWidgetType = function(options) {
           return whenReady();
         }
         function whenReady() {
-          self.data.ids = self.$ids.selective('get');
+          self.data.ids = self.$ids.selective('get', { incomplete: true });
           // Don't force them to pick something, it's common to want to go back
           // to an empty singleton
           self.exists = true;
@@ -640,12 +637,10 @@ AposSnippets.addWidgetType = function(options) {
   };
 };
 
-// When we explicitly subclass snippets, there must also be a subclass on the browser
-// side. However sometimes this subclass really has no unique work to do, so we can
-// synthesize it automatically. Do so if no constructor for it is found. Also wire up
-// the widget constructor here if it has not been done explicitly.
-//
-// A call to this method is pushed to the browser by apostrophe-snippets/index.js
+// When we explicitly subclass snippets, there must also be a subclass on
+// the browser side. However sometimes this subclass really has no unique
+// work to do, so we can synthesize it automatically. Do so if no
+// constructor for it is found.
 
 AposSnippets.subclassIfNeeded = function(constructorName, baseConstructorName, options) {
   if (!window[constructorName]) {
