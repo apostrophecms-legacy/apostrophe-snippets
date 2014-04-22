@@ -342,16 +342,6 @@ snippets.Snippets = function(options, callback) {
     // For bc
     self.textToArea = self._apos.textToArea;
 
-    // Convenience wrapper for schemas.convertFields
-    self.convertAllFields = function(from, data, snippet) {
-      return self._schemas.convertFields(self.schema, from, data, snippet);
-    };
-
-    // For bc, now wraps schemas.convertFields
-    self.convertSomeFields = function(schema, from, data, snippet) {
-      return self._schemas.convertFields(schema, from, data, snippet);
-    };
-
     self.importCreateItem = function(req, data, callback) {
       // "Why the try/catch?" Because the CSV reader has some sort of
       // try/catch of its own that is making it impossible to log any
@@ -362,14 +352,15 @@ snippets.Snippets = function(options, callback) {
           type: self._instance
         };
 
-        self.convertAllFields('csv', data, snippet);
-
-        snippet.slug = self._apos.slugify(snippet.title);
-        // Record when the import happened so that later we can offer a UI
-        // to find these groups and remove them if desired
-        snippet.imported = req.aposImported;
         async.series([
           function(callback) {
+            return self._schemas.convertFields(req, self.schema, 'csv', data, snippet, callback);
+          },
+          function(callback) {
+            snippet.slug = self._apos.slugify(snippet.title);
+            // Record when the import happened so that later we can offer a UI
+            // to find these groups and remove them if desired
+            snippet.imported = req.aposImported;
             self.authorAsEditor(req, snippet);
             self.beforeInsert(req, data, snippet, callback);
           },
@@ -417,16 +408,18 @@ snippets.Snippets = function(options, callback) {
 
         snippet = self.newInstance();
 
-        self.convertSomeFields(fields, 'form', req.body, snippet);
+        async.series([ convert, permissions, beforeInsert, beforeSave, insert, afterInsert, afterSave ], send);
 
-        snippet.slug = self._apos.slugify(snippet.title);
-
-        snippet.sortTitle = self._apos.sortify(snippet.title);
-
-        async.series([ permissions, beforeInsert, beforeSave, insert, afterInsert, afterSave ], send);
+        function convert(callback) {
+          return self._schemas.convertFields(req, fields, 'form', req.body, snippet, callback);
+        }
 
         function permissions(callback) {
-          self._apos.permissions(req, 'edit-' + self._css, null, callback);
+          snippet.slug = self._apos.slugify(snippet.title);
+
+          snippet.sortTitle = self._apos.sortify(snippet.title);
+
+          return self._apos.permissions(req, 'edit-' + self._css, null, callback);
         }
 
         function beforeInsert(callback) {
@@ -497,10 +490,12 @@ snippets.Snippets = function(options, callback) {
         }
 
         function massage(callback) {
-          self.convertAllFields('form', req.body, snippet);
-          snippet.sortTitle = self._apos.sortify(snippet.title);
           return async.series([
             function(callback) {
+              return self._schemas.convertFields(req, self.schema, 'form', req.body, snippet, callback);
+            },
+            function(callback) {
+              snippet.sortTitle = self._apos.sortify(snippet.title);
               return self.beforeUpdate(req, req.body, snippet, callback);
             },
             function(callback) {
@@ -1963,10 +1958,11 @@ snippets.Snippets = function(options, callback) {
   // Sanitize newly submitted page settings (never trust a browser)
   extend(true, self, {
     settings: {
-      sanitize: function(data, callback) {
+      sanitize: function(req, data, callback) {
         var ok = {};
-        self._schemas.convertFields(self.indexSchema, 'form', data, ok);
-        return callback(null, ok);
+        self._schemas.convertFields(req, self.indexSchema, 'form', data, ok, function(err) {
+          return callback(err, ok);
+        });
       }
     }
   });

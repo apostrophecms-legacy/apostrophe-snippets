@@ -168,6 +168,7 @@ function AposSnippets(options) {
             type: 'POST',
             dataType: 'json',
             success: function(data) {
+
               // Let anything that cares about changes to items of this kind know
               apos.change(self.name);
               return callback(null);
