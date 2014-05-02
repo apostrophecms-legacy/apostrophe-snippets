@@ -1192,9 +1192,10 @@ snippets.Snippets = function(options, callback) {
     }
 
     // For snippets the default sort is alpha
-    if (options.sort === undefined) {
+    if ((!options.sort) && (!options.search) && (!options.q)) {
       options.sort = { sortTitle: 1 };
     }
+
     // filterCriteria is the right place to build up criteria
     // specific to this method; we'll $and it with the user's
     // criteria before passing it on to apos.get
@@ -1314,7 +1315,7 @@ snippets.Snippets = function(options, callback) {
     extend(true, options, optionsArg);
 
     // Default sort is alpha
-    if (options.sort === undefined) {
+    if ((!options.sort) && (!options.search) && (!options.q)) {
       options.sort = { sortTitle: 1 };
     }
     // filterCriteria is the right place to build up criteria
