@@ -2069,6 +2069,15 @@ snippets.Snippets = function(options, callback) {
     return self._browser.baseConstruct || 'AposSnippets';
   }
 
+  if (self._searchable) {
+    self._apos.on('addSearchFilters', function(searchFilters) {
+      searchFilters.push({
+        name: self._instance,
+        label: self.pluralLabel
+      });
+    });
+  }
+
   if (callback) {
     // Invoke callback on next tick so that the constructor's return
     // value can be assigned to a variable in the same closure where
