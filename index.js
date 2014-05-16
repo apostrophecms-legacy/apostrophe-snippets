@@ -1685,9 +1685,11 @@ snippets.Snippets = function(options, callback) {
   };
 
   self.setPagerTotal = function(req, total) {
-    req.extras.pager.total = Math.ceil(total / self._perPage);
-    if (req.extras.pager.total < 1) {
-      req.extras.pager.total = 1;
+    if (req.extras.pager) {
+      req.extras.pager.total = Math.ceil(total / self._perPage);
+      if (req.extras.pager.total < 1) {
+        req.extras.pager.total = 1;
+      }
     }
   };
 
