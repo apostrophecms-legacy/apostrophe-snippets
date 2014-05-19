@@ -1671,9 +1671,11 @@ snippets.Snippets = function(options, callback) {
   };
 
   self.setPagerTotal = function(req, total) {
-    req.extras.pager.total = Math.ceil(total / self._perPage);
-    if (req.extras.pager.total < 1) {
-      req.extras.pager.total = 1;
+    if (req.extras.pager) {
+      req.extras.pager.total = Math.ceil(total / self._perPage);
+      if (req.extras.pager.total < 1) {
+        req.extras.pager.total = 1;
+      }
     }
   };
 
@@ -2051,6 +2053,15 @@ snippets.Snippets = function(options, callback) {
   // it's not explicitly set we assume we're subclassing snippets
   function getBaseBrowserConstructor() {
     return self._browser.baseConstruct || 'AposSnippets';
+  }
+
+  if (self._searchable) {
+    self._apos.on('addSearchFilters', function(searchFilters) {
+      searchFilters.push({
+        name: self._instance,
+        label: self.pluralLabel
+      });
+    });
   }
 
   if (callback) {
