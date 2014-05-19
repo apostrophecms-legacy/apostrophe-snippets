@@ -201,12 +201,8 @@ snippets.Snippets = function(options, callback) {
     self.authorAsEditor = function(req, snippet) {
       if (req.user && (!req.user.permissions.admin)) {
         // Always add the creator as a permitted editor
-        // so they retain the ability to manage their work,
-        // regardless of other permissions that may exist
-        if (!snippet.editPersonIds) {
-          snippet.editPersonIds = [];
-        }
-        snippet.editPersonIds.push(req.user._id);
+        // so they retain the ability to edit their work.
+        self._apos.permissions.add(req, snippet, 'edit');
       }
     };
 
@@ -419,7 +415,7 @@ snippets.Snippets = function(options, callback) {
 
           snippet.sortTitle = self._apos.sortify(snippet.title);
 
-          return self._apos.permissions(req, 'edit-' + self._css, null, callback);
+          return callback(self._apos.permissions.can(req, 'edit-' + self._css) ? null : 'forbidden');
         }
 
         function beforeInsert(callback) {
@@ -967,7 +963,7 @@ snippets.Snippets = function(options, callback) {
       // editing of which could allow someone to make themselves
       // an admin
 
-      self._apos.on('permissions', function(req, action, result) {
+      self._apos.permissions.on('can', function(req, action, result) {
         var matches = action.match(/^(\w+)\-([\w\-]+)$/);
         if (!matches) {
           return;
@@ -981,6 +977,7 @@ snippets.Snippets = function(options, callback) {
         if (req.user && req.user.permissions.admin) {
           return;
         }
+        console.log('overriding');
         result.response = 'Forbidden';
       });
     }
@@ -1432,12 +1429,14 @@ snippets.Snippets = function(options, callback) {
         if (options.permissions === false) {
           return callback(null);
         }
-        return self._apos.permissions(req, 'edit-' + self._css, snippet._id ? snippet : null, callback);
+        return callback(self._apos.permissions.can(req, 'edit-' + self._css, snippet._id ? snippet : null) ? null : 'forbidden');
       },
       // Also check publish permission if they are attempting to do that.
       // If you try to edit something that has been published and you lack
-      // permission to publish it, that item becomes unpublished
-      // (TODO: a classier workflow for that)
+      // permission to publish it, that item becomes unpublished.
+      //
+      // TODO: this is wrong for workflow. Think about how to do
+      // draft versioning of metadata along with everything else.
       publish: function(callback) {
         if (options.permissions === false) {
           return callback(null);
@@ -1445,13 +1444,11 @@ snippets.Snippets = function(options, callback) {
         if (!snippet.published) {
           return callback(null);
         }
-        return self._apos.permissions(req, 'publish-' + self._css, snippet._id ? snippet : null, function(err) {
-          if (err) {
-            delete snippet.published;
-            self.publishBlocked(snippet);
-          }
-          return callback(null);
-        });
+        if (!self._apos.permissions.can(req, 'publish-' + self._css, snippet._id ? snippet : null)) {
+          delete snippet.published;
+          self.publishBlocked(snippet);
+        }
+        return callback(null);
       },
       beforePutOne: function(callback) {
         // We already checked in a more type-specific way
@@ -1577,22 +1574,11 @@ snippets.Snippets = function(options, callback) {
       return callback(null);
     }
 
-    async.series([joins, permissions, dispatch], callback);
+    async.series([joins, dispatch], callback);
 
     function joins(callback) {
       var withJoins = options.withJoins;
       return self._schemas.join(req, self.indexSchema, [ req.bestPage ], null, callback);
-    }
-
-    function permissions(callback) {
-      // Does this person have any business editing snippets? If so make that
-      // fact available to templates so they can offer buttons to access
-      // the admin interface conveniently
-      self._apos.permissions(req, 'edit-' + self._css, null, function(err) {
-        var permissionName = 'edit' + self._apos.capitalizeFirst(self._instance);
-        req.extras[permissionName] = !err;
-        return callback(null);
-      });
     }
 
     function dispatch(callback) {
