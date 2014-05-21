@@ -99,12 +99,11 @@ snippets.Snippets = function(options, callback) {
 
   self._action = '/apos-' + self._typeCss;
 
-  // Our chance to veto our snippets for display to the public as search results
-  self._apos.on('searchable', function(info) {
-    if (self._instance === info.page.type) {
-      if (!self._searchable) {
-        info.suitable = false;
-      }
+  // Our chance to veto our snippets for display to the public
+  // as search results
+  self._apos.on('unsearchable', function(unsuitable) {
+    if (!self._searchable) {
+      unsuitable.push(self._isntance);
     }
   });
 
