@@ -976,7 +976,6 @@ snippets.Snippets = function(options, callback) {
         if (req.user && req.user.permissions.admin) {
           return;
         }
-        console.log('overriding');
         result.response = 'Forbidden';
       });
     }
