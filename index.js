@@ -80,7 +80,7 @@ snippets.Snippets = function(options, callback) {
   // (example: "Directory" vs. "Groups")
   self.pluralLabel = options.pluralLabel || self.label;
   self.instanceLabel = options.instanceLabel || 'Snippet';
-  self.icon = options.icon || 'snippets';
+  self.icon = options.icon || 'icon-snippets';
   self._pluralCss = self._apos.cssName(self.name);
 
   // The type property of the page object used to store the snippet, also
