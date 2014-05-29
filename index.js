@@ -613,13 +613,29 @@ snippets.Snippets = function(options, callback) {
           });
         });
 
+        // Be extremely tolerant with regard to CSV headings:
+        // slugify both the headings and the schema field names
+        // to create a tolerant mapping that doesn't care about
+        // whitespace or case and is i18n-safe
+
         function handleHeadings(row, callback) {
           headings = row;
           var i;
+          var schemaMap = {};
+          _.each(self.schema, function(field) {
+            schemaMap[simplify(field.name)] = field.name;
+          });
           for (i = 0; (i < headings.length); i++) {
-            headings[i] = self._apos.camelName(headings[i]);
+            var original = headings[i];
+            headings[i] = schemaMap[simplify(original)];
+            if (!headings[i]) {
+              console.error('Warning: no match in schema for heading ' + original + ' which simplified to ' + simplify(original) + '. Schema field names undergo a similar simplification to improve the chances of a match, but we still don\'t have a match for this one.');
+            }
           }
           return callback();
+          function simplify(s) {
+            return self._apos.slugify(s).replace(/\-/g, '');
+          }
         }
 
         function handleRow(row, callback) {
