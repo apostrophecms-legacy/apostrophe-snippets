@@ -1319,7 +1319,7 @@ snippets.Snippets = function(options, callback) {
   //
   // Carries out joins as expectd in the schema.
 
-  self.getIndexes = function(req, userCriteria, optionsArg, callback) {
+  self.getIndexes = function(req, userCriteria, optionsArg, mainCallback) {
     var options = {};
     var filterCriteria = {};
     var results = null;
