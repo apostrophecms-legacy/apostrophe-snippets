@@ -221,6 +221,13 @@ snippets.Snippets = function(options, callback) {
       return callback(null);
     };
 
+    // Before schema fields are converted.
+    self.beforeConvertFields = function(req, data, snippet, callback) {
+      return callback(null);
+    };
+
+    // Just before saving to the database. Schema fields have
+    // already been converted.
     self.beforeSave = function(req, data, snippet, callback) {
       return callback(null);
     };
@@ -349,6 +356,9 @@ snippets.Snippets = function(options, callback) {
 
         async.series([
           function(callback) {
+            self.beforeConvertFields(req, data, snippet, callback);
+          },
+          function(callback) {
             return self._schemas.convertFields(req, self.schema, 'csv', data, snippet, callback);
           },
           function(callback) {
@@ -403,7 +413,11 @@ snippets.Snippets = function(options, callback) {
 
         snippet = self.newInstance();
 
-        async.series([ convert, permissions, beforeInsert, beforeSave, insert, afterInsert, afterSave ], send);
+        async.series([ beforeConvertFields, convert, permissions, beforeInsert, beforeSave, insert, afterInsert, afterSave ], send);
+
+        function beforeConvertFields(callback) {
+          return self.beforeConvertFields(req, req.body, snippet, callback);
+        }
 
         function convert(callback) {
           return self._schemas.convertFields(req, fields, 'form', req.body, snippet, callback);
@@ -469,8 +483,10 @@ snippets.Snippets = function(options, callback) {
           // but bypass self.get so that we don't do expensive joins or
           // delete password fields or otherwise mess up what is essentially
           // just an update operation.
-          self._apos.getPage(req, originalSlug, function(err, page) {
+          self._apos.getPage(req, originalSlug, { permission: 'edit-' + self._css }, function(err, page) {
             if (err) {
+              console.error('error from getPage');
+              console.error(err);
               return callback(err);
             }
             if (!page) {
@@ -486,6 +502,9 @@ snippets.Snippets = function(options, callback) {
 
         function massage(callback) {
           return async.series([
+            function(callback) {
+              return self.beforeConvertFields(req, req.body, snippet, callback);
+            },
             function(callback) {
               return self._schemas.convertFields(req, self.schema, 'form', req.body, snippet, callback);
             },
@@ -528,15 +547,26 @@ snippets.Snippets = function(options, callback) {
       });
 
       self._app.post(self._action + '/trash', function(req, res) {
-        async.series([ get, beforeTrash, trashSnippet], respond);
+        return self.trash(req, self._apos.sanitizeString(req.body.slug), self._apos.sanitizeBoolean(req.body.trash), function(err) {
+          if (err) {
+            res.statusCode = 404;
+            return res.send(err);
+          }
+          res.statusCode = 200;
+          return res.send('ok');
+        });
+      });
 
-        var slug;
+      // If trash is true, moves the snippet indicated by slug to
+      // the trash. If trash is false, rescues it from the trash.
+
+      self.trash = function(req, slug, trash, callback) {
         var snippet;
-        var trash = self._apos.sanitizeBoolean(req.body.trash);
+
+        return async.series([ get, beforeTrash, trashSnippet], callback);
 
         function get(callback) {
-          slug = req.body.slug;
-          return self.get(req, { slug: slug }, { editable: true, trash: 'any' }, function(err, results) {
+          return self.get(req, { slug: slug }, { permission: 'edit-' + self._css, trash: 'any' }, function(err, results) {
             if (err) {
               return callback(err);
             }
@@ -564,16 +594,7 @@ snippets.Snippets = function(options, callback) {
           }
           self._apos.pages.update({ slug: snippet.slug }, action, callback);
         }
-
-        function respond(err) {
-          if (err) {
-            res.statusCode = 404;
-            return res.send(err);
-          }
-          res.statusCode = 200;
-          return res.send('ok');
-        }
-      });
+      };
 
       self._app.post(self._action + '/import', function(req, res) {
         var file = req.files.file;
@@ -978,7 +999,7 @@ snippets.Snippets = function(options, callback) {
       // editing of which could allow someone to make themselves
       // an admin
 
-      self._apos.permissions.on('can', function(req, action, result) {
+      self._apos.permissions.on('can', function(req, action, object, result) {
         var matches = action.match(/^(\w+)\-([\w\-]+)$/);
         if (!matches) {
           return;
@@ -1005,6 +1026,11 @@ snippets.Snippets = function(options, callback) {
   self._apos.on('beforeEndAssets', function() {
     self.pushAllAssets();
   });
+
+  // override point to pass more arguments or
+  // adjust args.edit, etc. when rendering the menu.html for this type
+  self.beforeMenu = function(args) {
+  };
 
   self.pushAllAssets = function() {
     // Make sure that aposScripts and aposStylesheets summon our
@@ -1088,6 +1114,12 @@ snippets.Snippets = function(options, callback) {
           args.submit = true;
           args.edit = true;
         }
+        // Make the rest of the permissions object
+        // available for easy overrides
+        args.permissions = permissions;
+
+        self.beforeMenu(args);
+
         var result = self.render('menu', args);
         return result;
       });
@@ -1194,16 +1226,13 @@ snippets.Snippets = function(options, callback) {
     var results = null;
     extend(true, options, optionsArg);
 
-    // If the user has the special admin permission for this specific type,
-    // we acknowledge that here and shut off further permissions checks
-    // before we get to the pages.get call
-
-    if (req.user && req.user.permissions['admin-' + self._css]) {
-      options.permissions = false;
+    if (!options.permission) {
+      options.permission = (options.editable && 'edit-' + self._css) || ('view-' + self._css);
     }
 
     // For snippets the default sort is alpha
-    if ((!options.sort) && (!options.search) && (!options.q)) {
+    // Explicitly false means "let the default behavior of MongoDB apply"
+    if ((!options.sort) && (options.sort !== false) && (!options.search) && (!options.q)) {
       options.sort = { sortTitle: 1 };
     }
 
@@ -1470,7 +1499,13 @@ snippets.Snippets = function(options, callback) {
         return self.beforePutOne(req, slug, options, snippet, callback);
       },
       putPage: function(callback) {
-        return self._apos.putPage(req, slug, options, snippet, callback);
+        return self._apos.putPage(req, slug, options, snippet, function(err) {
+          if (err) {
+            console.error('error in putPage');
+            console.error(err);
+          }
+          return callback(err);
+        });
       },
       afterPutOne: function(callback) {
         return self.afterPutOne(req, slug, options, snippet, callback);
@@ -1654,6 +1689,7 @@ snippets.Snippets = function(options, callback) {
           return self.show(req, results.snippets[0], callback);
         }
       } else {
+        req.extras.total = results.total;
         self.setPagerTotal(req, results.total);
         return self.index(req, results.snippets, callback);
       }
