@@ -475,7 +475,7 @@ function AposSnippets(options) {
     self.extendWidget = function(widget) {
       // A chance to extend the snippet widget
     };
-    
+
     // Import snippets
     $('body').on('click', '[data-import-' + self._css + ']', function() {
       var valid = false;
@@ -556,16 +556,46 @@ AposSnippets.addWidgetType = function(options) {
       }
 
       self.afterCreatingEl = function() {
+        if (self.data.limitByTag === undefined) {
+          self.data.limitByTag = self.defaultLimit;
+        }
         if (self.data.limit === undefined) {
           self.data.limit = self.defaultLimit;
         }
-        self.$by = self.$el.find('[name="by"]');
-        self.$by.radio(self.data.by || 'id');
+
+        self.$by = self.$el.findByName('by');
+        self.$by.val(self.data.by || 'id');
         self.$tags = self.$el.find('[data-name="tags"]');
         apos.enableTags(self.$tags, self.data.tags);
+        self.$limitByTag = self.$el.findByName('limitByTag');
+        self.$limitByTag.val(self.data.limitByTag);
         self.$limit = self.$el.find('[name="limit"]');
         self.$limit.val(self.data.limit);
         self.$ids = self.$el.find('[data-name="ids"]');
+
+        self.$by.on('change', function() {
+          var val = $(this).val();
+          self.$el.find('[data-by]').removeClass('apos-active');
+          var $activeFieldset = self.$el.find('[data-by="' + val + '"]');
+          $activeFieldset.addClass('apos-active');
+          // Ready to type something
+          $activeFieldset.find('input[type="text"]:first').focus();
+          return false;
+        });
+
+        // Send a change event to enable the currently chosen type
+        // after jquery selective initializes
+        apos.afterYield(function() {
+          self.$by.trigger('change');
+        });
+
+
+        // self.$by.radio(self.data.by || 'id');
+        // self.$tags = self.$el.find('[data-name="tags"]');
+        // apos.enableTags(self.$tags, self.data.tags);
+        // self.$limit = self.$el.find('[name="limit"]');
+        // self.$limit.val(self.data.limit);
+        // self.$ids = self.$el.find('[data-name="ids"]');
         // Get the titles corresponding to the existing list of idss.
         //
         // We're going to get a prePreview call before this
@@ -641,4 +671,3 @@ AposSnippets.subclassIfNeeded = function(constructorName, baseConstructorName, o
     };
   }
 };
-

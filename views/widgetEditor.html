@@ -1,7 +1,7 @@
 {% extends "baseWidgetEditor.html" %}
 {% include "formMacros.html" %}
 {% block widgetVars %}
-  {% set widgetClass = widgetEditorClass + ' apos-no-tabs' %}
+  {% set widgetClass = widgetEditorClass + ' apos-no-tabs apos-ui' %}
 {% endblock %}
 
 {% block title %}
@@ -15,19 +15,46 @@ Or just use tags to pull in %s.', instanceLabel | lower, pluralLabel | lower ) }
 
 {% block formBody %}
 
-<fieldset class="apos-fieldset apos-fieldset-radio">
+<fieldset class="apos-fieldset apos-fieldset-inset-controller apos-fieldset-select apos-fieldset-lister">
+  <label class="apos-by-label apos-wide-label">Add {{ pluralLabel }} By</label>
+    <div class="apos-select-wrapper apos-inline-input">
+      <select class="apos-by" name="by" data-lister>
+        <option value="id">{{instanceLabel}} Title</option>
+        <option value="tag">{{instanceLabel}} Tag(s)</option>
+      </select>
+      <span class="apos-ui-container apos-ui-inline-btn">
+        <div class="apos-select-arrow apos-ui-btn">
+          <i class="icon icon-caret-down"></i>
+        </div>
+      </span>
+    </div>
+</fieldset>
+
+
+{# <fieldset class="apos-fieldset apos-fieldset-radio">
   <label>{{ __('By Tag') }}</label>
   <input type="radio" name="by" value="tag" />
+</fieldset> #}
+
+{# {{ formTags('tags', 'Tags') }}
+{{ formText('limit', pluralLabel + ' Shown') }} #}
+
+<fieldset class="apos-fieldset apos-fieldset-text apos-fieldset-inset apos-fieldset-by" data-by="id">
+  <label class="apos-wide-label">{{ __('By ' + pieceLabel + ' title') }}</label>
+  {{ formSelective('ids', __('Title'), { inline: true, placeholder: __('Type ' + pieceLabel + ' titles here') }) }}
 </fieldset>
 
-{{ formTags('tags', 'Tags') }}
-{{ formText('limit', pluralLabel + ' Shown') }}
-
-<fieldset class="apos-fieldset apos-fieldset-radio">
-  <label>By {{ __(titleLabel) }}</label>
-  <input type="radio" name="by" value="id" />
+<fieldset class="apos-fieldset apos-fieldset-tags apos-fieldset-inset apos-fieldset-text apos-fieldset-by" data-by="tag">
+  <div class="apos-fieldset-inset-inner">
+    <label class="apos-wide-label">{{ __('By tag') }}</label>
+    {{ formTags('tags', 'Tags', { inline: true }) }}
+  </div>
+  <div class="apos-fieldset-inset-inner">
+    <label class="apos-wide-label">{{ __('Max ' + pluralPieceLabel + ' Shown') }}:</label>
+    <input type="text" name="limitByTag" class="apos-input-narrow" />
+  </div>
 </fieldset>
 
-{{ formSelective('ids', titleLabel) }}
+
 
 {% endblock %}
