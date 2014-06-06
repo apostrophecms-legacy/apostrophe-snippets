@@ -40,8 +40,8 @@ Or just use tags to pull in %s.', instanceLabel | lower, pluralLabel | lower ) }
 {{ formText('limit', pluralLabel + ' Shown') }} #}
 
 <fieldset class="apos-fieldset apos-fieldset-text apos-fieldset-inset apos-fieldset-by" data-by="id">
-  <label class="apos-wide-label">{{ __('By ' + pieceLabel + ' title') }}</label>
-  {{ formSelective('ids', __('Title'), { inline: true, placeholder: __('Type ' + pieceLabel + ' titles here') }) }}
+  <label class="apos-wide-label">{{ __('By ' + instanceLabel + + ' title') }}</label>
+  {{ formSelective('ids', __('Title'), { inline: true, placeholder: __('Type ' + instanceLabel + ' titles here') }) }}
 </fieldset>
 
 <fieldset class="apos-fieldset apos-fieldset-tags apos-fieldset-inset apos-fieldset-text apos-fieldset-by" data-by="tag">
@@ -50,7 +50,7 @@ Or just use tags to pull in %s.', instanceLabel | lower, pluralLabel | lower ) }
     {{ formTags('tags', 'Tags', { inline: true }) }}
   </div>
   <div class="apos-fieldset-inset-inner">
-    <label class="apos-wide-label">{{ __('Max ' + pluralPieceLabel + ' Shown') }}:</label>
+    <label class="apos-wide-label">{{ __('Max ' + pluralLabel + ' Shown') }}:</label>
     <input type="text" name="limitByTag" class="apos-input-narrow" />
   </div>
 </fieldset>
