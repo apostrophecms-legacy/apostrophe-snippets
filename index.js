@@ -596,6 +596,8 @@ snippets.Snippets = function(options, callback) {
         }
       };
 
+      self._importScoreboard = self._apos.getCache('importScoreboard');
+
       self._app.post(self._action + '/import', function(req, res) {
         var file = req.files.file;
         var rows = 0;
@@ -603,41 +605,80 @@ snippets.Snippets = function(options, callback) {
         var active = 0;
         var date = new Date();
         req.aposImported = moment().format();
-        // "AUGH! Why are you using toArray()? It wastes memory!"
-        // Because: https://github.com/wdavidw/node-csv/issues/93
-        // Also we don't want race conditions when, for instance, people try to add
-        // themselves to a group and save the group twice.
-        // TODO: write a CSV module that is less ambitious about speed and more
-        // interested in a callback driven, serial interface
-        return csv().from.stream(fs.createReadStream(file.path)).to.array(function(data) {
-          var index = 0;
-          return async.eachSeries(data, function(row, callback) {
-            var headings = !index;
-            index++;
-            if (headings) {
-              return handleHeadings(row, callback);
-            } else {
-              return handleRow(row, function(err) {
-                if (!err) {
-                  rows++;
-                  return callback(null);
-                } else {
-                  return callback(err);
+        var jobId = self._apos.generateId();
+        var data;
+        var score = { rows: 0, status: 'parsing', jobId: jobId, ownerId: self._apos.permissions.getEffectiveUserId(req) };
+
+        function statusUpdate(callback) {
+          return self._importScoreboard.set(jobId, score, callback);
+        }
+
+        return async.series({
+          initializeScoreboard: function(callback) {
+            return statusUpdate(callback);
+          },
+          endInitialConnection: function(callback) {
+            // Closes original connection from browser
+            res.send(score);
+            // From here on in we're on our own, communicating status
+            // to the browser via the apostrophe cache and the
+            // import-status route
+            return callback(null);
+          },
+          parse: function(callback) {
+            // "AUGH! Why are you using toArray()? It wastes memory!"
+            // Because: https://github.com/wdavidw/node-csv/issues/93
+            // Also we don't want race conditions when, for instance,
+            // people try to add themselves to a group and save the
+            // group twice. TODO: write a CSV module that is less
+            // ambitious about speed and more interested in a
+            // callback driven, serial interface
+            return csv().from.stream(fs.createReadStream(file.path)).to.array(function(_data) {
+
+              score.status = 'importing';
+              data = _data;
+              return statusUpdate(callback);
+            });
+          },
+          import: function(callback) {
+            var index = 0;
+            return async.eachSeries(data, function(row, callback) {
+              var headings = !index;
+              index++;
+              return async.series({
+                action: function(callback) {
+                  if (headings) {
+                    return handleHeadings(row, callback);
+                  } else {
+                    return handleRow(row, function(err) {
+                      if (!err) {
+                        score.rows++;
+                      }
+                      return callback(err);
+                    });
+                  }
+                },
+                update: function(callback) {
+                  return statusUpdate(callback);
                 }
-              });
-            }
-          }, function(err) {
-            if (err) {
-              return respondWhenDone('error');
-            }
-            return respondWhenDone('ok');
-          });
+              }, callback);
+            }, callback);
+          }
+        }, function(err) {
+          if (err) {
+            score.status = 'error';
+          } else {
+            score.status = 'done';
+          }
+          score.ended = true;
+          return statusUpdate(function() {});
         });
 
         // Be extremely tolerant with regard to CSV headings:
         // slugify both the headings and the schema field names
         // to create a tolerant mapping that doesn't care about
-        // whitespace or case and is i18n-safe
+        // whitespace or case and is i18n-safe. Allow matches on
+        // both field names and field labels. Really, really try. (:
 
         function handleHeadings(row, callback) {
           headings = row;
@@ -645,6 +686,10 @@ snippets.Snippets = function(options, callback) {
           var schemaMap = {};
           _.each(self.schema, function(field) {
             schemaMap[simplify(field.name)] = field.name;
+            var simplifiedLabel = simplify(field.label);
+            if (!schemaMap[simplifiedLabel]) {
+              schemaMap[simplifiedLabel] = field.name;
+            }
           });
           for (i = 0; (i < headings.length); i++) {
             var original = headings[i];
@@ -671,10 +716,16 @@ snippets.Snippets = function(options, callback) {
           }
           return self.importCreateItem(req, data, callback);
         }
+      });
 
-        function respondWhenDone(status) {
-          res.send({ status: status, rows: rows });
-        }
+      self._app.get(self._action + '/import-status', function(req, res) {
+        var jobId = self._apos.sanitizeString(req.query.jobId);
+        return self._importScoreboard.get(jobId, function(err, score) {
+          if (err || (!score) || (score.ownerId !== self._apos.permissions.getEffectiveUserId(req))) {
+            return res.send({ status: 'not found', ended: true });
+          }
+          return res.send(score);
+        });
       });
 
       self._app.get(self._action + '/get', function(req, res) {

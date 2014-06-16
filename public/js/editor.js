@@ -479,35 +479,59 @@ function AposSnippets(options) {
     // Import snippets
     $('body').on('click', '[data-import-' + self._css + ']', function() {
       var valid = false;
+      var jobId;
+      var $save;
+      var $cancel;
       $el = apos.modalFromTemplate('.apos-import-' + self._css, {
         init: function(callback) {
+          $save = $el.find('[data-action="save"]');
+          $cancel = $el.find('[data-action="cancel"]');
+          $save.hide();
           // The file upload's completion will trigger the import operation
           $el.find('[name="file"]').attr('data-url', self._action + '/import');
-          $el.find('[data-action="save"]').remove();
           $el.find('[name="file"]').fileupload({
             maxNumberOfFiles: 1,
             dataType: 'json',
             start: function (e) {
-              $('[data-progress]').show();
-              $('[data-finished]').hide();
+              status('uploading', false);
             },
             stop: function (e) {
-              $('[data-progress]').hide();
-              $('[data-finished]').show();
+              // Let the server tell us when it's really done receiving
+              // via our AJAX pings
             },
             done: function (e, data) {
               var result = data.result;
-              if (result.status === 'ok') {
-                alert('Successful import. Imported ' + result.rows + ' items.');
-              } else {
-                alert('An error occurred during import. Imported ' + result.rows + ' items.');
+              if (!result.jobId) {
+                alert('An error occurred. The import process did not begin.');
+                return;
               }
-              $el.trigger('aposModalHide');
+              jobId = result.jobId;
+              setTimeout(update, 1000);
             }
           });
+          function update() {
+            $.getJSON(self._action + '/import-status', {
+              jobId: jobId,
+              cacheBuster: $.now()
+            }, function(result) {
+              status(result.status);
+              rows(result.rows);
+              setTimeout(update, 1000);
+            });
+          }
           return callback(null);
         }
       });
+      function status(s) {
+        $el.find('[data-status]').text(s);
+        if (s === 'done') {
+          $cancel.hide();
+          $save.show();
+        }
+      }
+      function rows(r) {
+        $el.find('[data-rows]').text(r);
+      }
     });
   }
   function triggerRefresh(callback) {

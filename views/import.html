@@ -7,10 +7,14 @@
         {# Blueimp makes this go #}
         <input type="file" name="file" />
       </fieldset>
+      <table data-scoreboard class="apos-import-scoreboard">
+        <tr><th>Rows Imported</th><td data-rows>0</td></tr>
+        <tr><th>Status</th><td data-status>not started</td></tr>
+      </table>
       <p>
         {{ __('This form accepts a CSV file which may have the following headings: <code>title</code>, <code>tags</code>, <code>published</code>') }}
         {%- for field in fields -%}
-          {%- if (field.type != 'singleton') and (not aposBeginsWith(field.type, 'join')) -%}
+          {%- if (field.type != 'singleton') and (not aposContains(field.type, 'Reverse')) -%}
             , {{ field.name }}
           {%- endif -%}
         {%- endfor -%}.
@@ -19,7 +23,7 @@
     </form>
   </div>
   <div class="apos-modal-footer">
-    <a href="#" data-action="save" class="apos-control apos-button apos-save">{{ __('Import') }}</a>
+    <a href="#" data-action="save" class="apos-control apos-button apos-save">{{ __('Done') }}</a>
     <a href="#" data-action="dismiss" class="apos-control apos-button apos-cancel">{{ __('Cancel') }}</a>
   </div>
 </div>
