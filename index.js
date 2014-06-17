@@ -1943,7 +1943,7 @@ snippets.Snippets = function(options, callback) {
     var typeNames = self._pages.getIndexTypeNames(snippet);
     // Make sure we don't get the areas which would result in
     // super expensive callLoadersForPage calls
-    return self._apos.get(req, { type: { $in: typeNames }, slug: /^\// }, { fields: { areas: 0 } }, function(err, results) {
+    return self._apos.get(req, { type: { $in: typeNames }, slug: /^\// }, { areas: false }, function(err, results) {
       if (err) {
         console.error(err);
         return callback(err);
@@ -1958,13 +1958,16 @@ snippets.Snippets = function(options, callback) {
 
     function go() {
       var property = self.bestPageMatchingProperty || 'tags';
+      // The "tags" property was moved to "withTags" to distinguish
+      // what a page *shows* from what a page *is*
+      var pageProperty = (property === 'tags') ? 'withTags' : property;
       var viewable = req.aposBestPageCache[snippet.type];
       var tags = self.bestPageById ? ([ snippet._id ]) : (snippet[property] || []);
       var bestScore;
       var best = null;
       _.each(viewable, function(page) {
         var score = 0;
-        var pageTags = page[property] ? page[property] : [];
+        var pageTags = page[pageProperty] ? page[pageProperty] : [];
         if (!pageTags.length) {
           score = 1;
         }
