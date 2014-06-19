@@ -95,6 +95,17 @@ widget.Widget = function(options) {
   // Snippet text contributes to search text of page only if the link is
   // firm - made via id - and not dynamic - made via tag
   self.addSearchTexts = function(item, texts) {
+    if (self.snippets._searchable) {
+      // The snippets are searchable in their own right,
+      // so don't bloat the search text of the pages
+      // they happen to be featured on today. On DR we
+      // found we were hitting the 16MB document limit
+      // just on account of the search text alone when
+      // featuring large numbers of blog post teasers on
+      // the home page, and the home page as the first result
+      // for everything is really not helpful
+      return;
+    }
     if (item.by === 'id') {
       _.each(item._snippets, function(snippet) {
         var pageTexts = self.apos.getSearchTextsForPage(snippet);
@@ -121,6 +132,8 @@ widget.Widget = function(options) {
   self.load = function(req, item, callback) {
     var criteria = {};
     var options = {};
+
+    var start = Date.now();
 
     self.addCriteria(item, criteria, options);
 

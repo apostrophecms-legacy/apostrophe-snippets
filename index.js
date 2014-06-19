@@ -103,7 +103,7 @@ snippets.Snippets = function(options, callback) {
   // as search results
   self._apos.on('unsearchable', function(unsuitable) {
     if (!self._searchable) {
-      unsuitable.push(self._isntance);
+      unsuitable.push(self._instance);
     }
   });
 
