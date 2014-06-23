@@ -1,1 +1,10 @@
-{% extends 'editBase.html' %}
+{% extends 'new.html' %}
+
+{% block modalClass %}
+  {{super() }} {{editClass}}
+{% endblock %}
+
+{% block modalLabel %}
+  {{ __('Edit %s', __(instanceLabel) ) }}
+{% endblock %}
+

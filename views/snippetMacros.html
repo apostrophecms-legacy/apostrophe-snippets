@@ -1,3 +1,4 @@
+{% include 'uiMacros.html' %}
 {% include 'formMacros.html' %}
 {% include 'pagerMacros.html' %}
 
@@ -96,9 +97,9 @@
 
 {% macro snippetNewControls() %}
   <div class="apos-modal-controls">
-    <a href="#" data-save data-next class="apos-button apos-edit-modal apos-button-red">{{ __('Add Next') }}</a>
-    <a href="#" data-save class="apos-button apos-edit-modal apos-button-red">{{ __('Add') }}</a>
-    <a href="#" data-cancel class="apos-button apos-edit-modal apos-button-white apos-button-arrow-left">{{ __('Cancel') }}</a>
+    {{ renderProgressBtn({dataAttrs: 'data-save data-next', float: 'right', color: 'base', label: __('Add Next')}) }}
+    {{ renderProgressBtn({dataAttrs: 'data-save', float: 'right', color: 'base', label: __('Add')}) }}
+    {{ renderProgressBtn({dataAttrs: 'data-cancel', float: 'left', arrow: 'left', label: __('Cancel')}) }}
   </div>
 {% endmacro %}
 
@@ -157,7 +158,17 @@
 {% macro snippetSearchFilter() %}
   {# In user testing we found that leaving out the submit button isn't great. #}
   {# So if you remove it, make sure some other clickable thing is visible. -Tom #}
-  {{ __('Search') }}: <input type="text" name="search" /> <input type="submit" data-search-submit class="apos-search-submit" value="{{ __('Go') }}" /> <a href="#" class="apos-remove-search" data-remove-search>x</a>
+  <div class="apos-filter-search apos-filter-search--float-right">
+    <input type="text" name="search" class="apos-search-input" placeholder="Search" />
+    <a href="#" class="apos-search-submit-button">
+      <i class="icon icon-search"></i>
+      <input type="submit"  data-search-submit class="apos-search-submit" value="{{ __('Go') }}" />
+    </a>
+<!--     <a href="#" class="apos-remove-search" data-remove-search>
+
+    </a> -->
+  </div>
+  
 {% endmacro %}
 
 {# Standard filters suitable for all snippet derivatives. Does not include date filter. #}

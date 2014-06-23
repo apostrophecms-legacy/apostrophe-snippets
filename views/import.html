@@ -1,29 +1,41 @@
-<div class="apos-modal apos-template {{ importClass }}">
-  <h3>{% block action %}Import {{ label }}{% endblock %}</h3>
-  <div class="apos-modal-body">
-    <form>
-      <fieldset class="apos-fieldset apos-fieldset-singleton">
-        <label>{{ __('CSV File') }}</label>
-        {# Blueimp makes this go #}
-        <input type="file" name="file" />
-      </fieldset>
-      <table data-scoreboard class="apos-import-scoreboard">
-        <tr><th>Rows Imported</th><td data-rows>0</td></tr>
-        <tr><th>Status</th><td data-status>not started</td></tr>
-      </table>
-      <p>
-        {{ __('This form accepts a CSV file which may have the following headings: <code>title</code>, <code>tags</code>, <code>published</code>') }}
-        {%- for field in fields -%}
-          {%- if (field.type != 'singleton') and (not aposContains(field.type, 'Reverse')) -%}
-            , {{ field.name }}
-          {%- endif -%}
-        {%- endfor -%}.
-        {{ __('Tags in the tags field should be comma-separated. Any unrelated headings are politely ignored. <strong>Please note that duplicates are not detected.</strong> If you import duplicates you may need to remove them manually.') }}
-      </p>
-    </form>
-  </div>
-  <div class="apos-modal-footer">
-    <a href="#" data-action="save" class="apos-control apos-button apos-save">{{ __('Done') }}</a>
-    <a href="#" data-action="dismiss" class="apos-control apos-button apos-cancel">{{ __('Cancel') }}</a>
-  </div>
-</div>
+{% extends 'baseModal.html' %}
+{% include 'uiMacros.html' %}
+
+{% block modalClass %}
+  {{ importClass }}
+{% endblock%}
+
+{% block modalLabel %}
+  Import {{ label }}
+{% endblock%}
+
+{% block modalControls %} 
+  {{ renderProgressBtn({dataAttrs: 'data-save', float: 'right', color: 'base', label: __('Done')}) }}
+  {{ renderProgressBtn({dataAttrs: 'data-cancel', float: 'left', arrow: 'left', label: __('Cancel')}) }}
+{% endblock %}
+
+{% block modalInstructions %}
+  <p>
+  {{ __('This form accepts a CSV file which may have the following headings: <code>title</code>, <code>tags</code>, <code>published</code>') }}
+  {%- for field in fields -%}
+    {%- if (field.type != 'singleton') and (not aposContains(field.type, 'Reverse')) -%}
+      , {{ field.name }}
+    {%- endif -%}
+  {%- endfor -%}.
+  {{ __('Tags in the tags field should be comma-separated. Any unrelated headings are politely ignored. <strong>Please note that duplicates are not detected.</strong> If you import duplicates you may need to remove them manually.') }}
+  </p>
+{% endblock %}
+
+{% block modalBody %}
+  <form>
+    <fieldset class="apos-fieldset apos-fieldset-singleton apos-fieldset-file-input">
+      <label>{{ __('CSV File') }}</label>
+      {# Blueimp makes this go #}
+      <input type="file" name="file" />
+    </fieldset>
+    <table data-scoreboard class="apos-import-scoreboard">
+      <tr><th>Rows Imported</th><td data-rows>0</td></tr>
+      <tr><th>Status</th><td data-status>not started</td></tr>
+    </table>
+  </form>
+{% endblock %}
