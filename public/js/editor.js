@@ -613,13 +613,6 @@ AposSnippets.addWidgetType = function(options) {
           self.$by.trigger('change');
         });
 
-
-        // self.$by.radio(self.data.by || 'id');
-        // self.$tags = self.$el.find('[data-name="tags"]');
-        // apos.enableTags(self.$tags, self.data.tags);
-        // self.$limit = self.$el.find('[name="limit"]');
-        // self.$limit.val(self.data.limit);
-        // self.$ids = self.$el.find('[data-name="ids"]');
         // Get the titles corresponding to the existing list of idss.
         //
         // We're going to get a prePreview call before this
@@ -653,7 +646,7 @@ AposSnippets.addWidgetType = function(options) {
       AposWidgetEditor.call(self, options);
 
       self.debrief = function(callback) {
-        self.data.by = self.$by.radio();
+        self.data.by = self.$by.val();
         self.data.tags = self.$tags.selective('get', { incomplete: true });
         self.data.limit = parseInt(self.$limit.val(), 10);
         if (self.pending) {

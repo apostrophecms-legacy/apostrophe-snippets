@@ -2168,6 +2168,29 @@ snippets.Snippets = function(options, callback) {
     });
   }
 
+  self._apos.addMigration('snippetsFixBy', function snippetsFixBy(callback) {
+    var needed = false;
+    return self._apos.forEachItem(function(page, name, area, n, item, callback) {
+      if (item.type !== self.name) {
+        return setImmediate(callback);
+      }
+      // symptom: item.by is the string 'undefined'. Also take action
+      // if it is actually not there
+      if (item.by && (item.by !== 'undefined')) {
+        return setImmediate(callback);
+      }
+      needed = true;
+      console.log('Fixing snippet widgets with missing .by property');
+      var update = {};
+      if (item.ids && item.ids.length) {
+        update[name + '.items.' + n + '.by'] = 'id';
+      } else {
+        update[name + '.items.' + n + '.by'] = 'tag';
+      }
+      return self._apos.pages.update({ _id: page._id }, { $set: update }, callback);
+    }, callback);
+  });
+
   if (callback) {
     // Invoke callback on next tick so that the constructor's return
     // value can be assigned to a variable in the same closure where
