@@ -1,16 +1,17 @@
-{% extends "baseWidgetEditor.html" %}
+k{% extends "baseWidgetEditor.html" %}
 {% include "formMacros.html" %}
-{% block widgetVars %}
-  {% set widgetClass = widgetEditorClass + ' apos-no-tabs apos-ui' %}
-{% endblock %}
 
-{% block title %}
+{% block modalClass %}
+  {{ super() }} {{widgetEditorClass}} apos-ui-modal-no-sidebar
+{% endblock%}
+
+{% block modalLabel %}
   {{ __('Display %s', pluralLabel ) }}
 {% endblock %}
 
-{% block instructions %}
-{{ __('Start typing the title of a %s, then click on the suggestions that appear to insert them.
-Or just use tags to pull in %s.', instanceLabel | lower, pluralLabel | lower ) }}
+{% block modalInstructions %}
+<p>{{ __('Start typing the title of a %s, then click on the suggestions that appear to insert them.
+Or just use tags to pull in %s.', instanceLabel | lower, pluralLabel | lower ) }}</p>
 {% endblock %}
 
 {% block formBody %}
@@ -39,12 +40,12 @@ Or just use tags to pull in %s.', instanceLabel | lower, pluralLabel | lower ) }
 {# {{ formTags('tags', 'Tags') }}
 {{ formText('limit', pluralLabel + ' Shown') }} #}
 
-<fieldset class="apos-fieldset apos-fieldset-text apos-fieldset-inset apos-fieldset-by" data-by="id">
+<fieldset class="apos-fieldset apos-fieldset-text apos-fieldset-inset apos-fieldset-by apos-fieldset-no-margin" data-by="id">
   <label class="apos-wide-label">{{ __('By ' + instanceLabel + ' title') }}</label>
   {{ formSelective('ids', __('Title'), { inline: true, placeholder: __('Type ' + instanceLabel + ' titles here') }) }}
 </fieldset>
 
-<fieldset class="apos-fieldset apos-fieldset-tags apos-fieldset-inset apos-fieldset-text apos-fieldset-by" data-by="tag">
+<fieldset class="apos-fieldset apos-fieldset-tags apos-fieldset-inset apos-fieldset-text apos-fieldset-by apos-fieldset-no-margin" data-by="tag">
   <div class="apos-fieldset-inset-inner">
     <label class="apos-wide-label">{{ __('By tag') }}</label>
     {{ formTags('tags', 'Tags', { inline: true }) }}
