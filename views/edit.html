@@ -4,6 +4,10 @@
   {{super() }} {{editClass}}
 {% endblock %}
 
+{% block modalControls %}
+  {{ snippetEditControls() }}
+{% endblock %}
+
 {% block modalLabel %}
   {{ __('Edit %s', __(instanceLabel) ) }}
 {% endblock %}
