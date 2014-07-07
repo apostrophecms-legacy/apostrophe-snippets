@@ -514,9 +514,13 @@ function AposSnippets(options) {
               jobId: jobId,
               cacheBuster: $.now()
             }, function(result) {
-              status(result.status);
+              var done = status(result.status);
               rows(result.rows);
-              setTimeout(update, 1000);
+              errors(result.errors);
+              errorLog(result.errorLog);
+              if (!done) {
+                setTimeout(update, 1000);
+              }
             });
           }
           return callback(null);
@@ -527,10 +531,23 @@ function AposSnippets(options) {
         if (s === 'done') {
           $cancel.hide();
           $save.show();
+          return true;
         }
       }
       function rows(r) {
         $el.find('[data-rows]').text(r);
+      }
+      function errors(e) {
+        $el.find('[data-errors]').text(e);
+      }
+      function errorLog(log) {
+        var $log = $el.find('[data-error-log]');
+        $log.html('');
+        _.each(log, function(item) {
+          var $entry = $('<li></li>');
+          $entry.text(item);
+          $log.append($entry);
+        });
       }
     });
   }

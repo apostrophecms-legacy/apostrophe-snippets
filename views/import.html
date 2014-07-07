@@ -19,7 +19,7 @@
   {{ __('This form accepts a CSV file which may have the following headings: ') }}
   {%- for field in fields -%}
     {%- if (field.type != 'singleton') and (field.type != 'group') and (not aposContains(field.type, 'Reverse')) -%}
-      , <code>{{ field.name }}</code>
+      <code>{{ field.name }}</code>
     {%- endif -%}
   {%- endfor -%}.
   {{ __('Tags in the tags field should be comma-separated. Any unrelated headings are politely ignored. <strong>Please note that duplicates are not detected.</strong> If you import duplicates you may need to remove them manually.') }}
@@ -35,7 +35,9 @@
     </fieldset>
     <table data-scoreboard class="apos-import-scoreboard">
       <tr><th>{{ __('Rows Imported') }}</th><td data-rows>0</td></tr>
+      <tr><th>{{ __('Errors') }}</th><td data-errors>0</td></tr>
       <tr><th>{{ __('Status') }}</th><td data-status>{{ __('not started') }}</td></tr>
     </table>
+    <ul data-error-log class="apos-import-error-log"></ul>
   </form>
 {% endblock %}

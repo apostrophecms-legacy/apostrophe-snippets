@@ -345,14 +345,14 @@ snippets.Snippets = function(options, callback) {
     self.textToArea = self._apos.textToArea;
 
     self.importCreateItem = function(req, data, callback) {
+      var snippet = {
+        type: self._instance
+      };
+
       // "Why the try/catch?" Because the CSV reader has some sort of
       // try/catch of its own that is making it impossible to log any
       // errors if we don't catch them. TODO: go looking for that and fix it.
       try {
-
-        var snippet = {
-          type: self._instance
-        };
 
         async.series([
           function(callback) {
@@ -381,10 +381,11 @@ snippets.Snippets = function(options, callback) {
           function(callback) {
             self.afterSave(req, data, snippet, callback);
           }
-        ], callback);
+        ], function(e) {
+          return callback(e, snippet);
+        });
       } catch (e) {
-        console.error(e);
-        throw e;
+        return callback(e, snippet);
       }
     };
 
@@ -607,7 +608,7 @@ snippets.Snippets = function(options, callback) {
         req.aposImported = moment().format();
         var jobId = self._apos.generateId();
         var data;
-        var score = { rows: 0, status: 'parsing', jobId: jobId, ownerId: self._apos.permissions.getEffectiveUserId(req) };
+        var score = { rows: 0, errors: 0, status: 'parsing', jobId: jobId, ownerId: self._apos.permissions.getEffectiveUserId(req), errorLog: [] };
 
         function statusUpdate(callback) {
           return self._importScoreboard.set(jobId, score, callback);
@@ -653,8 +654,10 @@ snippets.Snippets = function(options, callback) {
                     return handleRow(row, function(err) {
                       if (!err) {
                         score.rows++;
+                      } else {
+                        score.errors++;
                       }
-                      return callback(err);
+                      return callback(null);
                     });
                   }
                 },
@@ -714,7 +717,13 @@ snippets.Snippets = function(options, callback) {
           for (i = 0; (i < headings.length); i++) {
             data[headings[i]] = row[i];
           }
-          return self.importCreateItem(req, data, callback);
+          return self.importCreateItem(req, data, function(err, item) {
+            if (err) {
+              score.errors++;
+              score.errorLog.push((item.title || 'NO NAME') + ': ' + (err.message ? err.message : err));
+            }
+            return callback(null);
+          });
         }
       });
 
