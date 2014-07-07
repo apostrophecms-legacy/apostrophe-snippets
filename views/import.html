@@ -9,17 +9,17 @@
   Import {{ label }}
 {% endblock%}
 
-{% block modalControls %} 
+{% block modalControls %}
   {{ renderProgressBtn({dataAttrs: 'data-save', float: 'right', color: 'base', label: __('Done')}) }}
   {{ renderProgressBtn({dataAttrs: 'data-cancel', float: 'left', arrow: 'left', label: __('Cancel')}) }}
 {% endblock %}
 
 {% block modalInstructions %}
   <p>
-  {{ __('This form accepts a CSV file which may have the following headings: <code>title</code>, <code>tags</code>, <code>published</code>') }}
+  {{ __('This form accepts a CSV file which may have the following headings: ') }}
   {%- for field in fields -%}
-    {%- if (field.type != 'singleton') and (not aposContains(field.type, 'Reverse')) -%}
-      , {{ field.name }}
+    {%- if (field.type != 'singleton') and (field.type != 'group') and (not aposContains(field.type, 'Reverse')) -%}
+      , <code>{{ field.name }}</code>
     {%- endif -%}
   {%- endfor -%}.
   {{ __('Tags in the tags field should be comma-separated. Any unrelated headings are politely ignored. <strong>Please note that duplicates are not detected.</strong> If you import duplicates you may need to remove them manually.') }}
