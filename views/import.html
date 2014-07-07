@@ -19,6 +19,8 @@
   {{ __('This form accepts a CSV file which may have the following headings: ') }}
   {%- for field in fields -%}
     {%- if (field.type != 'singleton') and (field.type != 'group') and (not aposContains(field.type, 'Reverse')) -%}
+      {% if notFirst %}, {% endif %}
+      {% set notFirst = true %}
       <code>{{ field.name }}</code>
     {%- endif -%}
   {%- endfor -%}.
