@@ -16,7 +16,7 @@
 {% block main %}
   <h3><a href="{{ page.url }}">{{ page.title | e }}</a></h3>
 
-  {{ renderSnippet(item, page.url) }}
+  {{ renderSnippet(item, page.url, { edit: true }) }}
 {% endblock %}
 
 {% block sidebar %}
