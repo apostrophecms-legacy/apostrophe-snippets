@@ -13,8 +13,11 @@
   {% endif %}
 {% endmacro %}
 
-{% macro renderSnippet(item, pageUrl) %}
+{% macro renderSnippet(item, pageUrl, options) %}
   <div class="apos-snippet">
+    {% if options.edit and item._edit %}
+      <a class="apos-control apos-ui apos-button apos-edit-snippet-button" data-edit-{{ item.type | css }} data-slug="{{ item.slug }}" href="#"><i class="icon-pencil"></i> Edit</a>
+    {% endif %}
     {% if not item.hideTitle %}
       <h4>
         {% if item.url %}
