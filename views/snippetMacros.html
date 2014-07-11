@@ -1,6 +1,7 @@
 {% include 'uiMacros.html' %}
 {% include 'formMacros.html' %}
 {% include 'pagerMacros.html' %}
+{% include 'uiMacros.html' %}
 
 {% macro renderSnippets(items, pageUrl) %}
   {% if items %}
@@ -105,11 +106,11 @@
 
 {% macro snippetEditControls() %}
   <div class="apos-modal-controls">
-    <a href="#" data-save class="apos-button apos-edit-modal apos-button-red">{{ __('Save') }}</a>
-    <a href="#" data-copy data-action="copy" class="apos-button apos-edit-modal apos-button-red apos-copy">{{ __('Copy') }} </a>
-    <a href="#" data-versions data-action="versions" class="apos-button apos-edit-modal apos-button-red apos-versions">{{ __('Versions') }}</a>
-    <a href="#" data-delete data-action="delete" class="apos-button apos-edit-modal apos-button-red apos-trash"><i class="icon-trash"></i></a>
-    <a href="#" data-cancel class="apos-button apos-edit-modal apos-button-white apos-button-arrow-left apos-cancel">{{ __('Cancel') }}</a>
+    {{ renderProgressBtn({dataAttrs: 'data-save', float: 'right', color: 'base', label: 'Save'}) }}
+    {{ renderProgressBtn({dataAttrs: 'data-copy data-action="copy"', float: 'right', color: 'base', label: 'Copy'}) }}
+    {{ renderProgressBtn({dataAttrs: 'data-versions data-action="versions"', float: 'right', color: 'base', label: 'Versions'}) }}
+    {{ renderProgressBtn({dataAttrs: 'data-delete data-action="delete"', float: 'right', color: 'base', label: 'Delete'}) }}
+    {{ renderProgressBtn({dataAttrs: 'data-cancel', float: 'left', arrow: 'left', label: 'Cancel'}) }}
   </div>
 {% endmacro %}
 
