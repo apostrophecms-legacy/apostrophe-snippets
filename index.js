@@ -362,7 +362,10 @@ snippets.Snippets = function(options, callback) {
             return self._schemas.convertFields(req, self.schema, 'csv', data, snippet, callback);
           },
           function(callback) {
-            snippet.slug = self._apos.slugify(snippet.title);
+            // Allow slugs to be imported, if not imported generate them
+            if (!snippet.slug) {
+              snippet.slug = self._apos.slugify(snippet.title);
+            }
             // Record when the import happened so that later we can offer a UI
             // to find these groups and remove them if desired
             snippet.imported = req.aposImported;
