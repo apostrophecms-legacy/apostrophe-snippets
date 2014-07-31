@@ -17,6 +17,6 @@
     {# This helper is good for bypassing all the outer wrapper markup of an area which is #}
     {# unsuitable for RSS feeds #}
     {# Ignore all widgets, simple HTML text only #}
-    {{ aposAreaContent(item.areas.body.items, { allowed: [ 'richText' ] }) }}
+    {{ aposAreaContent(item.areas.body.items or [], { allowed: [ 'richText' ] }) }}
   {% endif %}
 {% endmacro %}
