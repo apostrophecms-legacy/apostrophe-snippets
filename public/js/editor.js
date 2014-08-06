@@ -100,7 +100,17 @@ function AposSnippets(options) {
     self.addingToManager = function($el, $snippet, snippet) {
     };
 
+    // Called after all items have been added to the manager
     self.afterPopulatingManager = function($el, $snippets, snippets, callback) {
+      return callback();
+    };
+
+    // Called after all items have been added to the manager, but
+    // only the *first time* for this particular manager window.
+    // If you are adding event handlers and don't care that the
+    // window's contents have been refreshed, this is the
+    // callback for you
+    self.afterFirstPopulatingManager = function($el, callback) {
       return callback();
     };
 
@@ -195,7 +205,7 @@ function AposSnippets(options) {
           // We want to know if a snippet is modified
           $el.attr('data-apos-trigger-' + apos.cssName(self.name), '');
           // Trigger an initial refresh
-          triggerRefresh(callback);
+          self.triggerRefresh(callback);
         }
       });
 
@@ -214,14 +224,14 @@ function AposSnippets(options) {
         $choice.addClass('apos-active');
         self.filters[$pill.data('name')] = $choice.attr('data-choice');
         page = 1;
-        triggerRefresh();
+        self.triggerRefresh();
         return false;
       });
 
       function search() {
         self.filters.q = $el.find('[name=search]').val();
         page = 1;
-        triggerRefresh();
+        self.triggerRefresh();
         return false;
       }
 
@@ -250,13 +260,13 @@ function AposSnippets(options) {
         self.filters.q = '';
         $el.find('[name=search]').val('');
         page = 1;
-        triggerRefresh();
+        self.triggerRefresh();
         return false;
       });
 
       $el.on('click', '[data-page]', function() {
         page = $(this).attr('data-page');
-        triggerRefresh();
+        self.triggerRefresh();
         return false;
       });
 
@@ -317,9 +327,15 @@ function AposSnippets(options) {
             self.addingToManager($el, $snippet, snippet);
             $snippets.append($snippet);
           });
-          self.afterPopulatingManager($el, $snippets, snippets, function() {
-            if (callback) {
-              return callback(null);
+          self.afterPopulatingManager($el, $snippets, snippets, function(err) {
+            if (err) {
+              return callback && callback(err);
+            }
+            if (!$el.data('populated')) {
+              $el.data('populated', true);
+              self.afterFirstPopulatingManager($el, function(err) {
+                return callback && callback(err);
+              });
             }
           });
         });
@@ -336,7 +352,7 @@ function AposSnippets(options) {
             data: { slug: slug, trash: 0 },
             type: 'POST',
             success: function() {
-              triggerRefresh();
+              self.triggerRefresh();
             },
             error: function() {
               alert('You do not have access or the item has been deleted.');
@@ -375,7 +391,7 @@ function AposSnippets(options) {
             if (copy) {
               // Refresh the manage list view to ensure the new copy is
               // listed there when we get back to it even if the user hits cancel
-              triggerRefresh();
+              self.triggerRefresh();
             }
 
             // name=slug must always exist, at least as a hidden field, to support this
@@ -391,7 +407,7 @@ function AposSnippets(options) {
                 data: { slug: slug, trash: 1 },
                 type: 'POST',
                 success: function() {
-                  triggerRefresh();
+                  self.triggerRefresh();
                   $el.trigger('aposModalHide');
                 },
                 error: function() {
@@ -551,9 +567,10 @@ function AposSnippets(options) {
       }
     });
   }
-  function triggerRefresh(callback) {
+
+  self.triggerRefresh = function(callback) {
     $el.trigger(apos.eventName('aposChange', self.name), callback);
-  }
+  };
   // END MANAGER FUNCTIONALITY
 }
 

@@ -600,6 +600,10 @@ snippets.Snippets = function(options, callback) {
         }
       };
 
+      self.beforeTrash = function(req, snippet, trash, callback) {
+        return callback();
+      };
+
       self._importScoreboard = self._apos.getCache('importScoreboard');
 
       self._app.post(self._action + '/import', function(req, res) {
