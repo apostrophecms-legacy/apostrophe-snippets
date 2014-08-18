@@ -1306,7 +1306,7 @@ snippets.Snippets = function(options, callback) {
     // filterCriteria is the right place to build up criteria
     // specific to this method; we'll $and it with the user's
     // criteria before passing it on to apos.get
-    filterCriteria.type = self._instance;
+    filterCriteria.type = options.typeCriteria || self._instance;
     var fetch = options.fetch;
     var permalink = options.permalink;
 
