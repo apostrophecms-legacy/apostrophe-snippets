@@ -1461,7 +1461,7 @@ snippets.Snippets = function(options, callback) {
 
     function permalinker(callback) {
       _.each(results.pages, function(page) {
-        page.url = apos.prefix + page.slug;
+        page.url = self._apos.prefix + page.slug;
       });
       return callback(null);
     }
