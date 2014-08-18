@@ -16,18 +16,18 @@ Or just use tags to pull in %s.', instanceLabel | lower, pluralLabel | lower ) }
 
 {% block formBody %}
 
-<fieldset class="apos-fieldset apos-fieldset-inset-controller apos-fieldset-select apos-fieldset-lister">
+<fieldset class="apos-fieldset apos-fieldset-inset-controller apos-fieldset-select apos-fieldset-selectize">
   <label class="apos-by-label apos-wide-label">Add {{ pluralLabel }} By</label>
     <div class="apos-select-wrapper apos-inline-input">
-      <select class="apos-by" name="by" data-lister>
+      <select class="apos-by" name="by" data-selectize>
         <option value="id">{{instanceLabel}} Title</option>
         <option value="tag">{{instanceLabel}} Tag(s)</option>
       </select>
-      <span class="apos-ui-container apos-ui-inline-btn">
+      <!-- <span class="apos-ui-container apos-ui-inline-btn">
         <div class="apos-select-arrow apos-ui-btn">
           <i class="icon icon-caret-down"></i>
         </div>
-      </span>
+      </span> -->
     </div>
 </fieldset>
 
