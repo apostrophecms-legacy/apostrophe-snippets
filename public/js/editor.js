@@ -10,6 +10,8 @@ function AposSnippets(options) {
   self._css = options.css;
   self._typeCss = options.typeCss;
   self.manager = options.manager;
+  self.childTypes = options.childTypes;
+  self.descendantTypes = options.descendantTypes;
 
   self._action = options.action;
   // "Manage" pagination
