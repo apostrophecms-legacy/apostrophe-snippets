@@ -1,20 +1,20 @@
-{% extends 'baseModal.html' %}
-{% include 'snippetMacros.html' %}
+{%- extends 'baseModal.html' -%}
+{%- include 'snippetMacros.html' -%}
 
-{% block modalClass %}
-  {{newClass}} apos-ui-modal-no-sidebar apos-ui-modal-has-tabs
-{% endblock%}
+{%- block modalClass -%}
+  {{ newClass }} apos-ui-modal-no-sidebar apos-ui-modal-has-tabs
+{%- endblock -%}
 
-{% block modalControls %} 
+{%- block modalControls -%}
   {{ snippetNewControls() }}
-{% endblock %}
+{%- endblock -%}
 
-{% block modalLabel %}
+{%- block modalLabel -%}
   {{ __('New %s', __(instanceLabel) | e ) }}
-{% endblock %}
+{%- endblock -%}
 
-{% block modalBody %}
+{%- block modalBody -%}
   <form>
     {{ snippetAllFields(fields) }}
   </form>
-{% endblock %}
+{%- endblock -%}

@@ -1,14 +1,14 @@
-{% extends 'new.html' %}
+{%- extends 'new.html' -%}
 
-{% block modalClass %}
+{%- block modalClass -%}
   {{super() }} {{editClass}}
-{% endblock %}
+{%- endblock -%}
 
-{% block modalControls %}
+{%- block modalControls -%}
   {{ snippetEditControls() }}
-{% endblock %}
+{%- endblock -%}
 
-{% block modalLabel %}
+{%- block modalLabel -%}
   {{ __('Edit %s', __(instanceLabel) ) }}
-{% endblock %}
+{%- endblock -%}
 

@@ -1,113 +1,113 @@
-{% include 'uiMacros.html' %}
-{% include 'formMacros.html' %}
-{% include 'pagerMacros.html' %}
-{% include 'uiMacros.html' %}
+{%- include 'uiMacros.html' -%}
+{%- include 'formMacros.html' -%}
+{%- include 'pagerMacros.html' -%}
+{%- include 'uiMacros.html' -%}
 
-{% macro renderSnippets(items, pageUrl) %}
-  {% if items %}
-    {% for item in items %}
+{%- macro renderSnippets(items, pageUrl) -%}
+  {%- if items -%}
+    {%- for item in items -%}
       {{ renderSnippet(item, pageUrl) }}
-    {% endfor %}
-  {% else %}
+    {%- endfor -%}
+  {%- else -%}
     <h4>There are no snippets yet.</h4>
-  {% endif %}
-{% endmacro %}
+  {%- endif -%}
+{%- endmacro -%}
 
-{% macro renderSnippet(item, pageUrl, options) %}
+{%- macro renderSnippet(item, pageUrl, options) -%}
   <div class="apos-snippet">
-    {% if options.edit and item._edit %}
+    {%- if options.edit and item._edit -%}
       <a class="apos-control apos-ui apos-button apos-edit-snippet-button" data-edit-{{ item.type | css }} data-slug="{{ item.slug }}" href="#"><i class="icon-pencil"></i> Edit</a>
-    {% endif %}
-    {% if not item.hideTitle %}
+    {%- endif -%}
+    {%- if not item.hideTitle -%}
       <h4>
-        {% if item.url %}
+        {%- if item.url -%}
           <a href="{{ item.url }}">
-        {% endif %}
+        {%- endif -%}
         {{ item.title | e }}
-        {% if item.url %}
+        {%- if item.url -%}
           </a>
-        {% endif %}
+        {%- endif -%}
       </h4>
-    {% endif %}
+    {%- endif -%}
     {{ aposArea(item, 'body') }}
   </div>
-{% endmacro %}
+{%- endmacro -%}
 
-{% macro snippetText(name, label, options = {}) %}
+{%- macro snippetText(name, label, options = {}) -%}
   {{ formText(name, label, options) }}
-{% endmacro %}
+{%- endmacro -%}
 
-{% macro snippetEmail(name, label) %}
+{%- macro snippetEmail(name, label) -%}
   {{ formEmail(name, label) }}
-{% endmacro %}
+{%- endmacro -%}
 
-{% macro snippetPassword(name, label) %}
+{%- macro snippetPassword(name, label) -%}
   {{ formPassword(name, label) }}
-{% endmacro %}
+{%- endmacro -%}
 
 {# Less ambiguous to work with than a checkbox #}
-{% macro snippetBoolean(name, label) %}
+{%- macro snippetBoolean(name, label) -%}
   {{ formBoolean(name, label) }}
-{% endmacro %}
+{%- endmacro -%}
 
-{% macro snippetTags(name, label) %}
+{%- macro snippetTags(name, label) -%}
   {{ formTags(name, label) }}
-{% endmacro %}
+{%- endmacro -%}
 
-{% macro snippetTextarea(name, label) %}
+{%- macro snippetTextarea(name, label) -%}
   {{ formTextarea(name, label) }}
-{% endmacro %}
+{%- endmacro -%}
 
-{% macro snippetCheckboxes(name, label, choices) %}
+{%- macro snippetCheckboxes(name, label, choices) -%}
 {{ formCheckboxes(name, label, choices) }}
-{% endmacro %}
+{%- endmacro -%}
 
-{% macro snippetSelect(name, label, choices) %}
+{%- macro snippetSelect(name, label, choices) -%}
 {{ formSelect(name, label, choices) }}
   </fieldset>
-{% endmacro %}
+{%- endmacro -%}
 
-{% macro snippetDate(name, label) %}
+{%- macro snippetDate(name, label) -%}
 {{ formDate(name, label) }}
-{% endmacro %}
+{%- endmacro -%}
 
-{% macro snippetTime(name, label) %}
+{%- macro snippetTime(name, label) -%}
 {{ formTime(name, label) }}
-{% endmacro %}
+{%- endmacro -%}
 
 {# See enableArea in snippets' main.js for the necessary plumbing, including #}
 {# specifying the type we want for the singleton #}
-{% macro snippetSingleton(name, label) %}
+{%- macro snippetSingleton(name, label) -%}
   {{ formSingleton(name, label) }}
-{% endmacro %}
+{%- endmacro -%}
 
 {# See enableArea in snippets' main.js for the necessary plumbing #}
-{% macro snippetArea(name, label) %}
+{%- macro snippetArea(name, label) -%}
   {{ formArea(name, label) }}
-{% endmacro %}
+{%- endmacro -%}
 
 
 {# A pill button with several mutually exclusive choices #}
-{% macro snippetPill(name, label, options) %}
+{%- macro snippetPill(name, label, options) -%}
   {{ formPill(name, label, options) }}
-{% endmacro %}
+{%- endmacro -%}
 
 {# Just the pill button group itself, no fieldset #}
-{% macro snippetPillStandalone(name, options) %}
+{%- macro snippetPillStandalone(name, options) -%}
   {{ formPillStandalone(name, options) }}
-{% endmacro %}
+{%- endmacro -%}
 
 {# These promote a consistent interface in the various "manage" dialogs for types #}
 
-{% macro snippetNewControls() %}
+{%- macro snippetNewControls() -%}
   <div class="apos-modal-controls">
     {{ renderProgressBtn({dataAttrs: 'data-save data-next', float: 'right', color: 'base', label: __('Add Next')}) }}
     {{ renderProgressBtn({dataAttrs: 'data-save', float: 'right', color: 'base', label: __('Add')}) }}
     {{ renderProgressBtn({dataAttrs: 'data-cancel', float: 'left', arrow: 'left', label: __('Cancel')}) }}
   </div>
-{% endmacro %}
+{%- endmacro -%}
 
-{% macro snippetEditControls() %}
+{%- macro snippetEditControls() -%}
   <div class="apos-modal-controls">
     {{ renderProgressBtn({dataAttrs: 'data-save', float: 'right', color: 'base', label: 'Save'}) }}
     {{ renderProgressBtn({dataAttrs: 'data-copy data-action="copy"', float: 'right', color: 'base', label: 'Copy'}) }}
@@ -115,14 +115,14 @@
     {{ renderProgressBtn({dataAttrs: 'data-delete data-action="delete"', float: 'right', color: 'base', label: 'Delete'}) }}
     {{ renderProgressBtn({dataAttrs: 'data-cancel', float: 'left', arrow: 'left', label: 'Cancel'}) }}
   </div>
-{% endmacro %}
+{%- endmacro -%}
 
 {# See $.selective in content.js for the necessary plumbing #}
-{% macro snippetSelective(name, label, options) %}
+{%- macro snippetSelective(name, label, options) -%}
   {{ formSelective(name, label, options) }}
-{% endmacro %}
+{%- endmacro -%}
 
-{% macro snippetTrashFilter() %}
+{%- macro snippetTrashFilter() -%}
   {{ snippetPillStandalone('trash',
       [
         {
@@ -136,9 +136,9 @@
       ]
     )
   }}
-{% endmacro %}
+{%- endmacro -%}
 
-{% macro snippetPublishedFilter() %}
+{%- macro snippetPublishedFilter() -%}
   {{
     snippetPillStandalone('published',
       [
@@ -157,9 +157,9 @@
       ]
     )
   }}
-{% endmacro %}
+{%- endmacro -%}
 
-{% macro snippetSearchFilter() %}
+{%- macro snippetSearchFilter() -%}
   {# In user testing we found that leaving out the submit button isn't great. #}
   {# So if you remove it, make sure some other clickable thing is visible. -Tom #}
   <div class="apos-filter-search apos-filter-search--float-right">
@@ -173,20 +173,20 @@
     </a> -->
   </div>
   
-{% endmacro %}
+{%- endmacro -%}
 
 {# Standard filters suitable for all snippet derivatives. Does not include date filter. #}
 {# You can call the filters separately to change the order or skip or add things. #}
 
-{% macro snippetFilters() %}
+{%- macro snippetFilters() -%}
   {{ snippetTrashFilter() }}
   {{ snippetPublishedFilter() }}
   {{ snippetSearchFilter() }}
-{% endmacro %}
+{%- endmacro -%}
 
 {# Events and related subclasses of snippets use this one. #}
 
-{% macro snippetDateFilter() %}
+{%- macro snippetDateFilter() -%}
   {{
     snippetPillStandalone('date',
       [
@@ -205,10 +205,10 @@
       ]
     )
   }}
-{% endmacro %}
+{%- endmacro -%}
 
-{% include "schemas:schemaMacros.html" %}
+{%- include "schemas:schemaMacros.html" -%}
 
-{% macro snippetAllFields(fields, options = { from: false, to: false, except: [], only: false }) %}
+{%- macro snippetAllFields(fields, options = { from: false, to: false, except: [], only: false }) -%}
   {{ schemaFields(fields, options) }}
-{% endmacro %}
+{%- endmacro -%}

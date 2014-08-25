@@ -2113,7 +2113,9 @@ snippets.Snippets = function(options, callback) {
     manager: self.manager,
     action: self._action,
     schema: self.schema,
-    indexSchema: self.indexSchema
+    indexSchema: self.indexSchema,
+    childTypes: self._options.childTypes,
+    descendantTypes: self._options.descendantTypes
   };
   extend(true, args, browser.options || {});
 
