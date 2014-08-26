@@ -133,8 +133,6 @@ widget.Widget = function(options) {
     var criteria = {};
     var options = {};
 
-    var start = Date.now();
-
     self.addCriteria(item, criteria, options);
 
     // If the criteria are simple enough check a local cache that is kept
