@@ -152,7 +152,7 @@ widget.Widget = function(options) {
 
     if (cacheable) {
       // Make sure the type is part of the key!
-      key = self.name + '#' + JSON.stringify(criteria);
+      key = self.name + '#' + JSON.stringify(criteria) + '#' + (options.limit || '');
       if (req.aposSnippetLoadCache && req.aposSnippetLoadCache[key]) {
         item._snippets = req.aposSnippetLoadCache[key];
         return setImmediate(function() {
