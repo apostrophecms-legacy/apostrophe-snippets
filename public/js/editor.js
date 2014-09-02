@@ -142,13 +142,13 @@ function AposSnippets(options) {
         if (err) {
           // Balk on "required" or similar error
           aposSchemas.scrollToError($el);
-          return;
+          return callback(err);
         }
         return self._validate($el, data, action, function(err) {
           if (err) {
             // Balk on validation error
             aposSchemas.scrollToError($el);
-            return;
+            return callback(err);
           }
           if (action === 'update') {
             self.beforeUpdate($el, data, afterAction);
