@@ -1666,8 +1666,14 @@ snippets.Snippets = function(options, callback) {
           });
         }
         if (fetch[property].always) {
-          if (!_.contains(results[property], fetch[property].always)) {
-            results[property].push(fetch[property].always);
+          var always = fetch[property].always;
+          if (!Array.isArray(always)){
+            always = [always];
+          }
+          if (always.length && !_.intersection(results[property], always).length){
+            _.each(always, function(item){
+              results[property].push(item);
+            });
           }
         }
         // alpha sort
@@ -1878,7 +1884,11 @@ snippets.Snippets = function(options, callback) {
 
   self.addCriteria = function(req, criteria, options) {
     if (req.query.search || req.query.q){
-      options.search = req.query.search || req.query.q;
+      options.search = self._apos.sanitizeString(req.query.search || req.query.q);
+    }
+
+    if (req.query.autocomplete){
+      options.autocomplete = self._apos.sanitizeString(req.query.autocomplete);
     }
 
     options.fetch = {
@@ -1903,9 +1913,9 @@ snippets.Snippets = function(options, callback) {
       }
       if (tags.length) {
         // Page is not tag restricted, or user is filtering by a tag included on that
-        // list, so we can just use the filter tag as options.tag
+        // list, so we can just use the filter tag as options.tags
         if ((!options.tags) || (!options.tags.length) ||
-          (_.intersection(options.tags, tags))) {
+          (_.intersection(options.tags, tags).length)) {
           options.tags = tags;
         } else {
           // Page is tag restricted and user wants to filter by a related tag not
@@ -1919,7 +1929,6 @@ snippets.Snippets = function(options, callback) {
         // able to see the state of the filter (for instance if it is expressed
         // as a select element)
 
-        //This is likely to break. --joel
         options.fetch.tags.always = tags;
       }
     }
