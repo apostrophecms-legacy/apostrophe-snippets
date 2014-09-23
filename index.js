@@ -1303,6 +1303,11 @@ snippets.Snippets = function(options, callback) {
       options.sort = { sortTitle: 1 };
     }
 
+    //Adding Search Right in Here for All Snippets
+    if (req.query.search || req.query.q){
+      options.search = req.query.search || req.query.q;
+    }
+
     // filterCriteria is the right place to build up criteria
     // specific to this method; we'll $and it with the user's
     // criteria before passing it on to apos.get
