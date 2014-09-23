@@ -1303,10 +1303,7 @@ snippets.Snippets = function(options, callback) {
       options.sort = { sortTitle: 1 };
     }
 
-    //Adding Search Right in Here for All Snippets
-    if (req.query.search || req.query.q){
-      options.search = req.query.search || req.query.q;
-    }
+
 
     // filterCriteria is the right place to build up criteria
     // specific to this method; we'll $and it with the user's
@@ -1880,6 +1877,10 @@ snippets.Snippets = function(options, callback) {
   // applied to the "manage" view
 
   self.addCriteria = function(req, criteria, options) {
+    if (req.query.search || req.query.q){
+      options.search = req.query.search || req.query.q;
+    }
+
     options.fetch = {
       tags: { parameter: 'tag' }
     };
@@ -1891,30 +1892,38 @@ snippets.Snippets = function(options, callback) {
       // This restriction also applies when fetching distinct tags
       options.fetch.tags.except = req.page.notTags;
     }
-    if (req.query.tag) {
+    if (req.query.tag || req.query.tags) {
       // Override the criteria for fetching snippets but leave options.fetch.tags
       // alone
-      var tag = self._apos.sanitizeString(req.query.tag);
-      if (tag.length) {
+      var tags = [];
+      if (req.query.tag){
+        tags = self._apos.sanitizeTags([req.query.tag]);
+      } else if (req.query.tags){
+        tags = self._apos.sanitizeTags(req.query.tags);
+      }
+      if (tags.length) {
         // Page is not tag restricted, or user is filtering by a tag included on that
         // list, so we can just use the filter tag as options.tag
         if ((!options.tags) || (!options.tags.length) ||
-          (_.contains(options.tags, tag))) {
-          options.tags = [ tag ];
+          (_.intersection(options.tags, tags))) {
+          options.tags = tags;
         } else {
           // Page is tag restricted and user wants to filter by a related tag not
           // on that list - we must be more devious so that both sets of
           // restrictions apply
           criteria.tags = { $in: options.tags };
-          options.tags = [ tag ];
+          options.tags = tags;
         }
         // Always return the active tag as one of the filter choices even if
         // there are no results in this situation. Otherwise the user may not be
         // able to see the state of the filter (for instance if it is expressed
         // as a select element)
-        options.fetch.tags.always = tag;
+
+        //This is likely to break. --joel
+        options.fetch.tags.always = tags;
       }
     }
+
     criteria.published = true;
   };
 
