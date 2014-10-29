@@ -163,22 +163,17 @@ function AposSnippets(options) {
       });
 
       function go() {
-        $.ajax(
-          {
-            url: self._action + '/' + action,
-            data: data,
-            type: 'POST',
-            dataType: 'json',
-            success: function(data) {
-
-              // Let anything that cares about changes to items of this kind know
-              apos.change(self.name);
-              return callback(null);
-            },
-            error: function() {
-              alert('Server error');
-              return callback('Server error');
-            }
+        // Send as JSON so we don't lose sparse arrays. -Tom
+        $.jsonCall(self._action + '/' + action,
+          data,
+          function(data) {
+            // Let anything that cares about changes to items of this kind know
+            apos.change(self.name);
+            return callback(null);
+          },
+          function() {
+            alert('Server error');
+            return callback('Server error');
           }
         );
       }
