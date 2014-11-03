@@ -12,7 +12,7 @@
 
 {% macro feedBody(item) %}
   {% if options.summary %}
-    {{ aposAreaPlaintext({ area: item.body, truncate: options.characters }) }}
+    {{ aposAreaPlaintext({ area: item.body, truncate: options.characters }) | e }}
   {% else %}
     {# This helper is good for bypassing all the outer wrapper markup of an area which is #}
     {# unsuitable for RSS feeds #}
