@@ -1,3 +1,5 @@
+/* jshint node:true */
+
 var async = require('async');
 var _ = require('lodash');
 var extend = require('extend');
@@ -607,17 +609,19 @@ snippets.Snippets = function(options, callback) {
       self._importScoreboard = self._apos.getCache('importScoreboard');
 
       self._app.post(self._action + '/import', function(req, res) {
-		var removeAll = req.body.delete_all || "off";
+        // Only admins of this content type can import
+        if (!self._apos.permissions.can(req, self._adminPermissionName)) {
+          res.statusCode = 404;
+          return res.send('notfound');
+        }
+    		var removeAll = req.body.removeAll || "off";
         var file = req.files.file;
-        var rows = 0;
         var headings = [];
-        var active = 0;
-        var date = new Date();
         req.aposImported = moment().format();
         var jobId = self._apos.generateId();
         var data;
         var score = { rows: 0, errors: 0, status: 'parsing', jobId: jobId, ownerId: self._apos.permissions.getEffectiveUserId(req), errorLog: [] };
-		
+
         function statusUpdate(callback) {
           return self._importScoreboard.set(jobId, score, callback);
         }
@@ -634,21 +638,14 @@ snippets.Snippets = function(options, callback) {
             // import-status route
             return callback(null);
           },
-		  removeAll: function(callback){
-			if(removeAll === "on") {
-				self._apos.db.collection("aposPages", function(err, aposPages) {
-					aposPages.remove({type: self._instance}, function(err) {
-						if(err) {
-							score.status = 'error';
-							console.log('error while removing everything from the collection.', err);
-						}
-						callback();
-					});
-				});
-			} else {
-				callback();
-			}
-		  },
+    		  removeAll: function(callback){
+      			if (removeAll === "on") {
+              // Move all existing items to trash first
+              self._apos.pages.update({ type: self._instance }, { $set: { trash: true } }, { multi: true }, callback);
+      			} else {
+              return setImmediate(callback);
+      			}
+    		  },
           parse: function(callback) {
             // "AUGH! Why are you using toArray()? It wastes memory!"
             // Because: https://github.com/wdavidw/node-csv/issues/93
@@ -1143,10 +1140,10 @@ snippets.Snippets = function(options, callback) {
       pageSettingsClass: 'apos-page-settings-' + self._pluralCss
     };
 
-    var permissionName = self._apos.cssName(self._instance);
-    var adminPermissionName = 'admin-' + permissionName;
-    var editPermissionName = 'edit-' + permissionName;
-    var submitPermissionName = 'submit-' + permissionName;
+    self._permissionName = self._apos.cssName(self._instance);
+    self._adminPermissionName = 'admin-' + self._permissionName;
+    self._editPermissionName = 'edit-' + self._permissionName;
+    self._submitPermissionName = 'submit-' + self._permissionName;
 
     // The new template should not include the slug field
     var newData = {};
@@ -1186,14 +1183,14 @@ snippets.Snippets = function(options, callback) {
           // The people module carves out a separate exception for
           // editing your own profile. -Tom
           args.edit = false;
-        } else if (permissions[adminPermissionName]) {
+        } else if (permissions[self._adminPermissionName]) {
           args.edit = true;
           args.import = true;
-        } else if (permissions[editPermissionName]) {
+        } else if (permissions[self._editPermissionName]) {
           args.edit = true;
         } else if (permissions.edit) {
           args.edit = true;
-        } else if (permissions[submitPermissionName]) {
+        } else if (permissions[self._submitPermissionName]) {
           args.submit = true;
           args.edit = true;
         }

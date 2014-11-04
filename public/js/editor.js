@@ -500,6 +500,17 @@ function AposSnippets(options) {
           $save = $el.find('[data-action="save"]');
           $cancel = $el.find('[data-action="cancel"]');
           $save.hide();
+
+          $el.on('change', '[name="removeAll"]', function() {
+            var $box = $(this);
+            var state = $box.prop('checked');
+            if (state) {
+              if (!confirm('Are you sure you really want to move ALL EXISTING CONTENT of this type to the trash?')) {
+                $box.prop('checked', false);
+              }
+            }
+          });
+
           // The file upload's completion will trigger the import operation
           $el.find('[name="file"]').attr('data-url', self._action + '/import');
           $el.find('[name="file"]').fileupload({
@@ -531,6 +542,10 @@ function AposSnippets(options) {
               rows(result.rows);
               errors(result.errors);
               errorLog(result.errorLog);
+              if (done) {
+                // Make it hard to do this again by accident
+                $el.find('[name="removeAll"]').prop('checked', false);
+              }
               if (!done) {
                 setTimeout(update, 1000);
               }
