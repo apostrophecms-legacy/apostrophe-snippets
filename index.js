@@ -409,7 +409,7 @@ snippets.Snippets = function(options, callback) {
 
         var title;
         var slug;
-
+		
         // Slug is not editable for a brand new snippet in the editor
         var fields = _.filter(self.schema, function(field) {
           return (field.name !== 'slug');
@@ -607,6 +607,7 @@ snippets.Snippets = function(options, callback) {
       self._importScoreboard = self._apos.getCache('importScoreboard');
 
       self._app.post(self._action + '/import', function(req, res) {
+		var removeAll = req.body.delete_all || "off";
         var file = req.files.file;
         var rows = 0;
         var headings = [];
@@ -616,7 +617,7 @@ snippets.Snippets = function(options, callback) {
         var jobId = self._apos.generateId();
         var data;
         var score = { rows: 0, errors: 0, status: 'parsing', jobId: jobId, ownerId: self._apos.permissions.getEffectiveUserId(req), errorLog: [] };
-
+		
         function statusUpdate(callback) {
           return self._importScoreboard.set(jobId, score, callback);
         }
@@ -633,6 +634,21 @@ snippets.Snippets = function(options, callback) {
             // import-status route
             return callback(null);
           },
+		  removeAll: function(callback){
+			if(removeAll === "on") {
+				self._apos.db.collection("aposPages", function(err, aposPages) {
+					aposPages.remove({type: self._instance}, function(err) {
+						if(err) {
+							score.status = 'error';
+							console.log('error while removing everything from the collection.', err);
+						}
+						callback();
+					});
+				});
+			} else {
+				callback();
+			}
+		  },
           parse: function(callback) {
             // "AUGH! Why are you using toArray()? It wastes memory!"
             // Because: https://github.com/wdavidw/node-csv/issues/93
