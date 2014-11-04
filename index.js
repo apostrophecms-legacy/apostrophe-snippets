@@ -1563,6 +1563,9 @@ snippets.Snippets = function(options, callback) {
       // TODO: this is wrong for workflow. Think about how to do
       // draft versioning of metadata along with everything else.
       publish: function(callback) {
+        if (self._options.editorsCanPublish) {
+          return setImmediate(callback);
+        }
         if (options.permissions === false) {
           return callback(null);
         }
@@ -1573,7 +1576,7 @@ snippets.Snippets = function(options, callback) {
           delete snippet.published;
           self.publishBlocked(snippet);
         }
-        return callback(null);
+        return setImmediate(callback);
       },
       beforePutOne: function(callback) {
         // We already checked in a more type-specific way
