@@ -32,7 +32,8 @@
   <form>
     <fieldset class="apos-fieldset apos-fieldset-singleton apos-fieldset-file-input">
       <label>{{ __('CSV File') }}</label>
-      {# Blueimp makes this go #}
+	  <input type="checkbox" name="delete_all" /> {{ __('Remove all %s before importing?', label) }} <br />
+	  {# Blueimp makes this go #}
       <input type="file" name="file" />
     </fieldset>
     <table data-scoreboard class="apos-import-scoreboard">
