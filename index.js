@@ -29,6 +29,7 @@ snippets.Snippets = function(options, callback) {
   self._options = options;
   self._perPage = options.perPage || 10;
   self._adminOnly = options.adminOnly || self._adminOnly;
+  self._adminOfType = options.adminOfType || self._adminOfType;
 
   // With apostrophe-site we'll get a single shared instance of
   // apostrophe-schemas, which is better. Without it, we'll settle for
@@ -1073,7 +1074,12 @@ snippets.Snippets = function(options, callback) {
       }
     });
 
-    if (self._adminOnly) {
+    // adminOnly means you have to be a sitewide
+    // admin to edit these. adminOfType means
+    // you can be a sitewide admin, or an admin
+    // of this specific content type.
+
+    if (self._adminOnly || self._adminOfType) {
       // If a type has the adminOnly flag then only admins may
       // edit it, ever. This is used for people and groups, the
       // editing of which could allow someone to make themselves
@@ -1084,7 +1090,7 @@ snippets.Snippets = function(options, callback) {
         if (!matches) {
           return;
         }
-        if (matches[2] !== self._instance) {
+        if (matches[2] !== self._permissionName) {
           return;
         }
         if (matches[1] === 'view') {
@@ -1093,7 +1099,12 @@ snippets.Snippets = function(options, callback) {
         if (req.user && req.user.permissions.admin) {
           return;
         }
-        result.response = 'Forbidden';
+        if (self._adminOfType) {
+          if (req.user && req.user.permissions[self._adminPermissionName]) {
+            return;
+          }
+        }
+        result.response = false;
       });
     }
   }
@@ -1173,27 +1184,24 @@ snippets.Snippets = function(options, callback) {
           // about a user yet
           permissions = {};
         }
-        if (permissions.admin) {
-          args.edit = true;
-          args.import = true;
-        } else if (self._adminOnly) {
-          // Groups and people can never be edited by anyone
-          // but a full-scale site-wide admin, because they would
-          // then be able to just make themselves a full scale admin.
-          // The people module carves out a separate exception for
-          // editing your own profile. -Tom
-          args.edit = false;
-        } else if (permissions[self._adminPermissionName]) {
-          args.edit = true;
-          args.import = true;
-        } else if (permissions[self._editPermissionName]) {
-          args.edit = true;
-        } else if (permissions.edit) {
-          args.edit = true;
-        } else if (permissions[self._submitPermissionName]) {
-          args.submit = true;
-          args.edit = true;
+
+        // We ought to find a way to make the
+        // request available globally during the
+        // render, since we're single process
+        // anyway. For now, reconstruct the
+        // part that matters here. -Tom
+        var req = {
+          user: {
+            permissions: permissions
+          }
+        };
+
+        args.edit = self._apos.permissions.can(req, self._editPermissionName);
+        args.import = self._apos.permissions.can(req, self._adminPermissionName);
+        if (!args.edit) {
+          args.submit = self._apos.permissions.can(req, self._submitPermissionName);
         }
+
         // Make the rest of the permissions object
         // available for easy overrides
         args.permissions = permissions;

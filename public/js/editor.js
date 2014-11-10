@@ -438,6 +438,8 @@ function AposSnippets(options) {
             });
 
             return self.populateEditor($el, snippet, callback);
+          }).error(function() {
+            alert('An error occurred. Please try again.');
           });
         },
         afterHide: function(callback) {
