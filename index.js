@@ -6,6 +6,7 @@ var extend = require('extend');
 var fs = require('fs');
 var widget = require(__dirname + '/widget.js');
 var csv = require('csv');
+var xlsx = require('xlsx')
 var moment = require('moment');
 var RSS = require('rss');
 var url = require('url');
@@ -616,6 +617,7 @@ snippets.Snippets = function(options, callback) {
           return res.send('notfound');
         }
     		var removeAll = req.body.removeAll || "off";
+        var fileExt = req.files.file.name.split('.').pop();
         var file = req.files.file;
         var headings = [];
         req.aposImported = moment().format();
@@ -625,6 +627,19 @@ snippets.Snippets = function(options, callback) {
 
         function statusUpdate(callback) {
           return self._importScoreboard.set(jobId, score, callback);
+        }
+
+        // Convert Excel file to CSV
+        function xlsx_to_csv(filePath) {
+            var result = [];
+            workbook = xlsx.readFile(filePath, {type: 'base64'});
+            workbook.SheetNames.forEach(function(sheetName) {
+                var csv = xlsx.utils.sheet_to_csv(workbook.Sheets[sheetName]);
+                if(csv.length > 0){
+                    result.push(csv);
+                }
+            });
+            return result.join("\n");
         }
 
         return async.series({
@@ -648,6 +663,32 @@ snippets.Snippets = function(options, callback) {
       			}
     		  },
           parse: function(callback) {
+            var delimiter = ',', 
+                format = 'stream',
+                f;
+
+            // Supported formats - CSV, TAB-DELIMTED, EXCEL
+            switch(fileExt){
+              case 'csv':
+                delimiter = ',';
+                f = fs.createReadStream(file.path);
+                break;
+              case 'tab':
+              case 'tsv':
+                delimiter = '\t';
+                f = fs.createReadStream(file.path);
+                break;
+              case 'xlsx':
+                format = 'string';
+                delimiter = ',';
+                f = xlsx_to_csv(file.path);
+                break;
+              // No match, let's try CSV  
+              default:  
+                delimiter = ',';
+                f = fs.createReadStream(file.path);
+            }
+
             // "AUGH! Why are you using toArray()? It wastes memory!"
             // Because: https://github.com/wdavidw/node-csv/issues/93
             // Also we don't want race conditions when, for instance,
@@ -655,8 +696,7 @@ snippets.Snippets = function(options, callback) {
             // group twice. TODO: write a CSV module that is less
             // ambitious about speed and more interested in a
             // callback driven, serial interface
-            return csv().from.stream(fs.createReadStream(file.path)).to.array(function(_data) {
-
+            return csv().from[format](f, { delimiter: delimiter }).to.array(function(_data) {
               score.status = 'importing';
               data = _data;
               return statusUpdate(callback);

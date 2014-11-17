@@ -16,7 +16,7 @@
 
 {% block modalInstructions %}
   <p>
-  {{ __('This form accepts a CSV file which may have the following headings: ') }}
+  {{ __('This form accepts a CSV, TSV, or XLSX file which may have the following headings: ') }}
   {%- for field in fields -%}
     {%- if (field.type != 'singleton') and (field.type != 'group') and (not aposContains(field.type, 'Reverse')) -%}
       {% if notFirst %}, {% endif %}
@@ -31,8 +31,8 @@
 {% block modalBody %}
   <form>
     <fieldset class="apos-fieldset apos-fieldset-singleton apos-fieldset-file-input">
-      <label>{{ __('CSV File') }}</label>
-	  <input type="checkbox" name="removeAll" /> {{ __('Move existing %s to trash', label) }} <br />
+      <label>{{ __('CSV, TSV, or XLSX File') }}</label>
+	  <input type="checkbox" name="removeAll" /> {{ __('Move existing %s to trash', label) }} <br/><br>
 	  {# Blueimp makes this go #}
       <input type="file" name="file" />
     </fieldset>
