@@ -6,7 +6,6 @@ var extend = require('extend');
 var fs = require('fs');
 var widget = require(__dirname + '/widget.js');
 var csv = require('csv');
-var xlsx = require('xlsx')
 var moment = require('moment');
 var RSS = require('rss');
 var url = require('url');
@@ -102,6 +101,10 @@ snippets.Snippets = function(options, callback) {
   self._rendererGlobals = options.rendererGlobals || {};
 
   self._action = '/apos-' + self._typeCss;
+
+  // Set our supported data Import/Export File Types
+  self.supportedDataIO = { dataImport: ['CSV', 'TSV'], dataExport: ['CSV', 'TSV'] }
+  self._apos.emit('supportedDataIO', self.supportedDataIO);
 
   // Our chance to veto our snippets for display to the public
   // as search results
@@ -617,7 +620,7 @@ snippets.Snippets = function(options, callback) {
           return res.send('notfound');
         }
     		var removeAll = req.body.removeAll || "off";
-        var fileExt = req.files.file.name.split('.').pop();
+        var fileExt = req.files.file.name.split('.').pop().toLowerCase();
         var file = req.files.file;
         var headings = [];
         req.aposImported = moment().format();
@@ -627,19 +630,6 @@ snippets.Snippets = function(options, callback) {
 
         function statusUpdate(callback) {
           return self._importScoreboard.set(jobId, score, callback);
-        }
-
-        // Convert Excel file to CSV
-        function xlsx_to_csv(filePath) {
-            var result = [];
-            workbook = xlsx.readFile(filePath, {type: 'base64'});
-            workbook.SheetNames.forEach(function(sheetName) {
-                var csv = xlsx.utils.sheet_to_csv(workbook.Sheets[sheetName]);
-                if(csv.length > 0){
-                    result.push(csv);
-                }
-            });
-            return result.join("\n");
         }
 
         return async.series({
@@ -663,30 +653,31 @@ snippets.Snippets = function(options, callback) {
       			}
     		  },
           parse: function(callback) {
+            var context = { path: file.path, csv: null };
             var delimiter = ',', 
-                format = 'stream',
-                f;
+                format = 'stream';
 
-            // Supported formats - CSV, TAB-DELIMTED, EXCEL
-            switch(fileExt){
+            // Supported file formats: CSV, TAB-DELIMTED, EXCEL
+            switch(fileExt) {
               case 'csv':
-                delimiter = ',';
-                f = fs.createReadStream(file.path);
+                context.csv = fs.createReadStream(context.path);
                 break;
               case 'tab':
               case 'tsv':
                 delimiter = '\t';
-                f = fs.createReadStream(file.path);
+                context.csv = fs.createReadStream(context.path);
                 break;
               case 'xlsx':
                 format = 'string';
-                delimiter = ',';
-                f = xlsx_to_csv(file.path);
+                self._apos.emit('xlsxImport', context);
+                if (!context.csv) {
+                  console.log('ERROR: You need apostrophe-xlsx to import XLSX files.');
+                  score.errorLog.push('Error processing XLSX file.');
+                }
                 break;
-              // No match, let's try CSV  
-              default:  
-                delimiter = ',';
-                f = fs.createReadStream(file.path);
+              // No match, let's try CSV
+              default:
+                context.csv = fs.createReadStream(context.path);
             }
 
             // "AUGH! Why are you using toArray()? It wastes memory!"
@@ -696,7 +687,7 @@ snippets.Snippets = function(options, callback) {
             // group twice. TODO: write a CSV module that is less
             // ambitious about speed and more interested in a
             // callback driven, serial interface
-            return csv().from[format](f, { delimiter: delimiter }).to.array(function(_data) {
+            return csv().from[format](context.csv, { delimiter: delimiter }).to.array(function(_data) {
               score.status = 'importing';
               data = _data;
               return statusUpdate(callback);
@@ -1180,6 +1171,7 @@ snippets.Snippets = function(options, callback) {
       editClass: 'apos-edit-' + self._css,
       manageClass: 'apos-manage-' + self._css,
       importClass: 'apos-import-' + self._css,
+      importFormats: self.supportedDataIO.dataImport,
       label: self.label,
       pluralLabel: self.pluralLabel,
       newButtonData: 'data-new-' + self._css,
