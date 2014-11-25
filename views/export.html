@@ -1,0 +1,43 @@
+{% extends 'baseModal.html' %}
+{% include 'uiMacros.html' %}
+{% include 'formMacros.html' %}
+
+{%- macro importFormatsString(formats) -%}
+  {%- for format in formats -%}{% if loop.index == loop.length %}{{ __(' or ') }}{% endif %}{{ __(format) }}{% if loop.index != loop.length and loop.length > 2 %}{{ __(', ') }}{% endif %}{% endfor %}
+{%- endmacro -%}
+
+{% block modalClass %}
+  {{ exportClass }}
+{% endblock%}
+
+{% block modalLabel %}
+  Export {{ label }}
+{% endblock%}
+
+{% block modalControls %}
+  {{ renderProgressBtn({dataAttrs: 'data-save', float: 'right', color: 'base', label: __('Done')}) }}
+  {{ renderProgressBtn({dataAttrs: 'data-cancel', float: 'left', arrow: 'left', label: __('Cancel')}) }}
+{% endblock %}
+
+{% block modalInstructions %}
+  {# TODO: Add instrutions #}
+{% endblock %}
+
+{% block modalBody %}
+
+  <form>
+    <br>
+    {{ formSelect('export-format', 'Export File Type', [{ label: 'CSV', value: 'csv'}, { label: 'TSV', value: 'tsv'}]) }}
+    <button type="button" data-export-button onclick="">Export</button>
+    <br>
+
+    {# TODO: Hook up scoreboard #}
+
+    {#<table data-scoreboard class="apos-export-scoreboard">
+      <tr><th>{{ __('Rows Exported') }}</th><td data-rows>0</td></tr>
+      <tr><th>{{ __('Errors') }}</th><td data-errors>0</td></tr>
+      <tr><th>{{ __('Status') }}</th><td data-status>{{ __('not started') }}</td></tr>
+    </table>
+    <ul data-error-log class="apos-export-error-log"></ul>#}
+  </form>
+{% endblock %}

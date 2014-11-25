@@ -582,6 +582,39 @@ function AposSnippets(options) {
     });
   }
 
+    // Export snippets
+    $('body').on('click', '[data-export-' + self._css + ']', function() {
+      var valid = false;
+      var jobId;
+      var $save;
+      var $cancel;
+      $el = apos.modalFromTemplate('.apos-export-' + self._css, {
+        init: function(callback) {
+          $save = $el.find('[data-action="save"]');
+          $cancel = $el.find('[data-action="cancel"]');
+          $save.hide();
+
+          $el.find('[data-export-button]').attr('data-url', self._action + '/export');
+          $el.find('[data-export-button]').click(function() {
+            var url = $(this).attr('data-url');
+            var format = $el.find('[name="export-format"]').find('option').attr('value');
+
+            $.get(url, {format: format }, function(res) {
+                var pom = document.createElement('a');
+                var blob = new Blob([res],{type: 'text/csv;charset=utf-8;'});
+                var url = URL.createObjectURL(blob);
+                pom.href = url;
+                var today = new Date().toJSON().slice(0,10)
+                pom.setAttribute('download', self._css + '_export_' + today + '.' + format);
+                pom.click();
+            });
+          });
+          return callback(null);
+        }
+      });
+    });
+
+
   self.triggerRefresh = function(callback) {
     $el.trigger(apos.eventName('aposChange', self.name), callback);
   };

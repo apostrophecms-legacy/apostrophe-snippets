@@ -789,6 +789,76 @@ snippets.Snippets = function(options, callback) {
         });
       });
 
+
+      // EXPORT --------------------------------------------------- //
+
+      self._exportScoreboard = self._apos.getCache('exportScoreboard');
+
+      self._app.get(self._action + '/export', function(req, res) {
+        // Only admins of this content type can export
+        if (!self._apos.permissions.can(req, self._adminPermissionName)) {
+          res.statusCode = 404;
+          return res.send('notfound');
+        }
+      
+        var headings = [];
+        req.aposImported = moment().format();
+        var jobId = self._apos.generateId();
+        var data = [];
+        var format = req.query.format;
+        var delimiter = (format == 'csv') ? ',' : '\t';
+        var score = { rows: 0, errors: 0, status: 'exporting', jobId: jobId, ownerId: self._apos.permissions.getEffectiveUserId(req), errorLog: [] };
+
+        function statusUpdate(callback) {
+          return self._exportScoreboard.set(jobId, score, callback);
+        }
+
+        return async.series({
+
+          // TODO: scoreboard!
+
+          generate: function(callback) {
+
+            return self._apos.pages.find({ type: self._instance }).toArray(function(err, results){
+
+                // Filter out fields we don't want
+                headings = _.without(Object.keys(results[0]), '_id', 'password', 'type', 'sortTitle', 'highSearchText', 'highSearchWords', 'lowSearchText', 'searchSummary');
+                data.push(headings);
+
+                _.each(results, function(item){
+                    var fields = [];
+                    for (var i=0; i < headings.length; i++){
+                      var field = item[headings[i]];
+                      if (field != null) {
+                        fields.push(field.toString());
+                      }
+                    }
+                    data.push(fields);
+                });
+
+                res.header('Content-Type', 'text/csv');
+                res.header('Content-disposition', 'attachment; filename=' + self._instance +'_export.' + format);
+               
+                csv().from.array(data, { delimiter: delimiter}).to(res);
+
+                return callback(null);
+            });
+
+          },
+        }, function(err) {
+          if (err) {
+            score.status = 'error';
+          } else {
+            score.status = 'done';
+          }
+          score.ended = true;
+          return statusUpdate(function() {});
+        });
+    });
+
+    // -------------------------------------------------------- //
+
+
       self._app.get(self._action + '/get', function(req, res) {
         var criteria = {};
         var options = {};
@@ -1171,6 +1241,7 @@ snippets.Snippets = function(options, callback) {
       editClass: 'apos-edit-' + self._css,
       manageClass: 'apos-manage-' + self._css,
       importClass: 'apos-import-' + self._css,
+      exportClass: 'apos-export-' + self._css,
       importFormats: self.supportedDataIO.dataImport,
       label: self.label,
       pluralLabel: self.pluralLabel,
@@ -1179,6 +1250,7 @@ snippets.Snippets = function(options, callback) {
       copyButtonData: 'data-copy-' + self._css,
       manageButtonData: 'data-manage-' + self._css,
       importButtonData: 'data-import-' + self._css,
+      exportButtonData: 'data-export-' + self._css,
       menuIcon: 'icon-' + self.icon,
       pageSettingsClass: 'apos-page-settings-' + self._pluralCss
     };
@@ -1200,6 +1272,7 @@ snippets.Snippets = function(options, callback) {
       self.pushAsset('template', 'edit', { when: 'user', data: data });
       self.pushAsset('template', 'manage', { when: 'user', data: data });
       self.pushAsset('template', 'import', { when: 'user', data: data });
+      self.pushAsset('template', 'export', { when: 'user', data: data });
       // Present dropdown menu with "New," "Manage," "Import". This
       // would be trivial if it weren't for the permissions checks,
       // which are a bit fussy.
