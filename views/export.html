@@ -2,9 +2,6 @@
 {% include 'uiMacros.html' %}
 {% include 'formMacros.html' %}
 
-{%- macro importFormatsString(formats) -%}
-  {%- for format in formats -%}{% if loop.index == loop.length %}{{ __(' or ') }}{% endif %}{{ __(format) }}{% if loop.index != loop.length and loop.length > 2 %}{{ __(', ') }}{% endif %}{% endfor %}
-{%- endmacro -%}
 
 {% block modalClass %}
   {{ exportClass }}
@@ -27,7 +24,7 @@
 
   <form>
     <br>
-    {{ formSelect('export-format', 'Export File Type', [{ label: 'CSV', value: 'csv'}, { label: 'TSV', value: 'tsv'}]) }}
+    {{ formSelect('export-format', 'Export File Type', ioFormats) }}
     <button type="button" data-export-button onclick="">Export</button>
     <br>
 

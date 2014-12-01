@@ -2,7 +2,7 @@
 {% include 'uiMacros.html' %}
 
 {%- macro importFormatsString(formats) -%}
-  {%- for format in formats -%}{% if loop.index == loop.length %}{{ __(' or ') }}{% endif %}{{ __(format) }}{% if loop.index != loop.length and loop.length > 2 %}{{ __(', ') }}{% endif %}{% endfor %}
+  {%- for format in formats -%}{% if loop.index == loop.length %}{{ __(' or ') }}{% endif %}{{ __(format.label) }}{% if loop.index != loop.length and loop.length > 2 %}{{ __(', ') }}{% endif %}{% endfor %}
 {%- endmacro -%}
 
 {% block modalClass %}
@@ -20,7 +20,7 @@
 
 {% block modalInstructions %}
   <p>
-  {{ __('This form accepts a ') }}{{ importFormatsString(importFormats) }}{{ __(' file which may have the following headings: ') }}
+  {{ __('This form accepts a ') }}{{ importFormatsString(ioFormats) }}{{ __(' file which may have the following headings: ') }}
   {%- for field in fields -%}
     {%- if (field.type != 'singleton') and (field.type != 'group') and (not aposContains(field.type, 'Reverse')) -%}
       {% if notFirst %}, {% endif %}
@@ -35,7 +35,7 @@
 {% block modalBody %}
   <form>
     <fieldset class="apos-fieldset apos-fieldset-singleton apos-fieldset-file-input">
-      <label>{{ importFormatsString(importFormats) }}{{ __(' File') }}</label>
+      <label>{{ importFormatsString(ioFormats) }}{{ __(' File') }}</label>
 	  <input type="checkbox" name="removeAll" /> {{ __('Move existing %s to trash', label) }} <br/><br>
 	  {# Blueimp makes this go #}
       <input type="file" name="file" />

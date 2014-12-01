@@ -600,13 +600,33 @@ function AposSnippets(options) {
             var format = $el.find('[name="export-format"]').find('option').attr('value');
 
             $.get(url, {format: format }, function(res) {
-                var pom = document.createElement('a');
-                var blob = new Blob([res],{type: 'text/csv;charset=utf-8;'});
-                var url = URL.createObjectURL(blob);
-                pom.href = url;
-                var today = new Date().toJSON().slice(0,10)
-                pom.setAttribute('download', self._css + '_export_' + today + '.' + format);
-                pom.click();
+                if (format == 'xlsx') {
+                  // We need to format the response string to an 
+                  // array buffer before downloading.
+                  // Otherwise the xlsx file is read as corrupt.
+                  // -matt
+                  function s2ab(s) {
+                    var buf = new ArrayBuffer(s.length);
+                    var view = new Uint8Array(buf);
+                    for (var i=0; i!=s.length; ++i) view[i] = s.charCodeAt(i) & 0xFF;
+                    return buf;
+                  }
+                  // apostrophe-xlsx includes FileSaver.js
+                  saveAs(new Blob([s2ab(res)],{type:"application/octet-stream"}), self._css + '_export.xlsx');
+
+                } else {
+                  // CSV or TSV format.
+                  // Make a fake element, and force a click
+                  // to download.
+                  var pom = document.createElement('a');
+                  var blob = new Blob([res],{type: 'text/csv;charset=utf-8;'});
+                  var url = URL.createObjectURL(blob);
+                  pom.href = url;
+                  var today = new Date().toJSON().slice(0,10)
+                  pom.setAttribute('download', self._css + '_export_' + today + '.' + format);
+                  pom.click();
+                }
+                
             });
           });
           return callback(null);

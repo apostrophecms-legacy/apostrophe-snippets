@@ -103,7 +103,7 @@ snippets.Snippets = function(options, callback) {
   self._action = '/apos-' + self._typeCss;
 
   // Set our supported data Import/Export File Types
-  self.supportedDataIO = { dataImport: ['CSV', 'TSV'], dataExport: ['CSV', 'TSV'] }
+  self.supportedDataIO = { formats: [{ label: 'CSV', value: 'csv'}, { label: 'TSV', value: 'tsv'}] }
   self._apos.emit('supportedDataIO', self.supportedDataIO);
 
   // Our chance to veto our snippets for display to the public
@@ -804,9 +804,10 @@ snippets.Snippets = function(options, callback) {
         var headings = [];
         req.aposImported = moment().format();
         var jobId = self._apos.generateId();
-        var data = [];
+        var data;
+        var output = [];
         var format = req.query.format;
-        var delimiter = (format == 'csv') ? ',' : '\t';
+        var delimiter = (format == 'tsv') ? '\t' : ',';
         var score = { rows: 0, errors: 0, status: 'exporting', jobId: jobId, ownerId: self._apos.permissions.getEffectiveUserId(req), errorLog: [] };
 
         function statusUpdate(callback) {
@@ -817,33 +818,65 @@ snippets.Snippets = function(options, callback) {
 
           // TODO: scoreboard!
 
-          generate: function(callback) {
-
-            return self._apos.pages.find({ type: self._instance }).toArray(function(err, results){
-
-                // Filter out fields we don't want
-                headings = _.without(Object.keys(results[0]), '_id', 'password', 'type', 'sortTitle', 'highSearchText', 'highSearchWords', 'lowSearchText', 'searchSummary');
-                data.push(headings);
-
-                _.each(results, function(item){
-                    var fields = [];
-                    for (var i=0; i < headings.length; i++){
-                      var field = item[headings[i]];
-                      if (field != null) {
-                        fields.push(field.toString());
-                      }
-                    }
-                    data.push(fields);
-                });
-
-                res.header('Content-Type', 'text/csv');
-                res.header('Content-disposition', 'attachment; filename=' + self._instance +'_export.' + format);
-               
-                csv().from.array(data, { delimiter: delimiter}).to(res);
-
-                return callback(null);
+          get: function(callback) {
+            return self._apos.pages.find({ type: self._instance }}).toArray(function(err, results){
+              if (err) {
+                return callback(err);
+              }
+              data = results;
+              return callback(null);
             });
 
+          },
+          format: function(callback) {
+            var formated = [];
+            return async.eachSeries(data, function(snippet, cb) {
+              var sanitized = {};
+              self._schemas.exportFields(req, self.schema, 'csv', snippet, sanitized, function(err){
+                formated.push(sanitized);
+                return cb(err);
+              });
+
+            }, function(err){
+              data = formated;
+              return callback(err);
+            });
+          },
+          export: function(callback) {
+            // Filter out fields we don't want
+            headings = _.without(Object.keys(data[0]), '_id', 'password', 'type', 'groupIds', 'sortTitle', 'highSearchText', 'highSearchWords', 'lowSearchText', 'searchSummary');
+            // Add headings row to the output
+            output.push(headings);
+
+            // Populate the output array from the sanitized output
+            _.each(data, function(item){
+                var fields = [];
+                for (var i=0; i < headings.length; i++){
+                  var field = item[headings[i]];
+                  if (field != null) {
+                    fields.push(field);
+                  } else {
+                    fields.push('');
+                  }
+                }
+                output.push(fields);
+            });
+
+            // Set headers for file download
+            res.header('Content-disposition', 'attachment; filename=' + self._instance +'_export.' + format);
+
+            if (format == 'xlsx') {
+              context = { data: output };
+              self._apos.emit('xlsxExport', context);
+              if (!context.xlsx) {
+                return callback('ERROR: You need apostrophe-xlsx to import XLSX files.');
+              }
+              res.send(context.xlsx);
+            } else {
+              csv().from.array(output, { delimiter: delimiter }).to(res);
+            }
+
+            return callback(null);
           },
         }, function(err) {
           if (err) {
@@ -856,7 +889,7 @@ snippets.Snippets = function(options, callback) {
         });
     });
 
-    // -------------------------------------------------------- //
+    // END EXPORT -------------------------------------------------------- //
 
 
       self._app.get(self._action + '/get', function(req, res) {
@@ -1242,7 +1275,7 @@ snippets.Snippets = function(options, callback) {
       manageClass: 'apos-manage-' + self._css,
       importClass: 'apos-import-' + self._css,
       exportClass: 'apos-export-' + self._css,
-      importFormats: self.supportedDataIO.dataImport,
+      ioFormats: self.supportedDataIO.formats,
       label: self.label,
       pluralLabel: self.pluralLabel,
       newButtonData: 'data-new-' + self._css,
