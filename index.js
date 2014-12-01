@@ -796,7 +796,7 @@ snippets.Snippets = function(options, callback) {
 
       self._app.get(self._action + '/export', function(req, res) {
         // Only admins of this content type can export
-        if (!self._apos.permissions.can(req, self._adminPermissionName)) {
+        if (!self._apos.permissions.can(req, self._adminPermissionName) || !self._options.enableExport) {
           res.statusCode = 404;
           return res.send('notfound');
         }
@@ -819,7 +819,7 @@ snippets.Snippets = function(options, callback) {
           // TODO: scoreboard!
 
           get: function(callback) {
-            return self._apos.pages.find({ type: self._instance }}).toArray(function(err, results){
+            return self._apos.pages.find({ type: self._instance }).toArray(function(err, results){
               if (err) {
                 return callback(err);
               }
@@ -1275,6 +1275,7 @@ snippets.Snippets = function(options, callback) {
       manageClass: 'apos-manage-' + self._css,
       importClass: 'apos-import-' + self._css,
       exportClass: 'apos-export-' + self._css,
+      exportEnabled: self._options.enableExport || false;
       ioFormats: self.supportedDataIO.formats,
       label: self.label,
       pluralLabel: self.pluralLabel,
