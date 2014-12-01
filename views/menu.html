@@ -8,7 +8,9 @@
       <li href="#" class="apos-control apos-accordion-item apos-button apos-manage-button apos-manage-snippet-button" {{ manageButtonData }}>{% if submit %}{{ __('My %s', __(pluralLabel)) }}{% else %}{{ __('Manage %s', __(pluralLabel)) }}{% endif %}</li>
       {% if import %}
         <li href="#" class="apos-control apos-accordion-item apos-button apos-manage-button apos-manage-snippet-button" {{ importButtonData }}>{{ __('Import %s', __(pluralLabel) ) }}</li>
+        {% if exportEnabled %}
         <li href="#" class="apos-control apos-accordion-item apos-button apos-manage-button apos-manage-snippet-button" {{ exportButtonData }}>{{ __('Export %s', __(pluralLabel) ) }}</li>
+        {% endif %}
       {% endif %}
     </ul>
   </li>

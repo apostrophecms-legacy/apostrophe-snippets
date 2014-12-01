@@ -819,7 +819,7 @@ snippets.Snippets = function(options, callback) {
           // TODO: scoreboard!
 
           get: function(callback) {
-            return self._apos.pages.find({ type: self._instance }).toArray(function(err, results){
+            return self._apos.pages.find({ type: self._instance }, { fields: { } }).toArray(function(err, results){
               if (err) {
                 return callback(err);
               }
@@ -844,7 +844,20 @@ snippets.Snippets = function(options, callback) {
           },
           export: function(callback) {
             // Filter out fields we don't want
-            headings = _.without(Object.keys(data[0]), '_id', 'password', 'type', 'groupIds', 'sortTitle', 'highSearchText', 'highSearchWords', 'lowSearchText', 'searchSummary');
+            if (self._options.exportIncludeFields) {
+              // Only fields included in the 
+              // exportIncludeFields option
+              headings = _.without.apply(_, [Object.keys(data[0])].concat(_.difference(Object.keys(data[0]), self._options.exportIncludeFields)));
+            } else if (self._options.exportExcludeFields) {
+              // Everything but fields included in
+              // the exportExlcudeFields option
+              headings = _.without.apply(_, [Object.keys(data[0])].concat(self._options.exportExcludeFields));
+            } else{
+              // Default - includes everything but
+              // the typically useless fields below
+              headings = _.without(Object.keys(data[0]), '_id', 'password', 'type', 'groupIds', 'sortTitle', 'highSearchText', 'highSearchWords', 'lowSearchText', 'searchSummary');
+            }
+
             // Add headings row to the output
             output.push(headings);
 
@@ -862,9 +875,6 @@ snippets.Snippets = function(options, callback) {
                 output.push(fields);
             });
 
-            // Set headers for file download
-            res.header('Content-disposition', 'attachment; filename=' + self._instance +'_export.' + format);
-
             if (format == 'xlsx') {
               context = { data: output };
               self._apos.emit('xlsxExport', context);
@@ -872,6 +882,7 @@ snippets.Snippets = function(options, callback) {
                 return callback('ERROR: You need apostrophe-xlsx to import XLSX files.');
               }
               res.send(context.xlsx);
+
             } else {
               csv().from.array(output, { delimiter: delimiter }).to(res);
             }
@@ -1275,7 +1286,7 @@ snippets.Snippets = function(options, callback) {
       manageClass: 'apos-manage-' + self._css,
       importClass: 'apos-import-' + self._css,
       exportClass: 'apos-export-' + self._css,
-      exportEnabled: self._options.enableExport || false;
+      exportEnabled: self._options.enableExport || false,
       ioFormats: self.supportedDataIO.formats,
       label: self.label,
       pluralLabel: self.pluralLabel,

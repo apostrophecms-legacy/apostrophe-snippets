@@ -600,6 +600,8 @@ function AposSnippets(options) {
             var format = $el.find('[name="export-format"]').find('option').attr('value');
 
             $.get(url, {format: format }, function(res) {
+                var today = new Date().toJSON().slice(0,10);
+                
                 if (format == 'xlsx') {
                   // We need to format the response string to an 
                   // array buffer before downloading.
@@ -612,7 +614,7 @@ function AposSnippets(options) {
                     return buf;
                   }
                   // apostrophe-xlsx includes FileSaver.js
-                  saveAs(new Blob([s2ab(res)],{type:"application/octet-stream"}), self._css + '_export.xlsx');
+                  saveAs(new Blob([s2ab(res)],{type:"application/octet-stream"}), self._css + '_export_' + today + '.xlsx');
 
                 } else {
                   // CSV or TSV format.
@@ -622,7 +624,6 @@ function AposSnippets(options) {
                   var blob = new Blob([res],{type: 'text/csv;charset=utf-8;'});
                   var url = URL.createObjectURL(blob);
                   pom.href = url;
-                  var today = new Date().toJSON().slice(0,10)
                   pom.setAttribute('download', self._css + '_export_' + today + '.' + format);
                   pom.click();
                 }
