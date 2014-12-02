@@ -792,10 +792,10 @@ snippets.Snippets = function(options, callback) {
 
       // EXPORT --------------------------------------------------- //
 
-      self._exportScoreboard = self._apos.getCache('exportScoreboard');
+      //self._exportScoreboard = self._apos.getCache('exportScoreboard');
 
       self._app.get(self._action + '/export', function(req, res) {
-        // Only admins of this content type can export
+        // Only admins of this content type can export.
         if (!self._apos.permissions.can(req, self._adminPermissionName) || !self._options.enableExport) {
           res.statusCode = 404;
           return res.send('notfound');
@@ -808,18 +808,13 @@ snippets.Snippets = function(options, callback) {
         var output = [];
         var format = req.query.format;
         var delimiter = (format == 'tsv') ? '\t' : ',';
-        var score = { rows: 0, errors: 0, status: 'exporting', jobId: jobId, ownerId: self._apos.permissions.getEffectiveUserId(req), errorLog: [] };
-
-        function statusUpdate(callback) {
-          return self._exportScoreboard.set(jobId, score, callback);
-        }
 
         return async.series({
 
           // TODO: scoreboard!
 
           get: function(callback) {
-            return self._apos.pages.find({ type: self._instance }, { fields: { } }).toArray(function(err, results){
+            return self._apos.pages.find({ type: self._instance }).toArray(function(err, results){
               if (err) {
                 return callback(err);
               }
@@ -891,12 +886,8 @@ snippets.Snippets = function(options, callback) {
           },
         }, function(err) {
           if (err) {
-            score.status = 'error';
-          } else {
-            score.status = 'done';
-          }
-          score.ended = true;
-          return statusUpdate(function() {});
+            console.log(err);
+          } 
         });
     });
 
