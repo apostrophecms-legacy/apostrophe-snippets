@@ -102,10 +102,6 @@ snippets.Snippets = function(options, callback) {
 
   self._action = '/apos-' + self._typeCss;
 
-  // Set our supported data Import/Export File Types
-  self.supportedDataIO = { formats: [{ label: 'CSV', value: 'csv'}, { label: 'TSV', value: 'tsv'}] }
-  self._apos.emit('supportedDataIO', self.supportedDataIO);
-
   // Our chance to veto our snippets for display to the public
   // as search results
   self._apos.on('unsearchable', function(unsuitable) {
@@ -599,11 +595,24 @@ snippets.Snippets = function(options, callback) {
         function trashSnippet(callback) {
           var action;
           if (trash) {
-            action = { $set: { trash: true } };
+            action = { $set: { trash: true, slug: 'trash' + self._apos.generateId() + '-' + snippet.slug } };
           } else {
-            action = { $unset: { trash: true } };
+            action = { $unset: { trash: true }, $set: { slug: snippet.slug.replace(/^trash\d+\-/, '') } };
           }
-          self._apos.pages.update({ slug: snippet.slug }, action, callback);
+          function go() {
+            return self._apos.pages.update({ slug: snippet.slug }, action, function(err) {
+              if (!err) {
+                return callback(null);
+              }
+              if (!self._apos.isUniqueError(err)) {
+                return callback(err);
+              }
+              var num = (Math.floor(Math.random() * 10)).toString();
+              action.$set.slug += num;
+              return go();
+            });
+          }
+          go();
         }
       };
 
@@ -646,38 +655,56 @@ snippets.Snippets = function(options, callback) {
           },
     		  removeAll: function(callback){
       			if (removeAll === "on") {
+              var infos;
               // Move all existing items to trash first
-              self._apos.pages.update({ type: self._instance }, { $set: { trash: true } }, { multi: true }, callback);
+              return async.series({
+                getIds: function(callback) {
+                  return self._apos.pages.find({ type: self._instance, trash: { $exists: 0 } }, { _id: 1, slug: 1 }).toArray(function(err, _infos) {
+                    if (err) {
+                      return callback(err);
+                    }
+                    infos = _infos;
+                    return callback(null);
+                  });
+                },
+                trash: function(callback) {
+                  return async.eachSeries(infos, function(info, callback) {
+                    return self._apos.pages.update({
+                      _id: info._id
+                    }, {
+                      $set: {
+                        slug: 'trash' + self._apos.generateId() + '-' + info.slug,
+                        trash: true
+                      }
+                    }, callback);
+                  }, callback);
+                }
+              }, callback);
       			} else {
               return setImmediate(callback);
       			}
     		  },
           parse: function(callback) {
-            var context = { path: file.path, csv: null };
-            var delimiter = ',', 
-                format = 'stream';
+            var context = { path: file.path, csv: null, delimiter: ',', format: fileExt };
 
             // Supported file formats: CSV, TAB-DELIMTED, EXCEL
             switch(fileExt) {
               case 'csv':
-                context.csv = fs.createReadStream(context.path);
+                context.output = fs.createReadStream(context.path);
                 break;
               case 'tab':
               case 'tsv':
-                delimiter = '\t';
-                context.csv = fs.createReadStream(context.path);
+                context.delimiter = '\t';
+                context.output = fs.createReadStream(context.path);
                 break;
-              case 'xlsx':
-                format = 'string';
-                self._apos.emit('xlsxImport', context);
-                if (!context.csv) {
-                  console.log('ERROR: You need apostrophe-xlsx to import XLSX files.');
-                  score.errorLog.push('Error processing XLSX file.');
-                }
-                break;
-              // No match, let's try CSV
               default:
-                context.csv = fs.createReadStream(context.path);
+                self._apos.emit('import', context);
+                if (context.output) {
+                  // Another module handled it
+                  break;
+                }
+                context.output = fs.createReadStream(context.path);
+                break;
             }
 
             // "AUGH! Why are you using toArray()? It wastes memory!"
@@ -687,7 +714,7 @@ snippets.Snippets = function(options, callback) {
             // group twice. TODO: write a CSV module that is less
             // ambitious about speed and more interested in a
             // callback driven, serial interface
-            return csv().from[format](context.csv, { delimiter: delimiter }).to.array(function(_data) {
+            return csv().from[(typeof(context.output) === 'object') ? 'stream' : 'string'](context.output, { delimiter: context.delimiter }).to.array(function(_data) {
               score.status = 'importing';
               data = _data;
               return statusUpdate(callback);
@@ -792,7 +819,6 @@ snippets.Snippets = function(options, callback) {
 
       // EXPORT --------------------------------------------------- //
 
-      //self._exportScoreboard = self._apos.getCache('exportScoreboard');
 
       self._app.get(self._action + '/export', function(req, res) {
         // Only admins of this content type can export.
@@ -838,20 +864,9 @@ snippets.Snippets = function(options, callback) {
             });
           },
           export: function(callback) {
-            // Filter out fields we don't want
-            if (self._options.exportIncludeFields) {
-              // Only fields included in the 
-              // exportIncludeFields option
-              headings = _.without.apply(_, [Object.keys(data[0])].concat(_.difference(Object.keys(data[0]), self._options.exportIncludeFields)));
-            } else if (self._options.exportExcludeFields) {
-              // Everything but fields included in
-              // the exportExlcudeFields option
-              headings = _.without.apply(_, [Object.keys(data[0])].concat(self._options.exportExcludeFields));
-            } else{
-              // Default - includes everything but
-              // the typically useless fields below
-              headings = _.without(Object.keys(data[0]), '_id', 'password', 'type', 'groupIds', 'sortTitle', 'highSearchText', 'highSearchWords', 'lowSearchText', 'searchSummary');
-            }
+            headings = _.pluck(_.filter(self.schema, function(field) {
+              return (field.exportable !== false);
+            }), 'name');
 
             // Add headings row to the output
             output.push(headings);
@@ -870,16 +885,15 @@ snippets.Snippets = function(options, callback) {
                 output.push(fields);
             });
 
-            if (format == 'xlsx') {
-              context = { data: output };
-              self._apos.emit('xlsxExport', context);
-              if (!context.xlsx) {
-                return callback('ERROR: You need apostrophe-xlsx to import XLSX files.');
-              }
-              res.send(context.xlsx);
-
+            var context = { data: output, format: format };
+            self._apos.emit('export', context);
+            if (!context.output) {
+              context.output = csv().from.array(output, { delimiter: delimiter });
+            }
+            if (typeof(context.output) === 'object') {
+              context.output.pipe(res);
             } else {
-              csv().from.array(output, { delimiter: delimiter }).to(res);
+              res.send(context.output);
             }
 
             return callback(null);
@@ -1260,6 +1274,16 @@ snippets.Snippets = function(options, callback) {
   };
 
   self.pushAllAssets = function() {
+    // Set these late when the XLSX module has had a chance to wake up.
+
+    // Set our supported data Import File Types
+    self.supportedImport = { formats: [{ label: 'CSV', value: 'csv'}, { label: 'TSV', value: 'tsv'}] }
+    self._apos.emit('supportedImport', self.supportedImport);
+
+    // Set our supported data Export File Types
+    self.supportedExport = { formats: [{ label: 'CSV', value: 'csv'}, { label: 'TSV', value: 'tsv'}] }
+    self._apos.emit('supportedExport', self.supportedExport);
+
     // Make sure that aposScripts and aposStylesheets summon our
     // browser-side UI assets for managing snippets
 
@@ -1278,7 +1302,8 @@ snippets.Snippets = function(options, callback) {
       importClass: 'apos-import-' + self._css,
       exportClass: 'apos-export-' + self._css,
       exportEnabled: self._options.enableExport || false,
-      ioFormats: self.supportedDataIO.formats,
+      supportedImport: self.supportedImport.formats,
+      supportedExport: self.supportedExport.formats,
       label: self.label,
       pluralLabel: self.pluralLabel,
       newButtonData: 'data-new-' + self._css,
