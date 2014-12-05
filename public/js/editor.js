@@ -167,15 +167,29 @@ function AposSnippets(options) {
         $.jsonCall(self._action + '/' + action,
           data,
           function(data) {
+            if (data.status !== 'ok') {
+              self.displayServerError(data.status);
+              return callback(data.status);
+            }
             // Let anything that cares about changes to items of this kind know
             apos.change(self.name);
             return callback(null);
           },
           function() {
-            alert('Server error');
+            self.displayServerError('Server error');
             return callback('Server error');
           }
         );
+      }
+    };
+
+    self.displayServerError = function(err) {
+      if (typeof(err) === 'string') {
+        alert(err);
+      } else {
+        // You didn't pass us a string and you expect us
+        // to display it?
+        alert('Server error');
       }
     };
 

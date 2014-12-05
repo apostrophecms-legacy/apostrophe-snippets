@@ -463,12 +463,7 @@ snippets.Snippets = function(options, callback) {
         }
 
         function send(err) {
-          if (err) {
-            console.error(err);
-            res.statusCode = 500;
-            return res.send('error');
-          }
-          return res.send(JSON.stringify(snippet));
+          return respond(res, err, snippet);
         }
       });
 
@@ -544,14 +539,22 @@ snippets.Snippets = function(options, callback) {
         }
 
         function send(err) {
-          if (err) {
-            res.statusCode = 500;
-            console.error(err);
-            return res.send('error');
-          }
-          return res.send(JSON.stringify(snippet));
+          return respond(res, err, snippet);
         }
       });
+
+      function respond(res, err, snippet) {
+        if (err) {
+          console.error(err);
+          return res.send({
+            status: err.message ? err.message : 'error'
+          });
+        }
+        return res.send({
+          status: 'ok',
+          snippet: snippet
+        });
+      }
 
       self._app.post(self._action + '/trash', function(req, res) {
         return self.trash(req, self._apos.sanitizeString(req.body.slug), self._apos.sanitizeBoolean(req.body.trash), function(err) {
