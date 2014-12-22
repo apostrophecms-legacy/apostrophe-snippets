@@ -837,13 +837,14 @@ snippets.Snippets = function(options, callback) {
         var output = [];
         var format = req.query.format;
         var delimiter = (format == 'tsv') ? '\t' : ',';
+        var exportTrash = self._options.exportTrash || false;
 
         return async.series({
 
           // TODO: scoreboard!
 
           get: function(callback) {
-            return self._apos.pages.find({ type: self._instance }).toArray(function(err, results){
+            return self._apos.pages.find({ type: self._instance, trash: { $exists: exportTrash } }).toArray(function(err, results){
               if (err) {
                 return callback(err);
               }
@@ -868,7 +869,7 @@ snippets.Snippets = function(options, callback) {
           },
           export: function(callback) {
             headings = _.pluck(_.filter(self.schema, function(field) {
-              return (field.exportable !== false);
+              return (field.exportable !== false && field.type !== 'group');
             }), 'name');
 
             // Add headings row to the output
