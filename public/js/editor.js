@@ -239,6 +239,24 @@ function AposSnippets(options) {
         return false;
       });
 
+      $el.on('click', '[data-sort]', function(){
+        var $sort = $(this),
+            current = $sort.hasClass('active'),
+            order = (current)?-1:1,
+            sort = $sort.attr('data-sort');
+
+        self.filters.sort = {};
+
+        //Take care of activeness.
+        $el.find('[data-sort]').toggleClass('active', false);
+        $sort.toggleClass('active', !current);
+
+        self.filters.sort[sort] = order;
+        page = 1;
+        self.triggerRefresh();
+        return false;
+      });
+
       function search() {
         self.filters.q = $el.find('[name=search]').val();
         page = 1;
@@ -615,9 +633,9 @@ function AposSnippets(options) {
 
             $.get(url, {format: format }, function(res) {
                 var today = new Date().toJSON().slice(0,10);
-                
+
                 if (format == 'xlsx') {
-                  // We need to format the response string to an 
+                  // We need to format the response string to an
                   // array buffer before downloading.
                   // Otherwise the xlsx file is read as corrupt.
                   // -matt
@@ -641,7 +659,7 @@ function AposSnippets(options) {
                   pom.setAttribute('download', self._css + '_export_' + today + '.' + format);
                   pom.click();
                 }
-                
+
             });
           });
           return callback(null);
