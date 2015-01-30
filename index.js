@@ -448,7 +448,7 @@ snippets.Snippets = function(options, callback) {
 
         var title;
         var slug;
-		
+
         // Slug is not editable for a brand new snippet in the editor
         var fields = _.filter(self.schema, function(field) {
           return (field.name !== 'slug');
@@ -865,7 +865,7 @@ snippets.Snippets = function(options, callback) {
           res.statusCode = 404;
           return res.send('notfound');
         }
-      
+
         var headings = [];
         req.aposImported = moment().format();
         var jobId = self._apos.generateId();
@@ -941,7 +941,7 @@ snippets.Snippets = function(options, callback) {
         }, function(err) {
           if (err) {
             console.log(err);
-          } 
+          }
         });
     });
 
@@ -1096,6 +1096,11 @@ snippets.Snippets = function(options, callback) {
         }
         if (options.limit !== undefined) {
           options.limit = self._apos.sanitizeInteger(options.limit);
+        }
+        if (options.sort !== undefined) {
+          _.forIn(options.sort, function(value, key){
+            options.sort[key] = self._apos.sanitizeInteger(value);
+          });
         }
         options.editable = true;
       };
