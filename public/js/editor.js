@@ -37,6 +37,22 @@ function AposSnippets(options) {
 
   if (self.manager) {
 
+    // We need a custom field type for snippet permissions.
+    // Careful, don't define the type twice.
+    if (!aposSchemas.converters.a2SnippetPermissions) {
+      aposSchemas.addFieldType({
+        name: 'a2SnippetPermissions',
+        displayer: function(snippet, name, $field, $el, field, callback) {
+          apos.permissions.brief($el.find('[data-snippet-permissions]'), snippet, {});
+          return callback();
+        },
+        converter: function(data, name, $field, $el, field, callback) {
+          apos.permissions.debrief($el.find('[data-snippet-permissions]'), data, {});
+          return callback();
+        }
+      });
+    }
+
     // Make a new snippet
     $('body').on('click', '[data-new-' + self._css + ']', function() {
       self.launchNew();
