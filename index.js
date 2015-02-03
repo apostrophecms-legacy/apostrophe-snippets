@@ -2330,7 +2330,7 @@ snippets.Snippets = function(options, callback) {
     childTypes: self._options.childTypes,
     descendantTypes: self._options.descendantTypes
   };
-  extend(true, args, browser.options || {});
+  extend(true, args, browser || {});
 
   // Synthesize a constructor for this type on the browser side if there
   // isn't one. This allows trivial subclassing of snippets for cases where
