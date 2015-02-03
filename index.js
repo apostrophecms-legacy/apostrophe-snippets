@@ -303,6 +303,13 @@ snippets.Snippets = function(options, callback) {
       }
     ].concat(options.addFields || []);
 
+    // Add this field in your configuration if you want to let
+    // users change the editing permissions of the snippet:
+    //
+    // type: 'a2SnippetPermissions',
+    // label: 'Permissions',
+    // name: 'permissions'
+
     // Let apostrophe-schemas consume the addFields, removeFields,
     // orderFields and alterFields options and produce a schema
     // that takes subclassing into account
@@ -343,6 +350,35 @@ snippets.Snippets = function(options, callback) {
     ].concat(options.indexSchema.addFields || []);
     options.indexSchema.requireFields = [ 'startDate' ].concat(options.indexSchema.requireFields || []);
     self.indexSchema = self._schemas.compose(options.indexSchema);
+
+    // Careful, another snippet subclass may have defined it already
+    // TODO: this is a hack, we should have a schemas.isFieldType method,
+    // but that would have to know about the standard types too
+
+    if (!self._schemas.renders.a2SnippetPermissions) {
+      self._schemas.addFieldType({
+        name: 'a2SnippetPermissions',
+        render: function(field) {
+          return self.render('snippetPermissionsField', field);
+        },
+        converters: {
+          form: function(req, data, name, snippet, field, callback) {
+            return self._apos.permissions.apply(
+              req,
+              data,
+              snippet,
+              undefined,
+              callback
+            );
+          },
+          csv: function(req, data, name, snippet, field, callback) {
+            // Might be nice to support person and group names, but
+            // they can be ambiguous
+            return callback(null);
+          }
+        }
+      });
+    }
 
     // For bc
     self.textToArea = self._apos.textToArea;
@@ -412,7 +448,7 @@ snippets.Snippets = function(options, callback) {
 
         var title;
         var slug;
-		
+
         // Slug is not editable for a brand new snippet in the editor
         var fields = _.filter(self.schema, function(field) {
           return (field.name !== 'slug');
@@ -463,12 +499,7 @@ snippets.Snippets = function(options, callback) {
         }
 
         function send(err) {
-          if (err) {
-            console.error(err);
-            res.statusCode = 500;
-            return res.send('error');
-          }
-          return res.send(JSON.stringify(snippet));
+          return respond(res, err, snippet);
         }
       });
 
@@ -544,14 +575,22 @@ snippets.Snippets = function(options, callback) {
         }
 
         function send(err) {
-          if (err) {
-            res.statusCode = 500;
-            console.error(err);
-            return res.send('error');
-          }
-          return res.send(JSON.stringify(snippet));
+          return respond(res, err, snippet);
         }
       });
+
+      function respond(res, err, snippet) {
+        if (err) {
+          console.error(err);
+          return res.send({
+            status: err.message ? err.message : 'error'
+          });
+        }
+        return res.send({
+          status: 'ok',
+          snippet: snippet
+        });
+      }
 
       self._app.post(self._action + '/trash', function(req, res) {
         return self.trash(req, self._apos.sanitizeString(req.body.slug), self._apos.sanitizeBoolean(req.body.trash), function(err) {
@@ -826,7 +865,7 @@ snippets.Snippets = function(options, callback) {
           res.statusCode = 404;
           return res.send('notfound');
         }
-      
+
         var headings = [];
         req.aposImported = moment().format();
         var jobId = self._apos.generateId();
@@ -834,13 +873,14 @@ snippets.Snippets = function(options, callback) {
         var output = [];
         var format = req.query.format;
         var delimiter = (format == 'tsv') ? '\t' : ',';
+        var exportTrash = self._options.exportTrash || false;
 
         return async.series({
 
           // TODO: scoreboard!
 
           get: function(callback) {
-            return self._apos.pages.find({ type: self._instance }).toArray(function(err, results){
+            return self._apos.pages.find({ type: self._instance, trash: { $exists: exportTrash } }).toArray(function(err, results){
               if (err) {
                 return callback(err);
               }
@@ -865,7 +905,7 @@ snippets.Snippets = function(options, callback) {
           },
           export: function(callback) {
             headings = _.pluck(_.filter(self.schema, function(field) {
-              return (field.exportable !== false);
+              return (field.exportable !== false && field.type !== 'group');
             }), 'name');
 
             // Add headings row to the output
@@ -901,7 +941,7 @@ snippets.Snippets = function(options, callback) {
         }, function(err) {
           if (err) {
             console.log(err);
-          } 
+          }
         });
     });
 
@@ -1056,6 +1096,11 @@ snippets.Snippets = function(options, callback) {
         }
         if (options.limit !== undefined) {
           options.limit = self._apos.sanitizeInteger(options.limit);
+        }
+        if (options.sort !== undefined) {
+          _.forIn(options.sort, function(value, key){
+            options.sort[key] = self._apos.sanitizeInteger(value);
+          });
         }
         options.editable = true;
       };

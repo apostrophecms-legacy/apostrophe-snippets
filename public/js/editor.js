@@ -37,6 +37,22 @@ function AposSnippets(options) {
 
   if (self.manager) {
 
+    // We need a custom field type for snippet permissions.
+    // Careful, don't define the type twice.
+    if (!aposSchemas.converters.a2SnippetPermissions) {
+      aposSchemas.addFieldType({
+        name: 'a2SnippetPermissions',
+        displayer: function(snippet, name, $field, $el, field, callback) {
+          apos.permissions.brief($el.find('[data-snippet-permissions]'), snippet, {});
+          return callback();
+        },
+        converter: function(data, name, $field, $el, field, callback) {
+          apos.permissions.debrief($el.find('[data-snippet-permissions]'), data, {});
+          return callback();
+        }
+      });
+    }
+
     // Make a new snippet
     $('body').on('click', '[data-new-' + self._css + ']', function() {
       self.launchNew();
@@ -167,15 +183,29 @@ function AposSnippets(options) {
         $.jsonCall(self._action + '/' + action,
           data,
           function(data) {
+            if (data.status !== 'ok') {
+              self.displayServerError(data.status);
+              return callback(data.status);
+            }
             // Let anything that cares about changes to items of this kind know
             apos.change(self.name);
             return callback(null);
           },
           function() {
-            alert('Server error');
+            self.displayServerError('Server error');
             return callback('Server error');
           }
         );
+      }
+    };
+
+    self.displayServerError = function(err) {
+      if (typeof(err) === 'string') {
+        alert(err);
+      } else {
+        // You didn't pass us a string and you expect us
+        // to display it?
+        alert('Server error');
       }
     };
 
@@ -220,6 +250,24 @@ function AposSnippets(options) {
         $pill.find('[data-choice]').removeClass('apos-active');
         $choice.addClass('apos-active');
         self.filters[$pill.data('name')] = $choice.attr('data-choice');
+        page = 1;
+        self.triggerRefresh();
+        return false;
+      });
+
+      $el.on('click', '[data-sort]', function(){
+        var $sort = $(this),
+            current = $sort.hasClass('active'),
+            order = (current)?-1:1,
+            sort = $sort.attr('data-sort');
+
+        self.filters.sort = {};
+
+        //Take care of activeness.
+        $el.find('[data-sort]').toggleClass('active', false);
+        $sort.toggleClass('active', !current);
+
+        self.filters.sort[sort] = order;
         page = 1;
         self.triggerRefresh();
         return false;
@@ -601,9 +649,9 @@ function AposSnippets(options) {
 
             $.get(url, {format: format }, function(res) {
                 var today = new Date().toJSON().slice(0,10);
-                
+
                 if (format == 'xlsx') {
-                  // We need to format the response string to an 
+                  // We need to format the response string to an
                   // array buffer before downloading.
                   // Otherwise the xlsx file is read as corrupt.
                   // -matt
@@ -627,7 +675,7 @@ function AposSnippets(options) {
                   pom.setAttribute('download', self._css + '_export_' + today + '.' + format);
                   pom.click();
                 }
-                
+
             });
           });
           return callback(null);
