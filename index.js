@@ -1167,7 +1167,9 @@ snippets.Snippets = function(options, callback) {
           }
           return res.send(
             JSON.stringify(_.map(snippets, function(snippet) {
-                return { label: self.getAutocompleteTitle(snippet), value: snippet._id };
+              var response = { label: self.getAutocompleteTitle(snippet), value: snippet._id };
+              self.extendAutocompleteFields(snippet, response);
+              return response;
             }))
           );
         });
@@ -1186,6 +1188,15 @@ snippets.Snippets = function(options, callback) {
     // We keep it to a minimum for performance.
     self.getAutocompleteFields = function() {
       return { title: 1, _id: 1 };
+    };
+
+    // Ah, but merely fetching the fields doesn't include them in
+    // the JSON response, you cry! No, it doesn't, so override this
+    // method to merge them in if you really want them in the
+    // JSON response. (Ordinarily they are most often used
+    // only in getAutocompleteTitle(), above.)
+
+    self.extendAutocompleteFields = function(snippet, response) {
     };
 
     self.addStandardRoutes();
