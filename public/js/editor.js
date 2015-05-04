@@ -65,8 +65,15 @@ function AposSnippets(options) {
           return self.insertOrUpdate($el, 'insert', {}, callback);
         },
         init: function(callback) {
+          window.onbeforeunload = function(e) {
+            return 'You have unsaved changes.';
+          };
           var defaultSnippet = self.getDefaultSnippet();
           return self.populateEditor($el, defaultSnippet, callback);
+        },
+        afterHide: function(callback) {
+          window.onbeforeunload = undefined;
+          return apos.afterYield(callback);
         },
         next: function() {
           self.launchNew();
@@ -485,12 +492,17 @@ function AposSnippets(options) {
               }
             });
 
+            window.onbeforeunload = function(e) {
+              return 'You have unsaved changes.';
+            };
+
             return self.populateEditor($el, snippet, callback);
           }).error(function() {
             alert('An error occurred. Please try again.');
           });
         },
         afterHide: function(callback) {
+          window.onbeforeunload = undefined;
           active = false;
           // Relaunch after a world-changing event like reverting the snippet
           if (relaunch) {
