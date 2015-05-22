@@ -64,6 +64,12 @@ function AposSnippets(options) {
         save: function(callback) {
           return self.insertOrUpdate($el, 'insert', {}, callback);
         },
+        beforeCancel: function(callback) {
+          if (confirm('Are you sure you want to discard this ' + options.instanceLabel.toLowerCase() + '?')) {
+            return callback(null);
+          }
+          return callback('notconfirmed');
+        },
         init: function(callback) {
           window.onbeforeunload = function(e) {
             return 'You have unsaved changes.';
@@ -423,6 +429,12 @@ function AposSnippets(options) {
       var active = false;
       var $el = apos.modalFromTemplate('.apos-edit-' + self._css, {
         save: save,
+        beforeCancel: function(callback) {
+          if (confirm('Are you sure you want to discard your changes to this ' + options.instanceLabel.toLowerCase() + '?')) {
+            return callback(null);
+          }
+          return callback('notconfirmed');
+        },
         init: function(callback) {
           active = true;
           if (!$el.length) {

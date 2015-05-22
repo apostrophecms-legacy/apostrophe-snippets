@@ -2364,6 +2364,8 @@ snippets.Snippets = function(options, callback) {
   var args = {
     name: self.name,
     label: self.label,
+    instanceLabel: self.instanceLabel,
+    pluralLabel: self.pluralLabel,
     instance: self._instance,
     icon: self._icon,
     css: self._css,
