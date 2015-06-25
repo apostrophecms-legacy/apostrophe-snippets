@@ -1130,7 +1130,8 @@ snippets.Snippets = function(options, callback) {
         var options = {
           fields: self.getAutocompleteFields(),
           limit: self._apos.sanitizeInteger(data.limit, 50),
-          skip: self._apos.sanitizeInteger(data.skip, 0)
+          skip: self._apos.sanitizeInteger(data.skip, 0),
+          sort: 'search'
         };
         if (data.term !== undefined) {
           options.titleSearch = data.term;
