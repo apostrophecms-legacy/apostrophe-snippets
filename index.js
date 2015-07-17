@@ -1543,7 +1543,7 @@ snippets.Snippets = function(options, callback) {
 
     // For snippets the default sort is alpha
     // Explicitly false means "let the default behavior of MongoDB apply"
-    if ((!options.sort) && (options.sort !== false) && (!options.search) && (!options.q)) {
+    if ((!options.sort) && (options.sort !== false) && (!options.search) && (!options.q) && (!options.autocomplete) && (!options.titleSearch)) {
       options.sort = { sortTitle: 1 };
     }
 
