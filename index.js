@@ -328,6 +328,25 @@ snippets.Snippets = function(options, callback) {
 
     self.schema = self._schemas.compose(options);
 
+    var reservedWords = [
+          'type',
+          '_id',
+          'orphan',
+          'path',
+          'highSearchText',
+          'highSearchWords',
+          'lowSearchText',
+          'pagePermisions',
+          'length'
+        ];
+
+      self.schema.forEach(function(item) {
+        reservedWords.forEach(function(word) {
+          if (word === item.name) {
+            console.error( "The field " + "'" + item.name + "'" + " in " + self.label + " schema is a reserved word and may cause unintended issues if edited by the user.");
+          }
+        });
+      });
     // self.indexSchema = additional fields for index pages ("blog", "events",
     // "map", NOT "blogPost", "event", "mapLocation"). Often left alone,
     // occasionally extended. Composed from options passed via
