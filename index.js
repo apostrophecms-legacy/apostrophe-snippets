@@ -1288,6 +1288,7 @@ snippets.Snippets = function(options, callback) {
             res.statusCode = 404;
             return res.send('Not Found');
           }
+          snippet._bestPage = snippet._bestPage || page;
           self.permalink(req, page, bestPage, function(err) {
             if (err) {
               res.statusCode = 404;
@@ -2322,6 +2323,7 @@ snippets.Snippets = function(options, callback) {
     if (arguments.length === 4) {
       // Link them all to one page
       return async.each(snippets, function(snippet, callback) {
+        snippet._bestPage = snippet._bestPage || page;
         return self.permalink(req, snippet, page, callback);
        }, callback);
     }
