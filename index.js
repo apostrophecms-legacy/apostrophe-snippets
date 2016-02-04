@@ -2336,6 +2336,7 @@ snippets.Snippets = function(options, callback) {
           return callback(err);
         }
         if (page) {
+          snippet._bestPage = snippet._bestPage || page;
           return self.permalink(req, snippet, page, callback);
         }
         return callback(null);
