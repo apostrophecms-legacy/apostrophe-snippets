@@ -1555,7 +1555,12 @@ snippets.Snippets = function(options, callback) {
     var options = {};
     var filterCriteria = {};
     var results = null;
+    // We need to annotate permissions with the right page type in mind, so we
+    // take over that job from apos.get, unless we've actually been asked not to
+    // do it at all
+    var annotatePermissions = (optionsArg.annotatePermissions === false) ? false : true;
     extend(true, options, optionsArg);
+    options.annotatePermissions = false;
 
     if (!options.permission) {
       options.permission = (options.editable && 'edit-' + self._css) || ('view-' + self._css);
@@ -1584,7 +1589,7 @@ snippets.Snippets = function(options, callback) {
       ]
     };
 
-    return async.series([ query, join, metadata, permalinker ], function(err) {
+    return async.series([ query, join, metadata, permalinker, nowAnnotatePermissions ], function(err) {
       return mainCallback(err, results);
     });
 
@@ -1630,6 +1635,15 @@ snippets.Snippets = function(options, callback) {
       } else {
         return callback(null);
       }
+    }
+
+    function nowAnnotatePermissions(callback) {
+      if (!annotatePermissions) {
+        return setImmediate(callback);
+      }
+      self._apos.permissions.annotate(req, 'edit-' + self._css, results.snippets);
+      self._apos.permissions.annotate(req, 'publish-' + self._css, results.snippets);
+      return setImmediate(callback);
     }
   };
 
