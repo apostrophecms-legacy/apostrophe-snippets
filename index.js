@@ -580,7 +580,7 @@ snippets.Snippets = function(options, callback) {
         }
 
         function update(callback) {
-          async.series([
+          return async.series([
             function(callback) {
               // If the page permissions are changing, make a note of it
               // but pass the originals to putOne so we're not denied if
@@ -590,6 +590,43 @@ snippets.Snippets = function(options, callback) {
                 snippet.pagePermissions = originalPagePermissions;
               }
               return self.putOne(req, originalSlug, snippet, callback);
+            },
+            function (callback) {
+              // Preserve permissions for anything we can't see. This
+              // addresses the problem of an editor adding permissions
+              // while accidentally revoking them for an unpublished person
+              if (!newPagePermissions) {
+                return setImmediate(callback);
+              }
+              var ids = [];
+              _.each(originalPagePermissions, function(permission) {
+                // A page permission looks like edit-NNNN where NNNN is the
+                // entity given permission
+                var components = permission.split(/\-/);
+                if (components && components[1]) {
+                  ids.push(components[1]);
+                }
+              });
+              if (!ids.length) {
+                return setImmediate(callback);
+              }
+              return self._apos.get(req, { _id: { $in: ids } }, { published: null, fields: { _id: 1 } }, function(err, results) {
+                if (err) {
+                  return callback(err);
+                }
+                var visibleIds = _.pluck(results.pages, '_id');
+                _.each(originalPagePermissions, function(permission) {
+                  var components = permission.split(/\-/);
+                  if (components && components[1]) {
+                    if (!_.contains(visibleIds, components[1])) {
+                      console.log(visibleIds, ' does not contain ', components[1]);
+                      newPagePermissions.push(permission);
+                    }
+                  }
+                });
+                newPagePermissions = _.uniq(newPagePermissions);
+                return callback(null);
+              });
             },
             function(callback) {
               // If we're changing the pagePermissions, zap them
