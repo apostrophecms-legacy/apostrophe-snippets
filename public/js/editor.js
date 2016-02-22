@@ -43,11 +43,15 @@ function AposSnippets(options) {
       aposSchemas.addFieldType({
         name: 'a2SnippetPermissions',
         displayer: function(snippet, name, $field, $el, field, callback) {
-          apos.permissions.brief($el.find('[data-snippet-permissions]'), snippet, {});
+          apos.permissions.brief($el.find('[data-snippet-permissions]'), snippet, _.pick(field, 'editorsCanChangeEditPermissions'));
           return callback();
         },
         converter: function(data, name, $field, $el, field, callback) {
-          apos.permissions.debrief($el.find('[data-snippet-permissions]'), data, {});
+          var _options = {};
+          if (options.editorsCanChangeEditPermissions) {
+            _options.editorsCanChangeEditPermissions = true;
+          }
+          apos.permissions.debrief($el.find('[data-snippet-permissions]'), data, _.pick(field, 'editorsCanChangeEditPermissions'));
           return callback();
         }
       });
