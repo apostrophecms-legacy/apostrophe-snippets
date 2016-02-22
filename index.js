@@ -619,7 +619,6 @@ snippets.Snippets = function(options, callback) {
                   var components = permission.split(/\-/);
                   if (components && components[1]) {
                     if (!_.contains(visibleIds, components[1])) {
-                      console.log(visibleIds, ' does not contain ', components[1]);
                       newPagePermissions.push(permission);
                     }
                   }
