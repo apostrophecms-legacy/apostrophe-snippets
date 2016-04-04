@@ -1796,7 +1796,7 @@ snippets.Snippets = function(options, callback) {
 
     function permalinker(callback) {
       _.each(results.pages, function(page) {
-        page.url = self._apos.prefix + page.slug;
+        page.url = self._apos.slugToUrl(page.slug);
       });
       return callback(null);
     }
@@ -2380,7 +2380,7 @@ snippets.Snippets = function(options, callback) {
   // is already known (in particular, the people module).
 
   self.permalink = function(req, snippet, page, callback) {
-    snippet.url = self._apos.addSlashIfNeeded(page.slug) + snippet.slug;
+    snippet.url = self._apos.slugToUrl(self._apos.addSlashIfNeeded(page.slug) + snippet.slug);
     return callback(null);
   };
 
