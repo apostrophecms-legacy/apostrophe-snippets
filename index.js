@@ -931,7 +931,6 @@ snippets.Snippets = function(options, callback) {
             },
             function(data, callback) {
               return self.importCreateItem(req, data, function(err, item) {
-                console.log('created!', JSON.stringify(item, null, 100));
                 if (err) {
                   score.errors++;
                   score.errorLog.push((item.title || 'NO NAME') + ': ' + (err.message ? err.message : err));
