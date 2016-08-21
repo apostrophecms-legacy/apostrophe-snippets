@@ -404,6 +404,8 @@ snippets.Snippets = function(options, callback) {
     self.textToArea = self._apos.textToArea;
 
     self.importCreateItem = function(req, data, callback) {
+
+
       var snippet = {
         type: self._instance
       };
@@ -437,7 +439,7 @@ snippets.Snippets = function(options, callback) {
           function(callback) {
             self.importSaveItem(req, data, snippet, callback);
           },
-          function(callback) {
+          function(callback) {       
             self.afterInsert(req, data, snippet, callback);
           },
           function(callback) {
@@ -458,6 +460,18 @@ snippets.Snippets = function(options, callback) {
     self.importSaveItem = function(req, data, snippet, callback) {
       return self.putOne(req, snippet.slug, snippet, callback);
     };
+
+    // Allow us to override the headings. The default implementation
+    // returns the headings unmodified
+    self.afterHandleHeadings = function(row, headings) {
+      return headings;
+    }
+
+    // Allow us to manipulate data before creating an item. The default 
+    // implementation returns the data unmodified
+    self.beforeImportCreateItem = function(req, headings, data, callback) {
+      return callback(null, data);
+    }
 
     self.addStandardRoutes = function() {
 
@@ -876,7 +890,7 @@ snippets.Snippets = function(options, callback) {
         // both field names and field labels. Really, really try. (:
 
         function handleHeadings(row, callback) {
-          headings = row;
+          headings = row.slice(0);
           var i;
           var schemaMap = {};
           _.each(self.schema, function(field) {
@@ -893,28 +907,40 @@ snippets.Snippets = function(options, callback) {
               console.error('Warning: no match in schema for heading ' + original + ' which simplified to ' + simplify(original) + '. Schema field names undergo a similar simplification to improve the chances of a match, but we still don\'t have a match for this one.');
             }
           }
+          headings = self.afterHandleHeadings(row, headings);
           return callback();
           function simplify(s) {
             return self._apos.slugify(s).replace(/\-/g, '');
           }
         }
 
-        function handleRow(row, callback) {
+        function handleRow(row, mainCallback) {
           // Ignore blank rows without an error
           if (!_.some(row, function(column) { return column !== ''; })) {
-            return callback(null);
+            return mainCallback(null);
           }
           var data = {};
           var i;
           for (i = 0; (i < headings.length); i++) {
             data[headings[i]] = row[i];
           }
-          return self.importCreateItem(req, data, function(err, item) {
-            if (err) {
-              score.errors++;
-              score.errorLog.push((item.title || 'NO NAME') + ': ' + (err.message ? err.message : err));
+
+          async.waterfall([
+            function(callback) {
+              return self.beforeImportCreateItem(req, headings, data, callback);
+            },
+            function(data, callback) {
+              return self.importCreateItem(req, data, function(err, item) {
+                console.log('created!', JSON.stringify(item, null, 100));
+                if (err) {
+                  score.errors++;
+                  score.errorLog.push((item.title || 'NO NAME') + ': ' + (err.message ? err.message : err));
+                }
+                return callback(null);
+              });
             }
-            return callback(null);
+          ], function(err) {
+            return mainCallback(null);
           });
         }
       });
