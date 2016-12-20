@@ -2406,7 +2406,8 @@ snippets.Snippets = function(options, callback) {
 
   self.permalink = function(req, snippet, page, callback) {
     snippet.url = self._apos.slugToUrl(self._apos.addSlashIfNeeded(page.slug) + snippet.slug);
-    return callback(null);
+    // Don't crash the stack
+    return setImmediate(callback);
   };
 
   // Add the .url property to snippets so they can be clicked through
