@@ -1866,17 +1866,29 @@ snippets.Snippets = function(options, callback) {
   self.putOne = function(req, slug, options, snippet, callback) {
     // Allow slug and options parameters to be skipped
     var recoverSlug = false;
-    if (typeof(slug) !== 'string') {
-      callback = snippet;
-      snippet = options;
-      options = slug;
+    if (arguments.length === 3) {
       recoverSlug = true;
-    }
-    if (!callback) {
-      callback = snippet;
-      snippet = options;
+      callback = options;
+      snippet = slug;
       options = {};
+    } else if (arguments.length === 5) {
+      if (!slug) {
+        recoverSlug = true;
+      }
+    } else {
+      if (typeof(slug) !== 'string') {
+        callback = snippet;
+        snippet = options;
+        options = slug;
+        recoverSlug = true;
+      }
+      if (!callback) {
+        callback = snippet;
+        snippet = options;
+        options = {};
+      }
     }
+
     if (recoverSlug) {
       slug = snippet.slug;
       if (slug === undefined) {
@@ -1940,7 +1952,9 @@ snippets.Snippets = function(options, callback) {
       afterPutOne: function(callback) {
         return self.afterPutOne(req, slug, options, snippet, callback);
       }
-    }, callback);
+    }, function(err) {
+      return callback(err);
+    });
 
   };
 
